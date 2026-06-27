@@ -47,8 +47,7 @@ class _CalendarTabState extends State<CalendarTab> {
     return _viewYear == now.year && _viewMonth == now.month;
   }
 
-  int get _daysInMonth =>
-      DateTime(_viewYear, _viewMonth + 1, 0).day;
+  int get _daysInMonth => DateTime(_viewYear, _viewMonth + 1, 0).day;
 
   int get _firstWeekday =>
       DateTime(_viewYear, _viewMonth, 1).weekday % 7; // 0=Sun
@@ -109,13 +108,33 @@ class _CalendarTabState extends State<CalendarTab> {
   String _dateKey(DateTime d) => '${d.year}-${d.month}-${d.day}';
 
   static const _monthNames = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December'
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
   ];
 
   static const _shortMonths = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
   ];
 
   @override
@@ -165,7 +184,10 @@ class _CalendarTabState extends State<CalendarTab> {
             GestureDetector(
               onTap: () => setState(() => _showYearPicker = !_showYearPicker),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 5,
+                ),
                 decoration: BoxDecoration(
                   color: _showYearPicker ? t.accent : Colors.transparent,
                   borderRadius: BorderRadius.circular(14),
@@ -203,29 +225,36 @@ class _CalendarTabState extends State<CalendarTab> {
         alignment: WrapAlignment.center,
         spacing: 8,
         runSpacing: 8,
-        children: years.map((y) {
-          final sel = y == _viewYear;
-          return GestureDetector(
-            onTap: () => setState(() {
-              _viewYear = y;
-              _showYearPicker = false;
-              _sel = 1;
-            }),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-              decoration: BoxDecoration(
-                color: sel ? t.accent : Colors.transparent,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: sel ? t.accent : t.border),
-              ),
-              child: Text(
-                '$y',
-                style: AppTypography.lato700(
-                    12, sel ? Colors.white : t.muted),
-              ),
-            ),
-          );
-        }).toList(),
+        children:
+            years.map((y) {
+              final sel = y == _viewYear;
+              return GestureDetector(
+                onTap:
+                    () => setState(() {
+                      _viewYear = y;
+                      _showYearPicker = false;
+                      _sel = 1;
+                    }),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 7,
+                  ),
+                  decoration: BoxDecoration(
+                    color: sel ? t.accent : Colors.transparent,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: sel ? t.accent : t.border),
+                  ),
+                  child: Text(
+                    '$y',
+                    style: AppTypography.lato700(
+                      12,
+                      sel ? Colors.white : t.muted,
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
       ),
     );
   }
@@ -242,18 +271,23 @@ class _CalendarTabState extends State<CalendarTab> {
         children: [
           // Day headers
           Row(
-            children: ['S', 'M', 'T', 'W', 'T', 'F', 'S']
-                .map((d) => Expanded(
-                      child: Center(
-                        child: Text(
-                          d,
-                          style: AppTypography.lato700(
-                            11, t.muted, letterSpacing: 0.5,
+            children:
+                ['S', 'M', 'T', 'W', 'T', 'F', 'S']
+                    .map(
+                      (d) => Expanded(
+                        child: Center(
+                          child: Text(
+                            d,
+                            style: AppTypography.lato700(
+                              11,
+                              t.muted,
+                              letterSpacing: 0.5,
+                            ),
                           ),
                         ),
                       ),
-                    ))
-                .toList(),
+                    )
+                    .toList(),
           ),
           const SizedBox(height: 8),
           // Grid
@@ -266,40 +300,46 @@ class _CalendarTabState extends State<CalendarTab> {
                 }
                 final selected = dayNum == _sel;
                 final today = isToday(dayNum);
-                final dayKey = _dateKey(DateTime(_viewYear, _viewMonth, dayNum));
-                final hasTask = (_tasks[
-                    '$_viewYear-$_viewMonth-$dayNum'] ?? []).isNotEmpty;
-                final hasPage = _isCurrentMonth &&
-                    widget.dailyPages.containsKey(dayNum);
+                final dayKey = _dateKey(
+                  DateTime(_viewYear, _viewMonth, dayNum),
+                );
+                final hasTask =
+                    (_tasks['$_viewYear-$_viewMonth-$dayNum'] ?? []).isNotEmpty;
+                final hasPage =
+                    _isCurrentMonth && widget.dailyPages.containsKey(dayNum);
                 final hasCycle = _cycleDays.contains(dayKey);
 
                 return Expanded(
                   child: GestureDetector(
-                    onTap: () => setState(() {
-                      _sel = dayNum;
-                      _pageExpanded = false;
-                    }),
+                    onTap:
+                        () => setState(() {
+                          _sel = dayNum;
+                          _pageExpanded = false;
+                        }),
                     child: Container(
                       height: 42,
                       margin: const EdgeInsets.all(1.5),
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: selected
-                            ? t.accent
-                            : today
+                        color:
+                            selected
+                                ? t.accent
+                                : today
                                 ? t.accent.withValues(alpha: 0.22)
                                 : Colors.transparent,
-                        border: today && !selected
-                            ? Border.all(color: t.accent, width: 2)
-                            : null,
-                        boxShadow: selected
-                            ? [
-                                BoxShadow(
-                                  color: t.accent.withValues(alpha: 0.25),
-                                  blurRadius: 6,
-                                )
-                              ]
-                            : null,
+                        border:
+                            today && !selected
+                                ? Border.all(color: t.accent, width: 2)
+                                : null,
+                        boxShadow:
+                            selected
+                                ? [
+                                  BoxShadow(
+                                    color: t.accent.withValues(alpha: 0.25),
+                                    blurRadius: 6,
+                                  ),
+                                ]
+                                : null,
                       ),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -311,8 +351,8 @@ class _CalendarTabState extends State<CalendarTab> {
                               selected
                                   ? Colors.white
                                   : today
-                                      ? t.accent
-                                      : t.text,
+                                  ? t.accent
+                                  : t.text,
                             ),
                           ),
                           if (!selected) ...[
@@ -320,12 +360,9 @@ class _CalendarTabState extends State<CalendarTab> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                if (hasTask)
-                                  _dot(t.gold),
-                                if (hasPage)
-                                  _dot(t.accent),
-                                if (hasCycle)
-                                  _dot(t.cycleRose),
+                                if (hasTask) _dot(t.gold),
+                                if (hasPage) _dot(t.accent),
+                                if (hasCycle) _dot(t.cycleRose),
                               ],
                             ),
                           ],
@@ -343,11 +380,11 @@ class _CalendarTabState extends State<CalendarTab> {
   }
 
   Widget _dot(Color c) => Container(
-        width: 3,
-        height: 3,
-        margin: const EdgeInsets.symmetric(horizontal: 1),
-        decoration: BoxDecoration(shape: BoxShape.circle, color: c),
-      );
+    width: 3,
+    height: 3,
+    margin: const EdgeInsets.symmetric(horizontal: 1),
+    decoration: BoxDecoration(shape: BoxShape.circle, color: c),
+  );
 
   Widget _buildDotLegend() {
     return Row(
@@ -363,16 +400,16 @@ class _CalendarTabState extends State<CalendarTab> {
   }
 
   Widget _legendItem(String label, Color c) => Row(
-        children: [
-          Container(
-            width: 6,
-            height: 6,
-            decoration: BoxDecoration(shape: BoxShape.circle, color: c),
-          ),
-          const SizedBox(width: 4),
-          Text(label, style: AppTypography.lato400(10, t.muted)),
-        ],
-      );
+    children: [
+      Container(
+        width: 6,
+        height: 6,
+        decoration: BoxDecoration(shape: BoxShape.circle, color: c),
+      ),
+      const SizedBox(width: 4),
+      Text(label, style: AppTypography.lato400(10, t.muted)),
+    ],
+  );
 
   Widget _buildDailyPageSection() {
     final hasPage = _isCurrentMonth && widget.dailyPages.containsKey(_sel);
@@ -385,25 +422,19 @@ class _CalendarTabState extends State<CalendarTab> {
         children: [
           Row(
             children: [
-              AppIcons.bloom(
-                c: hasPage ? t.accent : t.border,
-                s: 18,
-              ),
+              AppIcons.bloom(c: hasPage ? t.accent : t.border, s: 18),
               const SizedBox(width: 8),
               Text('DAILY PAGE', style: AppTypography.sectionLabel(t.muted)),
               const Spacer(),
               if (hasPage)
                 SolidButton(
-                  onTap: () =>
-                      setState(() => _pageExpanded = !_pageExpanded),
+                  onTap: () => setState(() => _pageExpanded = !_pageExpanded),
                   icon: Transform.rotate(
                     angle: _pageExpanded ? 0.785 : 0,
                     child: AppIcons.plus(c: Colors.white, s: 14),
                   ),
                   size: 30,
-                  color: _pageExpanded
-                      ? const Color(0xFF8A5A55)
-                      : t.accent,
+                  color: _pageExpanded ? const Color(0xFF8A5A55) : t.accent,
                 ),
             ],
           ),
@@ -447,7 +478,9 @@ class _CalendarTabState extends State<CalendarTab> {
                 child: Text(
                   page.nightReflection,
                   style: AppTypography.dmSerifItalic(
-                    15, const Color(0xFFF0EBE3), height: 1.5,
+                    15,
+                    const Color(0xFFF0EBE3),
+                    height: 1.5,
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -471,7 +504,10 @@ class _CalendarTabState extends State<CalendarTab> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: AppTypography.lato700(9, t.muted, letterSpacing: 1.2)),
+          Text(
+            label,
+            style: AppTypography.lato700(9, t.muted, letterSpacing: 1.2),
+          ),
           const SizedBox(height: 3),
           Text(text, style: AppTypography.lato400(13, t.text, height: 1.5)),
         ],
@@ -520,9 +556,10 @@ class _CalendarTabState extends State<CalendarTab> {
                         ),
                         color: task.done ? t.accent : Colors.transparent,
                       ),
-                      child: task.done
-                          ? AppIcons.check(c: Colors.white, s: 12)
-                          : null,
+                      child:
+                          task.done
+                              ? AppIcons.check(c: Colors.white, s: 12)
+                              : null,
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -561,7 +598,9 @@ class _CalendarTabState extends State<CalendarTab> {
                     hintText: 'Add a task…',
                     hintStyle: AppTypography.lato400(14, t.muted),
                     contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 10),
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide(color: t.border),
@@ -614,16 +653,16 @@ class _CalendarTabState extends State<CalendarTab> {
         children: [
           Row(
             children: [
-              Icon(Icons.water_drop_outlined,
-                  color: t.cycleRose, size: 16),
+              Icon(Icons.water_drop_outlined, color: t.cycleRose, size: 16),
               const SizedBox(width: 8),
               Text('CYCLE', style: AppTypography.sectionLabel(t.muted)),
               const Spacer(),
               SolidButton(
                 onTap: _markCycleDay,
-                icon: isMarked
-                    ? AppIcons.check(c: Colors.white, s: 14)
-                    : AppIcons.plus(c: Colors.white, s: 14),
+                icon:
+                    isMarked
+                        ? AppIcons.check(c: Colors.white, s: 14)
+                        : AppIcons.plus(c: Colors.white, s: 14),
                 size: 30,
                 color: isMarked ? t.cycleRose : t.accent,
               ),
@@ -634,29 +673,32 @@ class _CalendarTabState extends State<CalendarTab> {
             Wrap(
               spacing: 6,
               runSpacing: 6,
-              children: sortedDays.map((key) {
-                final parts = key.split('-');
-                final d = DateTime(
-                  int.parse(parts[0]),
-                  int.parse(parts[1]),
-                  int.parse(parts[2]),
-                );
-                return Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: t.cycleRose.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: t.cycleRose.withValues(alpha: 0.35),
-                    ),
-                  ),
-                  child: Text(
-                    '${d.day} ${_shortMonths[d.month - 1]}',
-                    style: AppTypography.lato400(11, t.cycleRose),
-                  ),
-                );
-              }).toList(),
+              children:
+                  sortedDays.map((key) {
+                    final parts = key.split('-');
+                    final d = DateTime(
+                      int.parse(parts[0]),
+                      int.parse(parts[1]),
+                      int.parse(parts[2]),
+                    );
+                    return Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: t.cycleRose.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: t.cycleRose.withValues(alpha: 0.35),
+                        ),
+                      ),
+                      child: Text(
+                        '${d.day} ${_shortMonths[d.month - 1]}',
+                        style: AppTypography.lato400(11, t.cycleRose),
+                      ),
+                    );
+                  }).toList(),
             ),
           ] else
             const SizedBox(height: 4),

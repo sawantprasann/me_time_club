@@ -20,7 +20,8 @@ class _CircleTabState extends State<CircleTab> {
     // Seeded posts for a non-empty feel
     _Post(
       name: 'A quiet mother',
-      body: 'Today I realised that I haven\'t listened to my favourite song in months. I played it during nap time and cried. Not from sadness — from recognition. I\'m still in here.',
+      body:
+          'Today I realised that I haven\'t listened to my favourite song in months. I played it during nap time and cried. Not from sadness — from recognition. I\'m still in here.',
       isAnon: true,
       time: '2 hours ago',
       hearts: 14,
@@ -29,7 +30,8 @@ class _CircleTabState extends State<CircleTab> {
     ),
     _Post(
       name: 'Priya',
-      body: 'My toddler held my face with both hands today and said "Mama, you\'re my best." I didn\'t correct his grammar. I just held that moment.',
+      body:
+          'My toddler held my face with both hands today and said "Mama, you\'re my best." I didn\'t correct his grammar. I just held that moment.',
       isAnon: false,
       time: '5 hours ago',
       hearts: 22,
@@ -38,7 +40,8 @@ class _CircleTabState extends State<CircleTab> {
     ),
     _Post(
       name: 'A quiet mother',
-      body: 'Some days the hardest thing isn\'t the baby. It\'s the loneliness that sits next to you while you\'re surrounded by people who love you.',
+      body:
+          'Some days the hardest thing isn\'t the baby. It\'s the loneliness that sits next to you while you\'re surrounded by people who love you.',
       isAnon: true,
       time: 'Yesterday',
       hearts: 31,
@@ -116,13 +119,12 @@ class _CircleTabState extends State<CircleTab> {
                           color: _isAnon ? t.accent : t.border,
                           width: 1.5,
                         ),
-                        color: _isAnon
-                            ? t.accent
-                            : Colors.transparent,
+                        color: _isAnon ? t.accent : Colors.transparent,
                       ),
-                      child: _isAnon
-                          ? AppIcons.check(c: Colors.white, s: 12)
-                          : null,
+                      child:
+                          _isAnon
+                              ? AppIcons.check(c: Colors.white, s: 12)
+                              : null,
                     ),
                     const SizedBox(width: 8),
                     Text(
@@ -138,7 +140,9 @@ class _CircleTabState extends State<CircleTab> {
                 onTap: hasText ? _sharePost : null,
                 child: Container(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 9),
+                    horizontal: 16,
+                    vertical: 9,
+                  ),
                   decoration: BoxDecoration(
                     color: hasText ? t.accent : t.border,
                     borderRadius: BorderRadius.circular(20),
@@ -182,10 +186,7 @@ class _CircleTabState extends State<CircleTab> {
                 post.isAnon ? 'A quiet mother' : post.name,
                 style: AppTypography.lato700(12, t.accent),
               ),
-              Text(
-                post.time,
-                style: AppTypography.lato400(11, t.muted),
-              ),
+              Text(post.time, style: AppTypography.lato400(11, t.muted)),
             ],
           ),
           const SizedBox(height: 10),
@@ -225,8 +226,7 @@ class _CircleTabState extends State<CircleTab> {
     );
   }
 
-  Widget _reactionBtn(
-      Widget icon, int count, Color color, VoidCallback onTap) {
+  Widget _reactionBtn(Widget icon, int count, Color color, VoidCallback onTap) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -239,10 +239,7 @@ class _CircleTabState extends State<CircleTab> {
           children: [
             icon,
             const SizedBox(width: 6),
-            Text(
-              '$count',
-              style: AppTypography.lato400(12, color),
-            ),
+            Text('$count', style: AppTypography.lato400(12, color)),
           ],
         ),
       ),

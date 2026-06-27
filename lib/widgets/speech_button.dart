@@ -102,28 +102,28 @@ class _SpeechButtonState extends State<SpeechButton>
             height: widget.size,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: _isListening
-                  ? t.accent.withValues(alpha: 0.18)
-                  : t.card,
+              color: _isListening ? t.accent.withValues(alpha: 0.18) : t.card,
               border: Border.all(
                 color: _isListening ? t.accent : t.border,
                 width: 1.5,
               ),
-              boxShadow: _isListening
-                  ? [
-                      BoxShadow(
-                        color: t.accent.withValues(alpha: glowOpacity),
-                        blurRadius: 12,
-                        spreadRadius: 2,
-                      ),
-                    ]
-                  : null,
+              boxShadow:
+                  _isListening
+                      ? [
+                        BoxShadow(
+                          color: t.accent.withValues(alpha: glowOpacity),
+                          blurRadius: 12,
+                          spreadRadius: 2,
+                        ),
+                      ]
+                      : null,
             ),
             child: Center(
               child: AppIcons.mic(
-                c: _isListening
-                    ? t.accent
-                    : (_isAvailable ? t.muted : t.border),
+                c:
+                    _isListening
+                        ? t.accent
+                        : (_isAvailable ? t.muted : t.border),
                 s: widget.size * 0.48,
               ),
             ),
@@ -133,4 +133,3 @@ class _SpeechButtonState extends State<SpeechButton>
     );
   }
 }
-

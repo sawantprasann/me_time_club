@@ -152,10 +152,12 @@ class _AppRootState extends State<AppRoot> {
   @override
   Widget build(BuildContext context) {
     // System UI overlay based on theme
-    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      statusBarIconBrightness: _night ? Brightness.light : Brightness.dark,
-    ));
+    SystemChrome.setSystemUIOverlayStyle(
+      SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: _night ? Brightness.light : Brightness.dark,
+      ),
+    );
 
     if (_loadingSession) {
       return const Scaffold(
@@ -230,9 +232,7 @@ class _AppRootState extends State<AppRoot> {
           Container(
             width: 30,
             height: 30,
-            decoration: const BoxDecoration(
-              shape: BoxShape.circle,
-            ),
+            decoration: const BoxDecoration(shape: BoxShape.circle),
             child: ClipOval(
               child: Image.asset(
                 'assets/metimeclub_app_icon.png',
@@ -247,10 +247,7 @@ class _AppRootState extends State<AppRoot> {
             children: [
               Text(
                 _tab == 'home' ? 'Me Time Club' : _tabTitle,
-                style: AppTypography.playfair(
-                  _tab == 'home' ? 17 : 16,
-                  t.text,
-                ),
+                style: AppTypography.playfair(_tab == 'home' ? 17 : 16, t.text),
               ),
               if (_tab == 'home')
                 Text(
@@ -268,9 +265,10 @@ class _AppRootState extends State<AppRoot> {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(20),
-                color: _night
-                    ? const Color(0xFF302C28)
-                    : const Color(0xFFE8DDD5).withValues(alpha: 0.18),
+                color:
+                    _night
+                        ? const Color(0xFF302C28)
+                        : const Color(0xFFE8DDD5).withValues(alpha: 0.18),
                 border: Border.all(
                   color: _night ? t.border : t.gold.withValues(alpha: 0.5),
                 ),
@@ -300,12 +298,18 @@ class _AppRootState extends State<AppRoot> {
 
   String get _tabTitle {
     switch (_tab) {
-      case 'calendar': return 'Calendar';
-      case 'memories': return 'Memories';
-      case 'journal': return 'Journal';
-      case 'circle': return 'Circle';
-      case 'me': return 'Me';
-      default: return 'Me Time Club';
+      case 'calendar':
+        return 'Calendar';
+      case 'memories':
+        return 'Memories';
+      case 'journal':
+        return 'Journal';
+      case 'circle':
+        return 'Circle';
+      case 'me':
+        return 'Me';
+      default:
+        return 'Me Time Club';
     }
   }
 
@@ -313,11 +317,7 @@ class _AppRootState extends State<AppRoot> {
   Widget _buildTabContent() {
     switch (_tab) {
       case 'home':
-        return HomeTab(
-          user: _user!,
-          t: t,
-          onSavePage: _onSavePage,
-        );
+        return HomeTab(user: _user!, t: t, onSavePage: _onSavePage);
       case 'calendar':
         return CalendarTab(t: t, dailyPages: _dailyPages);
       case 'memories':
@@ -358,18 +358,28 @@ class _AppRootState extends State<AppRoot> {
           height: 70,
           child: Row(
             children: [
-              _navItem('home', 'Home',
-                  (c, s) => AppIcons.home(c: c, s: s)),
-              _navItem('calendar', 'Calendar',
-                  (c, s) => AppIcons.calendar(c: c, s: s)),
-              _navItem('memories', 'Memories',
-                  (c, s) => AppIcons.memories(c: c, s: s)),
-              _navItem('journal', 'Journal',
-                  (c, s) => AppIcons.journal(c: c, s: s)),
-              _navItem('circle', 'Circle',
-                  (c, s) => AppIcons.circle(c: c, s: s)),
-              _navItem('me', 'Me',
-                  (c, s) => AppIcons.me(c: c, s: s)),
+              _navItem('home', 'Home', (c, s) => AppIcons.home(c: c, s: s)),
+              _navItem(
+                'calendar',
+                'Calendar',
+                (c, s) => AppIcons.calendar(c: c, s: s),
+              ),
+              _navItem(
+                'memories',
+                'Memories',
+                (c, s) => AppIcons.memories(c: c, s: s),
+              ),
+              _navItem(
+                'journal',
+                'Journal',
+                (c, s) => AppIcons.journal(c: c, s: s),
+              ),
+              _navItem(
+                'circle',
+                'Circle',
+                (c, s) => AppIcons.circle(c: c, s: s),
+              ),
+              _navItem('me', 'Me', (c, s) => AppIcons.me(c: c, s: s)),
             ],
           ),
         ),
@@ -378,7 +388,10 @@ class _AppRootState extends State<AppRoot> {
   }
 
   Widget _navItem(
-      String tab, String label, Widget Function(Color, double) iconBuilder) {
+    String tab,
+    String label,
+    Widget Function(Color, double) iconBuilder,
+  ) {
     final active = _tab == tab;
     return Expanded(
       child: GestureDetector(
@@ -421,14 +434,9 @@ class _AppRootState extends State<AppRoot> {
         fit: StackFit.expand,
         children: [
           // Background Image
-          Image.asset(
-            'assets/chamomile_background.png',
-            fit: BoxFit.cover,
-          ),
+          Image.asset('assets/chamomile_background.png', fit: BoxFit.cover),
           // Cozy Dark Overlay
-          Container(
-            color: const Color(0xFF1E1C1A).withValues(alpha: 0.8),
-          ),
+          Container(color: const Color(0xFF1E1C1A).withValues(alpha: 0.8)),
           // Center content
           Center(
             child: Column(
@@ -445,13 +453,18 @@ class _AppRootState extends State<AppRoot> {
                   height: 24,
                   child: CircularProgressIndicator(
                     strokeWidth: 2.5,
-                    valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFB8706A)),
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      Color(0xFFB8706A),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 24),
                 Text(
                   'Preparing your daily sanctuary...',
-                  style: AppTypography.cormorantItalic(16, const Color(0xFFC4945A)),
+                  style: AppTypography.cormorantItalic(
+                    16,
+                    const Color(0xFFC4945A),
+                  ),
                   textAlign: TextAlign.center,
                 ),
               ],

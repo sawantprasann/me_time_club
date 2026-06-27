@@ -36,10 +36,7 @@ class ChipButton extends StatelessWidget {
         decoration: BoxDecoration(
           color: selected ? color.withValues(alpha: 0.2) : t.card,
           borderRadius: BorderRadius.circular(30),
-          border: Border.all(
-            color: selected ? color : t.border,
-            width: 1.5,
-          ),
+          border: Border.all(color: selected ? color : t.border, width: 1.5),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -89,7 +86,8 @@ class AppCard extends StatelessWidget {
     return Container(
       margin: margin ?? const EdgeInsets.only(bottom: 14),
       padding: padding ?? const EdgeInsets.all(18),
-      decoration: decoration ??
+      decoration:
+          decoration ??
           BoxDecoration(
             color: t.card,
             borderRadius: BorderRadius.circular(18),
@@ -138,10 +136,7 @@ class SectionCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              if (icon != null) ...[
-                icon!,
-                const SizedBox(width: 8),
-              ],
+              if (icon != null) ...[icon!, const SizedBox(width: 8)],
               Text(
                 title.toUpperCase(),
                 style: AppTypography.sectionLabel(t.muted),
@@ -187,23 +182,21 @@ class CTAButton extends StatelessWidget {
         decoration: BoxDecoration(
           color: isDisabled ? t.border : t.accent,
           borderRadius: BorderRadius.circular(14),
-          boxShadow: isDisabled
-              ? null
-              : [
-                  BoxShadow(
-                    color: t.accent.withValues(alpha: 0.27),
-                    blurRadius: 20,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
+          boxShadow:
+              isDisabled
+                  ? null
+                  : [
+                    BoxShadow(
+                      color: t.accent.withValues(alpha: 0.27),
+                      blurRadius: 20,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            if (icon != null && !loading) ...[
-              icon!,
-              const SizedBox(width: 10),
-            ],
+            if (icon != null && !loading) ...[icon!, const SizedBox(width: 10)],
             Text(
               loading ? 'Chamomile is thinking…' : label,
               style: AppTypography.playfair(
@@ -258,4 +251,3 @@ class SolidButton extends StatelessWidget {
     );
   }
 }
-

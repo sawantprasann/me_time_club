@@ -33,13 +33,14 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   bool _isValidEmail(String email) {
-    return RegExp(r"^[a-zA-Z0-9.a-zA-Z0-9.!#$%&'*+-/=?^_`{|}~]+@[a-zA-Z0-9]+\.[a-zA-Z]+")
-        .hasMatch(email);
+    return RegExp(
+      r"^[a-zA-Z0-9.a-zA-Z0-9.!#$%&'*+-/=?^_`{|}~]+@[a-zA-Z0-9]+\.[a-zA-Z]+",
+    ).hasMatch(email);
   }
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    
+
     setState(() {
       _loading = true;
       _errorMessage = null;
@@ -70,14 +71,9 @@ class _LoginScreenState extends State<LoginScreen> {
         fit: StackFit.expand,
         children: [
           // Background Image
-          Image.asset(
-            'assets/chamomile_background.png',
-            fit: BoxFit.cover,
-          ),
+          Image.asset('assets/chamomile_background.png', fit: BoxFit.cover),
           // Cozy Overlay
-          Container(
-            color: const Color(0xFF2C2825).withValues(alpha: 0.75),
-          ),
+          Container(color: const Color(0xFF2C2825).withValues(alpha: 0.75)),
           // Soft Vignette Gradient
           Container(
             decoration: BoxDecoration(
@@ -106,16 +102,22 @@ class _LoginScreenState extends State<LoginScreen> {
                       // Brand Logo Image
                       Text(
                         'Me Time Club',
-                        style: AppTypography.playfair(34, const Color(0xFFF5F0E8)),
+                        style: AppTypography.playfair(
+                          34,
+                          const Color(0xFFF5F0E8),
+                        ),
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 10),
                       Text(
                         'Your daily sanctuary.',
-                        style: AppTypography.cormorantItalic(18, const Color(0xFFC4945A)),
+                        style: AppTypography.cormorantItalic(
+                          18,
+                          const Color(0xFFC4945A),
+                        ),
                         textAlign: TextAlign.center,
                       ),
-                      
+
                       // Decorative line
                       Container(
                         margin: const EdgeInsets.symmetric(vertical: 24),
@@ -128,10 +130,14 @@ class _LoginScreenState extends State<LoginScreen> {
                       Container(
                         padding: const EdgeInsets.all(24),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF2C2825).withValues(alpha: 0.85),
+                          color: const Color(
+                            0xFF2C2825,
+                          ).withValues(alpha: 0.85),
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(
-                            color: const Color(0xFFE8DDD5).withValues(alpha: 0.1),
+                            color: const Color(
+                              0xFFE8DDD5,
+                            ).withValues(alpha: 0.1),
                           ),
                         ),
                         child: Column(
@@ -139,7 +145,9 @@ class _LoginScreenState extends State<LoginScreen> {
                           children: [
                             Text(
                               'SIGN IN',
-                              style: AppTypography.sectionLabel(const Color(0xFFC4945A)),
+                              style: AppTypography.sectionLabel(
+                                const Color(0xFFC4945A),
+                              ),
                             ),
                             const SizedBox(height: 12),
                             Text(
@@ -153,34 +161,57 @@ class _LoginScreenState extends State<LoginScreen> {
                             const SizedBox(height: 20),
 
                             // Email input field
-                             TextFormField(
+                            TextFormField(
                               controller: _emailController,
                               keyboardType: TextInputType.emailAddress,
-                              style: AppTypography.lato400(15, const Color(0xFFF5F0E8)),
+                              style: AppTypography.lato400(
+                                15,
+                                const Color(0xFFF5F0E8),
+                              ),
                               decoration: InputDecoration(
                                 hintText: 'email@example.com',
-                                hintStyle: AppTypography.lato400(15, const Color(0xFF8A7D76)),
-                                prefixIcon: const Icon(Icons.email_outlined, color: Color(0xFF8A7D76), size: 20),
+                                hintStyle: AppTypography.lato400(
+                                  15,
+                                  const Color(0xFF8A7D76),
+                                ),
+                                prefixIcon: const Icon(
+                                  Icons.email_outlined,
+                                  color: Color(0xFF8A7D76),
+                                  size: 20,
+                                ),
                                 filled: true,
                                 fillColor: const Color(0xFF1E1C1A),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 14,
+                                ),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
                                   borderSide: BorderSide(
-                                    color: const Color(0xFFE8DDD5).withValues(alpha: 0.15),
+                                    color: const Color(
+                                      0xFFE8DDD5,
+                                    ).withValues(alpha: 0.15),
                                   ),
                                 ),
                                 enabledBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
                                   borderSide: BorderSide(
-                                    color: const Color(0xFFE8DDD5).withValues(alpha: 0.15),
+                                    color: const Color(
+                                      0xFFE8DDD5,
+                                    ).withValues(alpha: 0.15),
                                   ),
                                 ),
                                 focusedBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
-                                  borderSide: const BorderSide(color: Color(0xFFB8706A), width: 1.5),
+                                  borderSide: const BorderSide(
+                                    color: Color(0xFFB8706A),
+                                    width: 1.5,
+                                  ),
                                 ),
-                                errorStyle: AppTypography.lato400(12, const Color(0xFFB8706A)),
+                                errorStyle: AppTypography.lato400(
+                                  12,
+                                  const Color(0xFFB8706A),
+                                ),
                               ),
                               validator: (value) {
                                 if (value == null || value.trim().isEmpty) {
@@ -196,39 +227,69 @@ class _LoginScreenState extends State<LoginScreen> {
                             TextFormField(
                               controller: _passwordController,
                               obscureText: _obscurePassword,
-                              style: AppTypography.lato400(15, const Color(0xFFF5F0E8)),
+                              style: AppTypography.lato400(
+                                15,
+                                const Color(0xFFF5F0E8),
+                              ),
                               decoration: InputDecoration(
                                 hintText: 'Password',
-                                hintStyle: AppTypography.lato400(15, const Color(0xFF8A7D76)),
-                                prefixIcon: const Icon(Icons.lock_outline_rounded, color: Color(0xFF8A7D76), size: 20),
+                                hintStyle: AppTypography.lato400(
+                                  15,
+                                  const Color(0xFF8A7D76),
+                                ),
+                                prefixIcon: const Icon(
+                                  Icons.lock_outline_rounded,
+                                  color: Color(0xFF8A7D76),
+                                  size: 20,
+                                ),
                                 suffixIcon: GestureDetector(
-                                  onTap: () => setState(() => _obscurePassword = !_obscurePassword),
+                                  onTap:
+                                      () => setState(
+                                        () =>
+                                            _obscurePassword =
+                                                !_obscurePassword,
+                                      ),
                                   child: Icon(
-                                    _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                                    _obscurePassword
+                                        ? Icons.visibility_off_outlined
+                                        : Icons.visibility_outlined,
                                     color: const Color(0xFF8A7D76),
                                     size: 20,
                                   ),
                                 ),
                                 filled: true,
                                 fillColor: const Color(0xFF1E1C1A),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 14,
+                                ),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
                                   borderSide: BorderSide(
-                                    color: const Color(0xFFE8DDD5).withValues(alpha: 0.15),
+                                    color: const Color(
+                                      0xFFE8DDD5,
+                                    ).withValues(alpha: 0.15),
                                   ),
                                 ),
                                 enabledBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
                                   borderSide: BorderSide(
-                                    color: const Color(0xFFE8DDD5).withValues(alpha: 0.15),
+                                    color: const Color(
+                                      0xFFE8DDD5,
+                                    ).withValues(alpha: 0.15),
                                   ),
                                 ),
                                 focusedBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
-                                  borderSide: const BorderSide(color: Color(0xFFB8706A), width: 1.5),
+                                  borderSide: const BorderSide(
+                                    color: Color(0xFFB8706A),
+                                    width: 1.5,
+                                  ),
                                 ),
-                                errorStyle: AppTypography.lato400(12, const Color(0xFFB8706A)),
+                                errorStyle: AppTypography.lato400(
+                                  12,
+                                  const Color(0xFFB8706A),
+                                ),
                               ),
                               validator: (value) {
                                 if (value == null || value.isEmpty) {
@@ -243,12 +304,19 @@ class _LoginScreenState extends State<LoginScreen> {
                               const SizedBox(height: 14),
                               Row(
                                 children: [
-                                  const Icon(Icons.error_outline, color: Color(0xFFB8706A), size: 16),
+                                  const Icon(
+                                    Icons.error_outline,
+                                    color: Color(0xFFB8706A),
+                                    size: 16,
+                                  ),
                                   const SizedBox(width: 6),
                                   Expanded(
                                     child: Text(
                                       _errorMessage!,
-                                      style: AppTypography.lato400(12, const Color(0xFFB8706A)),
+                                      style: AppTypography.lato400(
+                                        12,
+                                        const Color(0xFFB8706A),
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -273,7 +341,10 @@ class _LoginScreenState extends State<LoginScreen> {
                         onTap: _loading ? null : widget.onNavigateToRegister,
                         child: Text(
                           "New here? Create an account",
-                          style: AppTypography.lato400(14, const Color(0xFFF5F0E8)).copyWith(
+                          style: AppTypography.lato400(
+                            14,
+                            const Color(0xFFF5F0E8),
+                          ).copyWith(
                             decoration: TextDecoration.underline,
                             color: const Color(0xFFC4945A),
                           ),

@@ -102,21 +102,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       key: const ValueKey('welcome'),
       width: double.infinity,
       height: double.infinity,
-      decoration: const BoxDecoration(
-        color: Color(0xFF1E1C1A),
-      ),
+      decoration: const BoxDecoration(color: Color(0xFF1E1C1A)),
       child: Stack(
         fit: StackFit.expand,
         children: [
           // Background Image
-          Image.asset(
-            'assets/chamomile_background.png',
-            fit: BoxFit.cover,
-          ),
+          Image.asset('assets/chamomile_background.png', fit: BoxFit.cover),
           // Dark overlay to match design
-          Container(
-            color: const Color(0xFF2C2825).withValues(alpha: 0.65),
-          ),
+          Container(color: const Color(0xFF2C2825).withValues(alpha: 0.65)),
           // Gradient for soft vignette
           Container(
             decoration: BoxDecoration(
@@ -141,10 +134,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   // Brand Title
                   Text(
                     'Me Time Club',
-                    style: AppTypography.playfair(
-                      38,
-                      const Color(0xFFF5F0E8),
-                    ),
+                    style: AppTypography.playfair(38, const Color(0xFFF5F0E8)),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 10),
@@ -186,7 +176,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         borderRadius: BorderRadius.circular(16),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFFB8706A).withValues(alpha: 0.33),
+                            color: const Color(
+                              0xFFB8706A,
+                            ).withValues(alpha: 0.33),
                             blurRadius: 20,
                             offset: const Offset(0, 4),
                           ),
@@ -257,9 +249,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   Widget _buildNamePhase() {
     final t = AppTokens.day;
     final pregnancyMonths = [
-      '1-4 weeks', '5-8 weeks', '9-12 weeks', '13-16 weeks',
-      '17-20 weeks', '21-24 weeks', '25-28 weeks', '29-32 weeks',
-      '33-36 weeks', '37-40 weeks',
+      '1-4 weeks',
+      '5-8 weeks',
+      '9-12 weeks',
+      '13-16 weeks',
+      '17-20 weeks',
+      '21-24 weeks',
+      '25-28 weeks',
+      '29-32 weeks',
+      '33-36 weeks',
+      '37-40 weeks',
     ];
 
     return Column(
@@ -307,15 +306,20 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 16),
-          Wrap(
-            alignment: WrapAlignment.center,
-            children: [
-              'Expecting', 'Newborn (0-6m)', 'Baby (6-18m)',
-              'Toddler (18m-3y)', 'Preschool (3-5y)', 'School Age (5+)',
-            ].map((phase) {
-              return _buildPhaseChip(phase, t);
-            }).toList(),
-          ),
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  children:
+                      [
+                        'Expecting',
+                        'Newborn (0-6m)',
+                        'Baby (6-18m)',
+                        'Toddler (18m-3y)',
+                        'Preschool (3-5y)',
+                        'School Age (5+)',
+                      ].map((phase) {
+                        return _buildPhaseChip(phase, t);
+                      }).toList(),
+                ),
                 // Pregnancy month picker
                 if (_phases.contains('expecting')) ...[
                   const SizedBox(height: 20),
@@ -327,31 +331,34 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   const SizedBox(height: 10),
                   Wrap(
                     alignment: WrapAlignment.center,
-                    children: pregnancyMonths.map((m) {
-                      final sel = _pregnancyMonth == m;
-                      return GestureDetector(
-                        onTap: () => setState(() => _pregnancyMonth = m),
-                        child: Container(
-                          padding:
-                              const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          margin: const EdgeInsets.all(3),
-                          decoration: BoxDecoration(
-                            color: sel ? t.accent : t.card,
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: sel ? t.accent : t.border,
+                    children:
+                        pregnancyMonths.map((m) {
+                          final sel = _pregnancyMonth == m;
+                          return GestureDetector(
+                            onTap: () => setState(() => _pregnancyMonth = m),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
+                              margin: const EdgeInsets.all(3),
+                              decoration: BoxDecoration(
+                                color: sel ? t.accent : t.card,
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: sel ? t.accent : t.border,
+                                ),
+                              ),
+                              child: Text(
+                                m,
+                                style: AppTypography.lato400(
+                                  11,
+                                  sel ? Colors.white : t.muted,
+                                ),
+                              ),
                             ),
-                          ),
-                          child: Text(
-                            m,
-                            style: AppTypography.lato400(
-                              11,
-                              sel ? Colors.white : t.muted,
-                            ),
-                          ),
-                        ),
-                      );
-                    }).toList(),
+                          );
+                        }).toList(),
                   ),
                 ],
                 // Child count stepper
@@ -441,24 +448,25 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 const SizedBox(height: 20),
                 Wrap(
                   alignment: WrapAlignment.center,
-                  children: [
-                    'First-time mother',
-                    'Second-time mother',
-                    'Third time (or more)',
-                    'Single mother',
-                    "Single father — we see you, and we'd love to build something for you too",
-                    'Co-parenting',
-                    'Working mother',
-                    'Stay-at-home mother',
-                    'IVF / fertility journey',
-                    'Loss and healing',
-                    'Adoptive parent',
-                    'Neurodivergent child',
-                    'Postpartum recovery',
-                    'Blended family',
-                  ].map((j) {
-                    return _buildJourneyChip(j, t);
-                  }).toList(),
+                  children:
+                      [
+                        'First-time mother',
+                        'Second-time mother',
+                        'Third time (or more)',
+                        'Single mother',
+                        "Single father — we see you, and we'd love to build something for you too",
+                        'Co-parenting',
+                        'Working mother',
+                        'Stay-at-home mother',
+                        'IVF / fertility journey',
+                        'Loss and healing',
+                        'Adoptive parent',
+                        'Neurodivergent child',
+                        'Postpartum recovery',
+                        'Blended family',
+                      ].map((j) {
+                        return _buildJourneyChip(j, t);
+                      }).toList(),
                 ),
                 const SizedBox(height: 20),
                 VoiceTextArea(
@@ -479,11 +487,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              CTAButton(
-                label: 'Continue →',
-                onTap: _next,
-                t: t,
-              ),
+              CTAButton(label: 'Continue →', onTap: _next, t: t),
               const SizedBox(height: 8),
               GestureDetector(
                 onTap: _next,
@@ -491,9 +495,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   padding: const EdgeInsets.all(8),
                   child: Text(
                     'I\'ll share this later',
-                    style: AppTypography.lato400(13, t.muted).copyWith(
-                      decoration: TextDecoration.underline,
-                    ),
+                    style: AppTypography.lato400(
+                      13,
+                      t.muted,
+                    ).copyWith(decoration: TextDecoration.underline),
                   ),
                 ),
               ),
@@ -508,9 +513,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   Widget _buildHardships() {
     final t = AppTokens.day;
     final hardshipOptions = [
-      'Overwhelm', 'Loneliness', 'Sleep exhaustion',
-      'Burnout', 'Mom guilt', 'Identity loss',
-      'Mental load', 'Need calm', 'Finding time for myself',
+      'Overwhelm',
+      'Loneliness',
+      'Sleep exhaustion',
+      'Burnout',
+      'Mom guilt',
+      'Identity loss',
+      'Mental load',
+      'Need calm',
+      'Finding time for myself',
     ];
 
     return Column(
@@ -531,30 +542,35 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 const SizedBox(height: 8),
                 Text(
                   'This helps Chamomile meet you exactly where you are.\nYou can speak it, tap it, or skip it entirely.',
-                  style: AppTypography.cormorantItalic(16, t.muted, height: 1.5),
+                  style: AppTypography.cormorantItalic(
+                    16,
+                    t.muted,
+                    height: 1.5,
+                  ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 20),
                 Wrap(
                   alignment: WrapAlignment.center,
-                  children: hardshipOptions.map((h) {
-                    final sel = _hardships.contains(h);
-                    return ChipButton(
-                      label: h,
-                      selected: sel,
-                      onTap: () {
-                        setState(() {
-                          if (sel) {
-                            _hardships.remove(h);
-                          } else {
-                            _hardships = [..._hardships, h];
-                          }
-                        });
-                      },
-                      color: t.green,
-                      t: t,
-                    );
-                  }).toList(),
+                  children:
+                      hardshipOptions.map((h) {
+                        final sel = _hardships.contains(h);
+                        return ChipButton(
+                          label: h,
+                          selected: sel,
+                          onTap: () {
+                            setState(() {
+                              if (sel) {
+                                _hardships.remove(h);
+                              } else {
+                                _hardships = [..._hardships, h];
+                              }
+                            });
+                          },
+                          color: t.green,
+                          t: t,
+                        );
+                      }).toList(),
                 ),
                 const SizedBox(height: 20),
                 VoiceTextArea(
@@ -574,11 +590,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              CTAButton(
-                label: 'Enter My Sanctuary →',
-                onTap: _next,
-                t: t,
-              ),
+              CTAButton(label: 'Enter My Sanctuary →', onTap: _next, t: t),
               const SizedBox(height: 8),
               GestureDetector(
                 onTap: _next,
@@ -586,9 +598,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   padding: const EdgeInsets.all(8),
                   child: Text(
                     'I\'ll share this later',
-                    style: AppTypography.lato400(13, t.muted).copyWith(
-                      decoration: TextDecoration.underline,
-                    ),
+                    style: AppTypography.lato400(
+                      13,
+                      t.muted,
+                    ).copyWith(decoration: TextDecoration.underline),
                   ),
                 ),
               ),
@@ -661,10 +674,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           color: t.card,
         ),
         child: Center(
-          child: Text(
-            label,
-            style: AppTypography.lato700(18, t.text),
-          ),
+          child: Text(label, style: AppTypography.lato700(18, t.text)),
         ),
       ),
     );
@@ -709,10 +719,17 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     decoration: InputDecoration(
                       hintText: 'email@example.com',
                       hintStyle: AppTypography.lato400(15, t.muted),
-                      prefixIcon: Icon(Icons.email_outlined, color: t.muted, size: 20),
+                      prefixIcon: Icon(
+                        Icons.email_outlined,
+                        color: t.muted,
+                        size: 20,
+                      ),
                       filled: true,
                       fillColor: t.card,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 14,
+                      ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide(color: t.border),
@@ -731,7 +748,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       if (value == null || value.trim().isEmpty) {
                         return 'Please enter your email';
                       }
-                      if (!RegExp(r"^[a-zA-Z0-9.a-zA-Z0-9.!#$%&'*+-/=?^_`{|}~]+@[a-zA-Z0-9]+\.[a-zA-Z]+").hasMatch(value.trim())) {
+                      if (!RegExp(
+                        r"^[a-zA-Z0-9.a-zA-Z0-9.!#$%&'*+-/=?^_`{|}~]+@[a-zA-Z0-9]+\.[a-zA-Z]+",
+                      ).hasMatch(value.trim())) {
                         return 'Please enter a valid email address';
                       }
                       return null;
@@ -745,18 +764,30 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     decoration: InputDecoration(
                       hintText: 'Password',
                       hintStyle: AppTypography.lato400(15, t.muted),
-                      prefixIcon: Icon(Icons.lock_outline_rounded, color: t.muted, size: 20),
+                      prefixIcon: Icon(
+                        Icons.lock_outline_rounded,
+                        color: t.muted,
+                        size: 20,
+                      ),
                       suffixIcon: GestureDetector(
-                        onTap: () => setState(() => _obscurePassword = !_obscurePassword),
+                        onTap:
+                            () => setState(
+                              () => _obscurePassword = !_obscurePassword,
+                            ),
                         child: Icon(
-                          _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                          _obscurePassword
+                              ? Icons.visibility_off_outlined
+                              : Icons.visibility_outlined,
                           color: t.muted,
                           size: 20,
                         ),
                       ),
                       filled: true,
                       fillColor: t.card,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 14,
+                      ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide(color: t.border),
@@ -829,29 +860,46 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       if (_phases.isEmpty) return 'expecting';
       final first = _phases.first;
       switch (first) {
-        case 'expecting': return 'expecting';
-        case 'newborn': return 'newborn';
-        case 'baby': return 'baby';
-        case 'toddler': return 'toddler';
-        case 'preschool': return 'preschool';
-        case 'school_age': return 'school_age';
-        default: return 'expecting';
+        case 'expecting':
+          return 'expecting';
+        case 'newborn':
+          return 'newborn';
+        case 'baby':
+          return 'baby';
+        case 'toddler':
+          return 'toddler';
+        case 'preschool':
+          return 'preschool';
+        case 'school_age':
+          return 'school_age';
+        default:
+          return 'expecting';
       }
     }
 
     List<String> mapHardships(List<String> rawHardships) {
       return rawHardships.map((h) {
         switch (h.toLowerCase()) {
-          case 'overwhelm': return 'overwhelm';
-          case 'loneliness': return 'loneliness';
-          case 'sleep exhaustion': return 'sleep_deprivation';
-          case 'burnout': return 'burnout';
-          case 'mom guilt': return 'mom_guilt';
-          case 'identity loss': return 'identity_loss';
-          case 'mental load': return 'mental_load';
-          case 'need calm': return 'need_calm';
-          case 'finding time for myself': return 'finding_time_for_myself';
-          default: return h.toLowerCase().replaceAll(' ', '_');
+          case 'overwhelm':
+            return 'overwhelm';
+          case 'loneliness':
+            return 'loneliness';
+          case 'sleep exhaustion':
+            return 'sleep_deprivation';
+          case 'burnout':
+            return 'burnout';
+          case 'mom guilt':
+            return 'mom_guilt';
+          case 'identity loss':
+            return 'identity_loss';
+          case 'mental load':
+            return 'mental_load';
+          case 'need calm':
+            return 'need_calm';
+          case 'finding time for myself':
+            return 'finding_time_for_myself';
+          default:
+            return h.toLowerCase().replaceAll(' ', '_');
         }
       }).toList();
     }
@@ -894,10 +942,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         'journey_text': _bio,
       };
 
-      final userProfile = await ApiService.register(
-        userParams: userParams,
-      );
-      
+      final userProfile = await ApiService.register(userParams: userParams);
+
       final completedProfile = userProfile.copyWith(
         phases: _phases,
         pregnancyMonth: _pregnancyMonth,

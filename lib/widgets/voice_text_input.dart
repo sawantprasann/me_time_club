@@ -37,7 +37,8 @@ class VoiceTextInput extends StatelessWidget {
           onChanged: onChange,
           textAlign: textAlign,
           maxLength: maxLength,
-          style: style ??
+          style:
+              style ??
               GoogleFonts.cormorantGaramond(
                 fontSize: 22,
                 fontStyle: FontStyle.italic,
@@ -128,7 +129,8 @@ class VoiceTextArea extends StatelessWidget {
           onChanged: onChange,
           autofocus: autoFocus,
           maxLines: rows,
-          style: style ??
+          style:
+              style ??
               GoogleFonts.cormorantGaramond(
                 fontSize: 17,
                 fontStyle: FontStyle.italic,
@@ -165,8 +167,7 @@ class VoiceTextArea extends StatelessWidget {
           right: 10,
           child: SpeechButton(
             onResult: (transcript) {
-              final newVal =
-                  value.isEmpty ? transcript : '$value $transcript';
+              final newVal = value.isEmpty ? transcript : '$value $transcript';
               onChange(newVal);
             },
             t: t,

@@ -60,21 +60,21 @@ class AppTokens {
 
   /// Card shadow based on mode
   List<BoxShadow> get cardShadow => [
-        BoxShadow(
-          color: Colors.black.withValues(alpha: this == day ? 0.04 : 0.25),
-          blurRadius: 16,
-          offset: const Offset(0, 2),
-        ),
-      ];
+    BoxShadow(
+      color: Colors.black.withValues(alpha: this == day ? 0.04 : 0.25),
+      blurRadius: 16,
+      offset: const Offset(0, 2),
+    ),
+  ];
 
   /// Header shadow
   List<BoxShadow> get headerShadow => [
-        BoxShadow(
-          color: Colors.black.withValues(alpha: this == day ? 0.05 : 0.3),
-          blurRadius: 16,
-          offset: const Offset(0, 2),
-        ),
-      ];
+    BoxShadow(
+      color: Colors.black.withValues(alpha: this == day ? 0.05 : 0.3),
+      blurRadius: 16,
+      offset: const Offset(0, 2),
+    ),
+  ];
 }
 
 /// Typography helpers using Google Fonts
@@ -89,15 +89,17 @@ class AppTypography {
       );
 
   /// Cormorant Garamond Italic 400 — Reflections, quotes, textareas
-  static TextStyle cormorantItalic(double size, Color color,
-          {double? height}) =>
-      GoogleFonts.cormorantGaramond(
-        fontSize: size,
-        fontWeight: FontWeight.w400,
-        fontStyle: FontStyle.italic,
-        color: color,
-        height: height,
-      );
+  static TextStyle cormorantItalic(
+    double size,
+    Color color, {
+    double? height,
+  }) => GoogleFonts.cormorantGaramond(
+    fontSize: size,
+    fontWeight: FontWeight.w400,
+    fontStyle: FontStyle.italic,
+    color: color,
+    height: height,
+  );
 
   /// Cormorant Garamond 600 — Section pull quotes
   static TextStyle cormorant600(double size, Color color, {double? height}) =>
@@ -127,15 +129,18 @@ class AppTypography {
       );
 
   /// Lato 700 — Section labels (UPPERCASE), chip selected
-  static TextStyle lato700(double size, Color color,
-          {double letterSpacing = 0, double? height}) =>
-      GoogleFonts.lato(
-        fontSize: size,
-        fontWeight: FontWeight.w700,
-        color: color,
-        letterSpacing: letterSpacing,
-        height: height,
-      );
+  static TextStyle lato700(
+    double size,
+    Color color, {
+    double letterSpacing = 0,
+    double? height,
+  }) => GoogleFonts.lato(
+    fontSize: size,
+    fontWeight: FontWeight.w700,
+    color: color,
+    letterSpacing: letterSpacing,
+    height: height,
+  );
 
   /// DM Serif Display Italic — Opening thought, night reflection
   static TextStyle dmSerifItalic(double size, Color color, {double? height}) =>
@@ -148,11 +153,11 @@ class AppTypography {
 
   /// Section label style: Lato 700 · 10px · UPPERCASE · letter-spacing 1.8px
   static TextStyle sectionLabel(Color color) => GoogleFonts.lato(
-        fontSize: 10,
-        fontWeight: FontWeight.w700,
-        color: color,
-        letterSpacing: 1.8,
-      );
+    fontSize: 10,
+    fontWeight: FontWeight.w700,
+    color: color,
+    letterSpacing: 1.8,
+  );
 }
 
 /// Spacing & layout constants

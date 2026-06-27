@@ -9,45 +9,42 @@ class AppIcons {
 
   /// House outline — bottom nav Home
   static Widget home({required Color c, double s = 20}) => SizedBox(
-        width: s,
-        height: s,
-        child: CustomPaint(painter: _HomePainter(c)),
-      );
+    width: s,
+    height: s,
+    child: CustomPaint(painter: _HomePainter(c)),
+  );
 
   /// Calendar grid with dots — bottom nav Calendar
   static Widget calendar({required Color c, double s = 20}) => SizedBox(
-        width: s,
-        height: s,
-        child: CustomPaint(painter: _CalendarPainter(c)),
-      );
+    width: s,
+    height: s,
+    child: CustomPaint(painter: _CalendarPainter(c)),
+  );
 
   /// Heart-pin / location drop — bottom nav Memories
   static Widget memories({required Color c, double s = 20}) => SizedBox(
-        width: s,
-        height: s,
-        child: CustomPaint(painter: _MemoriesPainter(c)),
-      );
+    width: s,
+    height: s,
+    child: CustomPaint(painter: _MemoriesPainter(c)),
+  );
 
   /// Notebook outline — bottom nav + Tasks
   static Widget journal({required Color c, double s = 20}) => SizedBox(
-        width: s,
-        height: s,
-        child: CustomPaint(painter: _JournalPainter(c)),
-      );
+    width: s,
+    height: s,
+    child: CustomPaint(painter: _JournalPainter(c)),
+  );
 
   /// Radial circle — bottom nav Circle
   static Widget circle({required Color c, double s = 20}) => SizedBox(
-        width: s,
-        height: s,
-        child: CustomPaint(painter: _CirclePainter(c)),
-      );
+    width: s,
+    height: s,
+    child: CustomPaint(painter: _CirclePainter(c)),
+  );
 
   /// Person silhouette — bottom nav Me
-  static Widget me({required Color c, double s = 20}) => SizedBox(
-        width: s,
-        height: s,
-        child: CustomPaint(painter: _MePainter(c)),
-      );
+  static Widget me({required Color c, double s = 20}) =>
+      SizedBox(width: s, height: s, child: CustomPaint(painter: _MePainter(c)));
 
   // ── Bloom / Brand Icon ───────────────────────────
 
@@ -63,180 +60,180 @@ class AppIcons {
 
   /// Diagonal leaf with stem — Tender
   static Widget leaf({required Color c, double s = 20}) => SizedBox(
-        width: s,
-        height: s,
-        child: CustomPaint(painter: _LeafPainter(c)),
-      );
+    width: s,
+    height: s,
+    child: CustomPaint(painter: _LeafPainter(c)),
+  );
 
   /// Sine wave lines — Overwhelmed
   static Widget wave({required Color c, double s = 20}) => SizedBox(
-        width: s,
-        height: s,
-        child: CustomPaint(painter: _WavePainter(c)),
-      );
+    width: s,
+    height: s,
+    child: CustomPaint(painter: _WavePainter(c)),
+  );
 
   /// Crescent — Sleep-Deprived
   static Widget moon({required Color c, double s = 20}) => SizedBox(
-        width: s,
-        height: s,
-        child: CustomPaint(painter: _MoonPainter(c)),
-      );
+    width: s,
+    height: s,
+    child: CustomPaint(painter: _MoonPainter(c)),
+  );
 
   /// Circle + rays — Motivated
   static Widget sun({required Color c, double s = 20}) => SizedBox(
-        width: s,
-        height: s,
-        child: CustomPaint(painter: _SunPainter(c)),
-      );
+    width: s,
+    height: s,
+    child: CustomPaint(painter: _SunPainter(c)),
+  );
 
   /// Horizontal flow lines — Anxious
   static Widget wind({required Color c, double s = 20}) => SizedBox(
-        width: s,
-        height: s,
-        child: CustomPaint(painter: _WindPainter(c)),
-      );
+    width: s,
+    height: s,
+    child: CustomPaint(painter: _WindPainter(c)),
+  );
 
   /// Flame on cylinder — Lonely
   static Widget candle({required Color c, double s = 20}) => SizedBox(
-        width: s,
-        height: s,
-        child: CustomPaint(painter: _CandlePainter(c)),
-      );
+    width: s,
+    height: s,
+    child: CustomPaint(painter: _CandlePainter(c)),
+  );
 
   /// Grain stalk — Stable
   static Widget wheat({required Color c, double s = 20}) => SizedBox(
-        width: s,
-        height: s,
-        child: CustomPaint(painter: _WheatPainter(c)),
-      );
+    width: s,
+    height: s,
+    child: CustomPaint(painter: _WheatPainter(c)),
+  );
 
   /// Cloud outline — Just Here
   static Widget cloud({required Color c, double s = 20}) => SizedBox(
-        width: s,
-        height: s,
-        child: CustomPaint(painter: _CloudPainter(c)),
-      );
+    width: s,
+    height: s,
+    child: CustomPaint(painter: _CloudPainter(c)),
+  );
 
   // ── UI Icons ──────────────────────────────────────
 
   /// Heart outline — Emotional Alignment, Circle reactions
   static Widget heart({required Color c, double s = 20}) => SizedBox(
-        width: s,
-        height: s,
-        child: CustomPaint(painter: _HeartPainter(c)),
-      );
+    width: s,
+    height: s,
+    child: CustomPaint(painter: _HeartPainter(c)),
+  );
 
   /// Person with open arms — Circle reactions
   static Widget hug({required Color c, double s = 20}) => SizedBox(
-        width: s,
-        height: s,
-        child: CustomPaint(painter: _HugPainter(c)),
-      );
+    width: s,
+    height: s,
+    child: CustomPaint(painter: _HugPainter(c)),
+  );
 
   /// 5-point star — Insight section
   static Widget star({required Color c, double s = 20}) => SizedBox(
-        width: s,
-        height: s,
-        child: CustomPaint(painter: _StarPainter(c)),
-      );
+    width: s,
+    height: s,
+    child: CustomPaint(painter: _StarPainter(c)),
+  );
 
   /// Radial sun/compass — Micro Ritual section
   static Widget ritual({required Color c, double s = 20}) => SizedBox(
-        width: s,
-        height: s,
-        child: CustomPaint(painter: _RitualPainter(c)),
-      );
+    width: s,
+    height: s,
+    child: CustomPaint(painter: _RitualPainter(c)),
+  );
 
   /// Open book — Gentle Read section
   static Widget book({required Color c, double s = 20}) => SizedBox(
-        width: s,
-        height: s,
-        child: CustomPaint(painter: _BookPainter(c)),
-      );
+    width: s,
+    height: s,
+    child: CustomPaint(painter: _BookPainter(c)),
+  );
 
   /// Edit pen — Profile edit, Reflection section
   static Widget pen({required Color c, double s = 20}) => SizedBox(
-        width: s,
-        height: s,
-        child: CustomPaint(painter: _PenPainter(c)),
-      );
+    width: s,
+    height: s,
+    child: CustomPaint(painter: _PenPainter(c)),
+  );
 
   /// Tick mark — save confirmation, completed tasks
   static Widget check({required Color c, double s = 20}) => SizedBox(
-        width: s,
-        height: s,
-        child: CustomPaint(painter: _CheckPainter(c)),
-      );
+    width: s,
+    height: s,
+    child: CustomPaint(painter: _CheckPainter(c)),
+  );
 
   /// Diagonal cross — cancel, delete
   static Widget close({required Color c, double s = 20}) => SizedBox(
-        width: s,
-        height: s,
-        child: CustomPaint(painter: _ClosePainter(c)),
-      );
+    width: s,
+    height: s,
+    child: CustomPaint(painter: _ClosePainter(c)),
+  );
 
   /// Plus sign — add actions
   static Widget plus({required Color c, double s = 20}) => SizedBox(
-        width: s,
-        height: s,
-        child: CustomPaint(painter: _PlusPainter(c)),
-      );
+    width: s,
+    height: s,
+    child: CustomPaint(painter: _PlusPainter(c)),
+  );
 
   /// Circular arrow — New check-in
   static Widget refresh({required Color c, double s = 20}) => SizedBox(
-        width: s,
-        height: s,
-        child: CustomPaint(painter: _RefreshPainter(c)),
-      );
+    width: s,
+    height: s,
+    child: CustomPaint(painter: _RefreshPainter(c)),
+  );
 
   /// Single chevron right — list item drill-in
   static Widget chevRight({required Color c, double s = 20}) => SizedBox(
-        width: s,
-        height: s,
-        child: CustomPaint(painter: _ChevRightPainter(c)),
-      );
+    width: s,
+    height: s,
+    child: CustomPaint(painter: _ChevRightPainter(c)),
+  );
 
   /// Three-node share icon
   static Widget share({required Color c, double s = 20}) => SizedBox(
-        width: s,
-        height: s,
-        child: CustomPaint(painter: _SharePainter(c)),
-      );
+    width: s,
+    height: s,
+    child: CustomPaint(painter: _SharePainter(c)),
+  );
 
   /// Envelope outline — Me tab letter cards
   static Widget letter({required Color c, double s = 20}) => SizedBox(
-        width: s,
-        height: s,
-        child: CustomPaint(painter: _LetterPainter(c)),
-      );
+    width: s,
+    height: s,
+    child: CustomPaint(painter: _LetterPainter(c)),
+  );
 
   /// Filled crescent — night toggle
   static Widget moon2({required Color c, double s = 15}) => SizedBox(
-        width: s,
-        height: s,
-        child: CustomPaint(painter: _Moon2Painter(c)),
-      );
+    width: s,
+    height: s,
+    child: CustomPaint(painter: _Moon2Painter(c)),
+  );
 
   /// Minimal sun — day toggle
   static Widget sun2({required Color c, double s = 15}) => SizedBox(
-        width: s,
-        height: s,
-        child: CustomPaint(painter: _Sun2Painter(c)),
-      );
+    width: s,
+    height: s,
+    child: CustomPaint(painter: _Sun2Painter(c)),
+  );
 
   /// Microphone — voice input button
   static Widget mic({required Color c, double s = 20}) => SizedBox(
-        width: s,
-        height: s,
-        child: CustomPaint(painter: _MicPainter(c)),
-      );
+    width: s,
+    height: s,
+    child: CustomPaint(painter: _MicPainter(c)),
+  );
 
   /// Camera icon — photo picker badge
   static Widget camera({required Color c, double s = 20}) => SizedBox(
-        width: s,
-        height: s,
-        child: CustomPaint(painter: _CameraPainter(c)),
-      );
+    width: s,
+    height: s,
+    child: CustomPaint(painter: _CameraPainter(c)),
+  );
 }
 
 // ═══════════════════════════════════════════════════════
@@ -249,25 +246,26 @@ class _HomePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final p = Paint()
-      ..color = color
-      ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
+    final p =
+        Paint()
+          ..color = color
+          ..strokeWidth = 1.5
+          ..style = PaintingStyle.stroke
+          ..strokeCap = StrokeCap.round;
     final s = size.width;
     // Roof
     canvas.drawLine(Offset(s * 0.1, s * 0.45), Offset(s * 0.5, s * 0.12), p);
     canvas.drawLine(Offset(s * 0.5, s * 0.12), Offset(s * 0.9, s * 0.45), p);
     // Walls
-    final wall = Path()
-      ..moveTo(s * 0.2, s * 0.45)
-      ..lineTo(s * 0.2, s * 0.85)
-      ..lineTo(s * 0.8, s * 0.85)
-      ..lineTo(s * 0.8, s * 0.45);
+    final wall =
+        Path()
+          ..moveTo(s * 0.2, s * 0.45)
+          ..lineTo(s * 0.2, s * 0.85)
+          ..lineTo(s * 0.8, s * 0.85)
+          ..lineTo(s * 0.8, s * 0.45);
     canvas.drawPath(wall, p);
     // Door
-    canvas.drawRect(
-        Rect.fromLTWH(s * 0.38, s * 0.58, s * 0.24, s * 0.27), p);
+    canvas.drawRect(Rect.fromLTWH(s * 0.38, s * 0.58, s * 0.24, s * 0.27), p);
   }
 
   @override
@@ -280,11 +278,12 @@ class _CalendarPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final p = Paint()
-      ..color = color
-      ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
+    final p =
+        Paint()
+          ..color = color
+          ..strokeWidth = 1.5
+          ..style = PaintingStyle.stroke
+          ..strokeCap = StrokeCap.round;
     final s = size.width;
     final r = RRect.fromRectAndRadius(
       Rect.fromLTWH(s * 0.1, s * 0.15, s * 0.8, s * 0.75),
@@ -296,9 +295,10 @@ class _CalendarPainter extends CustomPainter {
     canvas.drawLine(Offset(s * 0.35, s * 0.08), Offset(s * 0.35, s * 0.22), p);
     canvas.drawLine(Offset(s * 0.65, s * 0.08), Offset(s * 0.65, s * 0.22), p);
     // Dots
-    final dp = Paint()
-      ..color = color
-      ..style = PaintingStyle.fill;
+    final dp =
+        Paint()
+          ..color = color
+          ..style = PaintingStyle.fill;
     canvas.drawCircle(Offset(s * 0.35, s * 0.55), s * 0.04, dp);
     canvas.drawCircle(Offset(s * 0.55, s * 0.55), s * 0.04, dp);
     canvas.drawCircle(Offset(s * 0.35, s * 0.72), s * 0.04, dp);
@@ -314,19 +314,21 @@ class _MemoriesPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final p = Paint()
-      ..color = color
-      ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
+    final p =
+        Paint()
+          ..color = color
+          ..strokeWidth = 1.5
+          ..style = PaintingStyle.stroke
+          ..strokeCap = StrokeCap.round;
     final s = size.width;
     // Heart shape at top of pin
-    final path = Path()
-      ..moveTo(s * 0.5, s * 0.92)
-      ..lineTo(s * 0.25, s * 0.55)
-      ..cubicTo(s * 0.05, s * 0.25, s * 0.25, s * 0.05, s * 0.5, s * 0.3)
-      ..cubicTo(s * 0.75, s * 0.05, s * 0.95, s * 0.25, s * 0.75, s * 0.55)
-      ..close();
+    final path =
+        Path()
+          ..moveTo(s * 0.5, s * 0.92)
+          ..lineTo(s * 0.25, s * 0.55)
+          ..cubicTo(s * 0.05, s * 0.25, s * 0.25, s * 0.05, s * 0.5, s * 0.3)
+          ..cubicTo(s * 0.75, s * 0.05, s * 0.95, s * 0.25, s * 0.75, s * 0.55)
+          ..close();
     canvas.drawPath(path, p);
   }
 
@@ -340,11 +342,12 @@ class _JournalPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final p = Paint()
-      ..color = color
-      ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
+    final p =
+        Paint()
+          ..color = color
+          ..strokeWidth = 1.5
+          ..style = PaintingStyle.stroke
+          ..strokeCap = StrokeCap.round;
     final s = size.width;
     final r = RRect.fromRectAndRadius(
       Rect.fromLTWH(s * 0.2, s * 0.08, s * 0.65, s * 0.84),
@@ -353,8 +356,7 @@ class _JournalPainter extends CustomPainter {
     canvas.drawRRect(r, p);
     // Spine
     canvas.drawLine(Offset(s * 0.2, s * 0.08), Offset(s * 0.2, s * 0.92), p);
-    canvas.drawLine(
-        Offset(s * 0.15, s * 0.08), Offset(s * 0.15, s * 0.92), p);
+    canvas.drawLine(Offset(s * 0.15, s * 0.08), Offset(s * 0.15, s * 0.92), p);
     // Lines
     canvas.drawLine(Offset(s * 0.35, s * 0.3), Offset(s * 0.7, s * 0.3), p);
     canvas.drawLine(Offset(s * 0.35, s * 0.45), Offset(s * 0.7, s * 0.45), p);
@@ -371,16 +373,18 @@ class _CirclePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final p = Paint()
-      ..color = color
-      ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke;
+    final p =
+        Paint()
+          ..color = color
+          ..strokeWidth = 1.5
+          ..style = PaintingStyle.stroke;
     final s = size.width;
     canvas.drawCircle(Offset(s * 0.5, s * 0.5), s * 0.38, p);
     // Inner dots
-    final dp = Paint()
-      ..color = color
-      ..style = PaintingStyle.fill;
+    final dp =
+        Paint()
+          ..color = color
+          ..style = PaintingStyle.fill;
     canvas.drawCircle(Offset(s * 0.35, s * 0.5), s * 0.05, dp);
     canvas.drawCircle(Offset(s * 0.5, s * 0.5), s * 0.05, dp);
     canvas.drawCircle(Offset(s * 0.65, s * 0.5), s * 0.05, dp);
@@ -396,18 +400,20 @@ class _MePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final p = Paint()
-      ..color = color
-      ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke;
+    final p =
+        Paint()
+          ..color = color
+          ..strokeWidth = 1.5
+          ..style = PaintingStyle.stroke;
     final s = size.width;
     // Head
     canvas.drawCircle(Offset(s * 0.5, s * 0.28), s * 0.18, p);
     // Shoulders
-    final body = Path()
-      ..moveTo(s * 0.15, s * 0.92)
-      ..quadraticBezierTo(s * 0.15, s * 0.6, s * 0.5, s * 0.58)
-      ..quadraticBezierTo(s * 0.85, s * 0.6, s * 0.85, s * 0.92);
+    final body =
+        Path()
+          ..moveTo(s * 0.15, s * 0.92)
+          ..quadraticBezierTo(s * 0.15, s * 0.6, s * 0.5, s * 0.58)
+          ..quadraticBezierTo(s * 0.85, s * 0.6, s * 0.85, s * 0.92);
     canvas.drawPath(body, p);
   }
 
@@ -424,10 +430,11 @@ class _BloomPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final s = size.width;
     final center = Offset(s * 0.5, s * 0.5);
-    final p = Paint()
-      ..color = petalColor
-      ..strokeWidth = 1.2
-      ..style = PaintingStyle.stroke;
+    final p =
+        Paint()
+          ..color = petalColor
+          ..strokeWidth = 1.2
+          ..style = PaintingStyle.stroke;
 
     // 6 petals
     for (int i = 0; i < 6; i++) {
@@ -437,18 +444,20 @@ class _BloomPainter extends CustomPainter {
       canvas.save();
       canvas.translate(center.dx, center.dy);
       canvas.rotate(angle);
-      final petal = Path()
-        ..moveTo(0, 0)
-        ..quadraticBezierTo(petalWidth, -petalLength * 0.5, 0, -petalLength)
-        ..quadraticBezierTo(-petalWidth, -petalLength * 0.5, 0, 0);
+      final petal =
+          Path()
+            ..moveTo(0, 0)
+            ..quadraticBezierTo(petalWidth, -petalLength * 0.5, 0, -petalLength)
+            ..quadraticBezierTo(-petalWidth, -petalLength * 0.5, 0, 0);
       canvas.drawPath(petal, p);
       canvas.restore();
     }
 
     // Centre circle — filled
-    final cp = Paint()
-      ..color = centerColor
-      ..style = PaintingStyle.fill;
+    final cp =
+        Paint()
+          ..color = centerColor
+          ..style = PaintingStyle.fill;
     canvas.drawCircle(center, s * 0.07, cp);
   }
 
@@ -462,16 +471,18 @@ class _LeafPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final p = Paint()
-      ..color = color
-      ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
+    final p =
+        Paint()
+          ..color = color
+          ..strokeWidth = 1.5
+          ..style = PaintingStyle.stroke
+          ..strokeCap = StrokeCap.round;
     final s = size.width;
-    final leaf = Path()
-      ..moveTo(s * 0.2, s * 0.8)
-      ..quadraticBezierTo(s * 0.1, s * 0.2, s * 0.8, s * 0.15)
-      ..quadraticBezierTo(s * 0.85, s * 0.8, s * 0.2, s * 0.8);
+    final leaf =
+        Path()
+          ..moveTo(s * 0.2, s * 0.8)
+          ..quadraticBezierTo(s * 0.1, s * 0.2, s * 0.8, s * 0.15)
+          ..quadraticBezierTo(s * 0.85, s * 0.8, s * 0.2, s * 0.8);
     canvas.drawPath(leaf, p);
     // Stem
     canvas.drawLine(Offset(s * 0.2, s * 0.8), Offset(s * 0.65, s * 0.35), p);
@@ -487,18 +498,26 @@ class _WavePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final p = Paint()
-      ..color = color
-      ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
+    final p =
+        Paint()
+          ..color = color
+          ..strokeWidth = 1.5
+          ..style = PaintingStyle.stroke
+          ..strokeCap = StrokeCap.round;
     final s = size.width;
     for (double y in [s * 0.3, s * 0.5, s * 0.7]) {
-      final wave = Path()
-        ..moveTo(s * 0.1, y)
-        ..cubicTo(s * 0.3, y - s * 0.12, s * 0.5, y + s * 0.12, s * 0.7, y)
-        ..cubicTo(
-            s * 0.8, y - s * 0.06, s * 0.85, y - s * 0.06, s * 0.9, y);
+      final wave =
+          Path()
+            ..moveTo(s * 0.1, y)
+            ..cubicTo(s * 0.3, y - s * 0.12, s * 0.5, y + s * 0.12, s * 0.7, y)
+            ..cubicTo(
+              s * 0.8,
+              y - s * 0.06,
+              s * 0.85,
+              y - s * 0.06,
+              s * 0.9,
+              y,
+            );
       canvas.drawPath(wave, p);
     }
   }
@@ -513,19 +532,25 @@ class _MoonPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final p = Paint()
-      ..color = color
-      ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke;
+    final p =
+        Paint()
+          ..color = color
+          ..strokeWidth = 1.5
+          ..style = PaintingStyle.stroke;
     final s = size.width;
-    final moon = Path()
-      ..addArc(Rect.fromCircle(center: Offset(s * 0.5, s * 0.5), radius: s * 0.35), 0, 2 * pi);
+    final moon =
+        Path()..addArc(
+          Rect.fromCircle(center: Offset(s * 0.5, s * 0.5), radius: s * 0.35),
+          0,
+          2 * pi,
+        );
     canvas.drawPath(moon, p);
     // Cutout effect with thick stroke matching bg — just draw crescent
-    final cut = Paint()
-      ..color = color
-      ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke;
+    final cut =
+        Paint()
+          ..color = color
+          ..strokeWidth = 1.5
+          ..style = PaintingStyle.stroke;
     canvas.drawArc(
       Rect.fromCircle(center: Offset(s * 0.62, s * 0.42), radius: s * 0.28),
       0.5,
@@ -545,10 +570,11 @@ class _SunPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final p = Paint()
-      ..color = color
-      ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke;
+    final p =
+        Paint()
+          ..color = color
+          ..strokeWidth = 1.5
+          ..style = PaintingStyle.stroke;
     final s = size.width;
     final center = Offset(s * 0.5, s * 0.5);
     canvas.drawCircle(center, s * 0.2, p);
@@ -556,10 +582,14 @@ class _SunPainter extends CustomPainter {
     for (int i = 0; i < 8; i++) {
       final angle = (i * 45) * pi / 180;
       canvas.drawLine(
-        Offset(center.dx + cos(angle) * s * 0.28,
-            center.dy + sin(angle) * s * 0.28),
-        Offset(center.dx + cos(angle) * s * 0.4,
-            center.dy + sin(angle) * s * 0.4),
+        Offset(
+          center.dx + cos(angle) * s * 0.28,
+          center.dy + sin(angle) * s * 0.28,
+        ),
+        Offset(
+          center.dx + cos(angle) * s * 0.4,
+          center.dy + sin(angle) * s * 0.4,
+        ),
         p,
       );
     }
@@ -575,27 +605,31 @@ class _WindPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final p = Paint()
-      ..color = color
-      ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
+    final p =
+        Paint()
+          ..color = color
+          ..strokeWidth = 1.5
+          ..style = PaintingStyle.stroke
+          ..strokeCap = StrokeCap.round;
     final s = size.width;
     // Three horizontal flow lines with slight curves
-    final w1 = Path()
-      ..moveTo(s * 0.1, s * 0.3)
-      ..quadraticBezierTo(s * 0.5, s * 0.28, s * 0.75, s * 0.22)
-      ..quadraticBezierTo(s * 0.88, s * 0.18, s * 0.85, s * 0.28);
+    final w1 =
+        Path()
+          ..moveTo(s * 0.1, s * 0.3)
+          ..quadraticBezierTo(s * 0.5, s * 0.28, s * 0.75, s * 0.22)
+          ..quadraticBezierTo(s * 0.88, s * 0.18, s * 0.85, s * 0.28);
     canvas.drawPath(w1, p);
-    final w2 = Path()
-      ..moveTo(s * 0.15, s * 0.5)
-      ..lineTo(s * 0.8, s * 0.5)
-      ..quadraticBezierTo(s * 0.95, s * 0.5, s * 0.9, s * 0.42);
+    final w2 =
+        Path()
+          ..moveTo(s * 0.15, s * 0.5)
+          ..lineTo(s * 0.8, s * 0.5)
+          ..quadraticBezierTo(s * 0.95, s * 0.5, s * 0.9, s * 0.42);
     canvas.drawPath(w2, p);
-    final w3 = Path()
-      ..moveTo(s * 0.2, s * 0.7)
-      ..quadraticBezierTo(s * 0.45, s * 0.72, s * 0.65, s * 0.7)
-      ..quadraticBezierTo(s * 0.78, s * 0.68, s * 0.75, s * 0.76);
+    final w3 =
+        Path()
+          ..moveTo(s * 0.2, s * 0.7)
+          ..quadraticBezierTo(s * 0.45, s * 0.72, s * 0.65, s * 0.7)
+          ..quadraticBezierTo(s * 0.78, s * 0.68, s * 0.75, s * 0.76);
     canvas.drawPath(w3, p);
   }
 
@@ -609,22 +643,23 @@ class _CandlePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final p = Paint()
-      ..color = color
-      ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
+    final p =
+        Paint()
+          ..color = color
+          ..strokeWidth = 1.5
+          ..style = PaintingStyle.stroke
+          ..strokeCap = StrokeCap.round;
     final s = size.width;
     // Cylinder body
-    canvas.drawRect(
-        Rect.fromLTWH(s * 0.32, s * 0.4, s * 0.36, s * 0.52), p);
+    canvas.drawRect(Rect.fromLTWH(s * 0.32, s * 0.4, s * 0.36, s * 0.52), p);
     // Wick
     canvas.drawLine(Offset(s * 0.5, s * 0.4), Offset(s * 0.5, s * 0.3), p);
     // Flame
-    final flame = Path()
-      ..moveTo(s * 0.5, s * 0.08)
-      ..quadraticBezierTo(s * 0.58, s * 0.2, s * 0.5, s * 0.3)
-      ..quadraticBezierTo(s * 0.42, s * 0.2, s * 0.5, s * 0.08);
+    final flame =
+        Path()
+          ..moveTo(s * 0.5, s * 0.08)
+          ..quadraticBezierTo(s * 0.58, s * 0.2, s * 0.5, s * 0.3)
+          ..quadraticBezierTo(s * 0.42, s * 0.2, s * 0.5, s * 0.08);
     canvas.drawPath(flame, p);
   }
 
@@ -638,24 +673,27 @@ class _WheatPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final p = Paint()
-      ..color = color
-      ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
+    final p =
+        Paint()
+          ..color = color
+          ..strokeWidth = 1.5
+          ..style = PaintingStyle.stroke
+          ..strokeCap = StrokeCap.round;
     final s = size.width;
     // Main stem
     canvas.drawLine(Offset(s * 0.5, s * 0.9), Offset(s * 0.5, s * 0.15), p);
     // Grain pairs
     for (double t in [0.25, 0.4, 0.55, 0.7]) {
       final y = s * t;
-      final grain1 = Path()
-        ..moveTo(s * 0.5, y)
-        ..quadraticBezierTo(s * 0.3, y - s * 0.08, s * 0.35, y - s * 0.14);
+      final grain1 =
+          Path()
+            ..moveTo(s * 0.5, y)
+            ..quadraticBezierTo(s * 0.3, y - s * 0.08, s * 0.35, y - s * 0.14);
       canvas.drawPath(grain1, p);
-      final grain2 = Path()
-        ..moveTo(s * 0.5, y)
-        ..quadraticBezierTo(s * 0.7, y - s * 0.08, s * 0.65, y - s * 0.14);
+      final grain2 =
+          Path()
+            ..moveTo(s * 0.5, y)
+            ..quadraticBezierTo(s * 0.7, y - s * 0.08, s * 0.65, y - s * 0.14);
       canvas.drawPath(grain2, p);
     }
   }
@@ -670,20 +708,22 @@ class _CloudPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final p = Paint()
-      ..color = color
-      ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke;
+    final p =
+        Paint()
+          ..color = color
+          ..strokeWidth = 1.5
+          ..style = PaintingStyle.stroke;
     final s = size.width;
-    final cloud = Path()
-      ..moveTo(s * 0.2, s * 0.65)
-      ..quadraticBezierTo(s * 0.05, s * 0.65, s * 0.1, s * 0.5)
-      ..quadraticBezierTo(s * 0.12, s * 0.32, s * 0.3, s * 0.35)
-      ..quadraticBezierTo(s * 0.35, s * 0.18, s * 0.55, s * 0.22)
-      ..quadraticBezierTo(s * 0.75, s * 0.18, s * 0.78, s * 0.38)
-      ..quadraticBezierTo(s * 0.95, s * 0.38, s * 0.9, s * 0.55)
-      ..quadraticBezierTo(s * 0.88, s * 0.65, s * 0.78, s * 0.65)
-      ..close();
+    final cloud =
+        Path()
+          ..moveTo(s * 0.2, s * 0.65)
+          ..quadraticBezierTo(s * 0.05, s * 0.65, s * 0.1, s * 0.5)
+          ..quadraticBezierTo(s * 0.12, s * 0.32, s * 0.3, s * 0.35)
+          ..quadraticBezierTo(s * 0.35, s * 0.18, s * 0.55, s * 0.22)
+          ..quadraticBezierTo(s * 0.75, s * 0.18, s * 0.78, s * 0.38)
+          ..quadraticBezierTo(s * 0.95, s * 0.38, s * 0.9, s * 0.55)
+          ..quadraticBezierTo(s * 0.88, s * 0.65, s * 0.78, s * 0.65)
+          ..close();
     canvas.drawPath(cloud, p);
   }
 
@@ -697,16 +737,18 @@ class _HeartPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final p = Paint()
-      ..color = color
-      ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke
-      ..strokeJoin = StrokeJoin.round;
+    final p =
+        Paint()
+          ..color = color
+          ..strokeWidth = 1.5
+          ..style = PaintingStyle.stroke
+          ..strokeJoin = StrokeJoin.round;
     final s = size.width;
-    final heart = Path()
-      ..moveTo(s * 0.5, s * 0.85)
-      ..cubicTo(s * 0.05, s * 0.55, s * 0.05, s * 0.2, s * 0.5, s * 0.3)
-      ..cubicTo(s * 0.95, s * 0.2, s * 0.95, s * 0.55, s * 0.5, s * 0.85);
+    final heart =
+        Path()
+          ..moveTo(s * 0.5, s * 0.85)
+          ..cubicTo(s * 0.05, s * 0.55, s * 0.05, s * 0.2, s * 0.5, s * 0.3)
+          ..cubicTo(s * 0.95, s * 0.2, s * 0.95, s * 0.55, s * 0.5, s * 0.85);
     canvas.drawPath(heart, p);
   }
 
@@ -720,30 +762,31 @@ class _HugPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final p = Paint()
-      ..color = color
-      ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
+    final p =
+        Paint()
+          ..color = color
+          ..strokeWidth = 1.5
+          ..style = PaintingStyle.stroke
+          ..strokeCap = StrokeCap.round;
     final s = size.width;
     // Head
     canvas.drawCircle(Offset(s * 0.5, s * 0.22), s * 0.14, p);
     // Body
     canvas.drawLine(Offset(s * 0.5, s * 0.36), Offset(s * 0.5, s * 0.7), p);
     // Arms reaching out/around
-    final leftArm = Path()
-      ..moveTo(s * 0.5, s * 0.45)
-      ..quadraticBezierTo(s * 0.15, s * 0.42, s * 0.2, s * 0.6);
+    final leftArm =
+        Path()
+          ..moveTo(s * 0.5, s * 0.45)
+          ..quadraticBezierTo(s * 0.15, s * 0.42, s * 0.2, s * 0.6);
     canvas.drawPath(leftArm, p);
-    final rightArm = Path()
-      ..moveTo(s * 0.5, s * 0.45)
-      ..quadraticBezierTo(s * 0.85, s * 0.42, s * 0.8, s * 0.6);
+    final rightArm =
+        Path()
+          ..moveTo(s * 0.5, s * 0.45)
+          ..quadraticBezierTo(s * 0.85, s * 0.42, s * 0.8, s * 0.6);
     canvas.drawPath(rightArm, p);
     // Legs
-    canvas.drawLine(
-        Offset(s * 0.5, s * 0.7), Offset(s * 0.35, s * 0.9), p);
-    canvas.drawLine(
-        Offset(s * 0.5, s * 0.7), Offset(s * 0.65, s * 0.9), p);
+    canvas.drawLine(Offset(s * 0.5, s * 0.7), Offset(s * 0.35, s * 0.9), p);
+    canvas.drawLine(Offset(s * 0.5, s * 0.7), Offset(s * 0.65, s * 0.9), p);
   }
 
   @override
@@ -756,11 +799,12 @@ class _StarPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final p = Paint()
-      ..color = color
-      ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke
-      ..strokeJoin = StrokeJoin.round;
+    final p =
+        Paint()
+          ..color = color
+          ..strokeWidth = 1.5
+          ..style = PaintingStyle.stroke
+          ..strokeJoin = StrokeJoin.round;
     final s = size.width;
     final center = Offset(s * 0.5, s * 0.5);
     final outer = s * 0.4;
@@ -794,10 +838,11 @@ class _RitualPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final p = Paint()
-      ..color = color
-      ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke;
+    final p =
+        Paint()
+          ..color = color
+          ..strokeWidth = 1.5
+          ..style = PaintingStyle.stroke;
     final s = size.width;
     final center = Offset(s * 0.5, s * 0.5);
     canvas.drawCircle(center, s * 0.12, p);
@@ -806,10 +851,14 @@ class _RitualPainter extends CustomPainter {
     for (int i = 0; i < 8; i++) {
       final angle = (i * 45) * pi / 180;
       canvas.drawLine(
-        Offset(center.dx + cos(angle) * s * 0.3,
-            center.dy + sin(angle) * s * 0.3),
-        Offset(center.dx + cos(angle) * s * 0.42,
-            center.dy + sin(angle) * s * 0.42),
+        Offset(
+          center.dx + cos(angle) * s * 0.3,
+          center.dy + sin(angle) * s * 0.3,
+        ),
+        Offset(
+          center.dx + cos(angle) * s * 0.42,
+          center.dy + sin(angle) * s * 0.42,
+        ),
         p,
       );
     }
@@ -825,26 +874,29 @@ class _BookPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final p = Paint()
-      ..color = color
-      ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
+    final p =
+        Paint()
+          ..color = color
+          ..strokeWidth = 1.5
+          ..style = PaintingStyle.stroke
+          ..strokeCap = StrokeCap.round
+          ..strokeJoin = StrokeJoin.round;
     final s = size.width;
     // Left page
-    final left = Path()
-      ..moveTo(s * 0.5, s * 0.25)
-      ..quadraticBezierTo(s * 0.3, s * 0.2, s * 0.1, s * 0.22)
-      ..lineTo(s * 0.1, s * 0.78)
-      ..quadraticBezierTo(s * 0.3, s * 0.76, s * 0.5, s * 0.8);
+    final left =
+        Path()
+          ..moveTo(s * 0.5, s * 0.25)
+          ..quadraticBezierTo(s * 0.3, s * 0.2, s * 0.1, s * 0.22)
+          ..lineTo(s * 0.1, s * 0.78)
+          ..quadraticBezierTo(s * 0.3, s * 0.76, s * 0.5, s * 0.8);
     canvas.drawPath(left, p);
     // Right page
-    final right = Path()
-      ..moveTo(s * 0.5, s * 0.25)
-      ..quadraticBezierTo(s * 0.7, s * 0.2, s * 0.9, s * 0.22)
-      ..lineTo(s * 0.9, s * 0.78)
-      ..quadraticBezierTo(s * 0.7, s * 0.76, s * 0.5, s * 0.8);
+    final right =
+        Path()
+          ..moveTo(s * 0.5, s * 0.25)
+          ..quadraticBezierTo(s * 0.7, s * 0.2, s * 0.9, s * 0.22)
+          ..lineTo(s * 0.9, s * 0.78)
+          ..quadraticBezierTo(s * 0.7, s * 0.76, s * 0.5, s * 0.8);
     canvas.drawPath(right, p);
     // Spine
     canvas.drawLine(Offset(s * 0.5, s * 0.25), Offset(s * 0.5, s * 0.8), p);
@@ -860,11 +912,12 @@ class _PenPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final p = Paint()
-      ..color = color
-      ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
+    final p =
+        Paint()
+          ..color = color
+          ..strokeWidth = 1.5
+          ..style = PaintingStyle.stroke
+          ..strokeCap = StrokeCap.round;
     final s = size.width;
     // Pen body (diagonal)
     canvas.drawLine(Offset(s * 0.7, s * 0.15), Offset(s * 0.2, s * 0.65), p);
@@ -886,12 +939,13 @@ class _CheckPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final p = Paint()
-      ..color = color
-      ..strokeWidth = 2
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
+    final p =
+        Paint()
+          ..color = color
+          ..strokeWidth = 2
+          ..style = PaintingStyle.stroke
+          ..strokeCap = StrokeCap.round
+          ..strokeJoin = StrokeJoin.round;
     final s = size.width;
     canvas.drawLine(Offset(s * 0.2, s * 0.5), Offset(s * 0.4, s * 0.72), p);
     canvas.drawLine(Offset(s * 0.4, s * 0.72), Offset(s * 0.8, s * 0.28), p);
@@ -907,11 +961,12 @@ class _ClosePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final p = Paint()
-      ..color = color
-      ..strokeWidth = 1.8
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
+    final p =
+        Paint()
+          ..color = color
+          ..strokeWidth = 1.8
+          ..style = PaintingStyle.stroke
+          ..strokeCap = StrokeCap.round;
     final s = size.width;
     canvas.drawLine(Offset(s * 0.25, s * 0.25), Offset(s * 0.75, s * 0.75), p);
     canvas.drawLine(Offset(s * 0.75, s * 0.25), Offset(s * 0.25, s * 0.75), p);
@@ -927,11 +982,12 @@ class _PlusPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final p = Paint()
-      ..color = color
-      ..strokeWidth = 2
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
+    final p =
+        Paint()
+          ..color = color
+          ..strokeWidth = 2
+          ..style = PaintingStyle.stroke
+          ..strokeCap = StrokeCap.round;
     final s = size.width;
     canvas.drawLine(Offset(s * 0.5, s * 0.2), Offset(s * 0.5, s * 0.8), p);
     canvas.drawLine(Offset(s * 0.2, s * 0.5), Offset(s * 0.8, s * 0.5), p);
@@ -947,11 +1003,12 @@ class _RefreshPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final p = Paint()
-      ..color = color
-      ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
+    final p =
+        Paint()
+          ..color = color
+          ..strokeWidth = 1.5
+          ..style = PaintingStyle.stroke
+          ..strokeCap = StrokeCap.round;
     final s = size.width;
     canvas.drawArc(
       Rect.fromCircle(center: Offset(s * 0.5, s * 0.5), radius: s * 0.3),
@@ -961,11 +1018,12 @@ class _RefreshPainter extends CustomPainter {
       p,
     );
     // Arrow head
-    final arrow = Path()
-      ..moveTo(s * 0.5, s * 0.15)
-      ..lineTo(s * 0.62, s * 0.25)
-      ..moveTo(s * 0.5, s * 0.15)
-      ..lineTo(s * 0.38, s * 0.25);
+    final arrow =
+        Path()
+          ..moveTo(s * 0.5, s * 0.15)
+          ..lineTo(s * 0.62, s * 0.25)
+          ..moveTo(s * 0.5, s * 0.15)
+          ..lineTo(s * 0.38, s * 0.25);
     canvas.drawPath(arrow, p);
   }
 
@@ -979,12 +1037,13 @@ class _ChevRightPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final p = Paint()
-      ..color = color
-      ..strokeWidth = 2
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
+    final p =
+        Paint()
+          ..color = color
+          ..strokeWidth = 2
+          ..style = PaintingStyle.stroke
+          ..strokeCap = StrokeCap.round
+          ..strokeJoin = StrokeJoin.round;
     final s = size.width;
     canvas.drawLine(Offset(s * 0.35, s * 0.2), Offset(s * 0.65, s * 0.5), p);
     canvas.drawLine(Offset(s * 0.65, s * 0.5), Offset(s * 0.35, s * 0.8), p);
@@ -1000,13 +1059,15 @@ class _SharePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final p = Paint()
-      ..color = color
-      ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke;
-    final dp = Paint()
-      ..color = color
-      ..style = PaintingStyle.fill;
+    final p =
+        Paint()
+          ..color = color
+          ..strokeWidth = 1.5
+          ..style = PaintingStyle.stroke;
+    final dp =
+        Paint()
+          ..color = color
+          ..style = PaintingStyle.fill;
     final s = size.width;
     // Three nodes
     canvas.drawCircle(Offset(s * 0.75, s * 0.2), s * 0.1, p);
@@ -1016,10 +1077,8 @@ class _SharePainter extends CustomPainter {
     canvas.drawCircle(Offset(s * 0.25, s * 0.5), s * 0.04, dp);
     canvas.drawCircle(Offset(s * 0.75, s * 0.8), s * 0.04, dp);
     // Lines
-    canvas.drawLine(
-        Offset(s * 0.35, s * 0.45), Offset(s * 0.65, s * 0.25), p);
-    canvas.drawLine(
-        Offset(s * 0.35, s * 0.55), Offset(s * 0.65, s * 0.75), p);
+    canvas.drawLine(Offset(s * 0.35, s * 0.45), Offset(s * 0.65, s * 0.25), p);
+    canvas.drawLine(Offset(s * 0.35, s * 0.55), Offset(s * 0.65, s * 0.75), p);
   }
 
   @override
@@ -1032,11 +1091,12 @@ class _LetterPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final p = Paint()
-      ..color = color
-      ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke
-      ..strokeJoin = StrokeJoin.round;
+    final p =
+        Paint()
+          ..color = color
+          ..strokeWidth = 1.5
+          ..style = PaintingStyle.stroke
+          ..strokeJoin = StrokeJoin.round;
     final s = size.width;
     // Envelope
     final env = RRect.fromRectAndRadius(
@@ -1060,21 +1120,29 @@ class _Moon2Painter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final s = size.width;
-    final p = Paint()
-      ..color = color
-      ..style = PaintingStyle.fill;
-    final path = Path()
-      ..addArc(
-        Rect.fromCircle(center: Offset(s * 0.45, s * 0.5), radius: s * 0.35),
-        -pi / 2,
-        pi,
-      )
-      ..arcTo(
-        Rect.fromCircle(center: Offset(s * 0.55, s * 0.5), radius: s * 0.25),
-        pi / 2,
-        -pi,
-        false,
-      );
+    final p =
+        Paint()
+          ..color = color
+          ..style = PaintingStyle.fill;
+    final path =
+        Path()
+          ..addArc(
+            Rect.fromCircle(
+              center: Offset(s * 0.45, s * 0.5),
+              radius: s * 0.35,
+            ),
+            -pi / 2,
+            pi,
+          )
+          ..arcTo(
+            Rect.fromCircle(
+              center: Offset(s * 0.55, s * 0.5),
+              radius: s * 0.25,
+            ),
+            pi / 2,
+            -pi,
+            false,
+          );
     canvas.drawPath(path, p);
   }
 
@@ -1088,20 +1156,25 @@ class _Sun2Painter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final p = Paint()
-      ..color = color
-      ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke;
+    final p =
+        Paint()
+          ..color = color
+          ..strokeWidth = 1.5
+          ..style = PaintingStyle.stroke;
     final s = size.width;
     final center = Offset(s * 0.5, s * 0.5);
     canvas.drawCircle(center, s * 0.18, p);
     for (int i = 0; i < 8; i++) {
       final angle = (i * 45) * pi / 180;
       canvas.drawLine(
-        Offset(center.dx + cos(angle) * s * 0.26,
-            center.dy + sin(angle) * s * 0.26),
-        Offset(center.dx + cos(angle) * s * 0.38,
-            center.dy + sin(angle) * s * 0.38),
+        Offset(
+          center.dx + cos(angle) * s * 0.26,
+          center.dy + sin(angle) * s * 0.26,
+        ),
+        Offset(
+          center.dx + cos(angle) * s * 0.38,
+          center.dy + sin(angle) * s * 0.38,
+        ),
         p,
       );
     }
@@ -1117,11 +1190,12 @@ class _MicPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final p = Paint()
-      ..color = color
-      ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
+    final p =
+        Paint()
+          ..color = color
+          ..strokeWidth = 1.5
+          ..style = PaintingStyle.stroke
+          ..strokeCap = StrokeCap.round;
     final s = size.width;
     // Mic body
     final mic = RRect.fromRectAndRadius(
@@ -1130,10 +1204,11 @@ class _MicPainter extends CustomPainter {
     );
     canvas.drawRRect(mic, p);
     // Arc below
-    final arc = Path()
-      ..moveTo(s * 0.22, s * 0.52)
-      ..quadraticBezierTo(s * 0.22, s * 0.72, s * 0.5, s * 0.72)
-      ..quadraticBezierTo(s * 0.78, s * 0.72, s * 0.78, s * 0.52);
+    final arc =
+        Path()
+          ..moveTo(s * 0.22, s * 0.52)
+          ..quadraticBezierTo(s * 0.22, s * 0.72, s * 0.5, s * 0.72)
+          ..quadraticBezierTo(s * 0.78, s * 0.72, s * 0.78, s * 0.52);
     canvas.drawPath(arc, p);
     // Stand
     canvas.drawLine(Offset(s * 0.5, s * 0.72), Offset(s * 0.5, s * 0.88), p);
@@ -1150,11 +1225,12 @@ class _CameraPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final p = Paint()
-      ..color = color
-      ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
+    final p =
+        Paint()
+          ..color = color
+          ..strokeWidth = 1.5
+          ..style = PaintingStyle.stroke
+          ..strokeCap = StrokeCap.round;
     final s = size.width;
     // Body
     final body = RRect.fromRectAndRadius(
@@ -1163,11 +1239,12 @@ class _CameraPainter extends CustomPainter {
     );
     canvas.drawRRect(body, p);
     // Lens bump
-    final bump = Path()
-      ..moveTo(s * 0.35, s * 0.3)
-      ..lineTo(s * 0.4, s * 0.18)
-      ..lineTo(s * 0.6, s * 0.18)
-      ..lineTo(s * 0.65, s * 0.3);
+    final bump =
+        Path()
+          ..moveTo(s * 0.35, s * 0.3)
+          ..lineTo(s * 0.4, s * 0.18)
+          ..lineTo(s * 0.6, s * 0.18)
+          ..lineTo(s * 0.65, s * 0.3);
     canvas.drawPath(bump, p);
     // Lens circle
     canvas.drawCircle(Offset(s * 0.5, s * 0.55), s * 0.14, p);

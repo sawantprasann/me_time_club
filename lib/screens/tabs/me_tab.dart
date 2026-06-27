@@ -64,22 +64,26 @@ class _MeTabState extends State<MeTab> {
   }
 
   void _save() {
-    widget.onUpdateUser(widget.user.copyWith(
-      name: _name,
-      phases: _phases,
-      childCount: _childCount,
-      journey: _journey,
-      hardships: _hardships,
-      bio: _bio,
-      photo: _photo,
-    ));
+    widget.onUpdateUser(
+      widget.user.copyWith(
+        name: _name,
+        phases: _phases,
+        childCount: _childCount,
+        journey: _journey,
+        hardships: _hardships,
+        bio: _bio,
+        photo: _photo,
+      ),
+    );
     setState(() => _editing = false);
   }
 
   Future<void> _pickPhoto() async {
     final picker = ImagePicker();
-    final file =
-        await picker.pickImage(source: ImageSource.gallery, maxWidth: 400);
+    final file = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 400,
+    );
     if (file != null) {
       final bytes = await file.readAsBytes();
       setState(() => _photo = bytes);
@@ -110,12 +114,20 @@ class _MeTabState extends State<MeTab> {
           _buildChipSection(
             'Motherhood Phases',
             [
-              'expecting', 'newborn', 'baby', 'toddler', 'preschool',
-              'school_age'
+              'expecting',
+              'newborn',
+              'baby',
+              'toddler',
+              'preschool',
+              'school_age',
             ],
             [
-              'Expecting', 'Newborn (0-6m)', 'Baby (6-18m)',
-              'Toddler (18m-3y)', 'Preschool (3-5y)', 'School Age (5+)'
+              'Expecting',
+              'Newborn (0-6m)',
+              'Baby (6-18m)',
+              'Toddler (18m-3y)',
+              'Preschool (3-5y)',
+              'School Age (5+)',
             ],
             t.accent,
             _phases,
@@ -129,16 +141,27 @@ class _MeTabState extends State<MeTab> {
           ),
           if (_editing) _buildChildCount(),
           if (!_editing && _childCount > 0)
-            _sectionView('Number of Children',
-                '$_childCount ${_childCount == 1 ? 'child' : 'children'}'),
+            _sectionView(
+              'Number of Children',
+              '$_childCount ${_childCount == 1 ? 'child' : 'children'}',
+            ),
           _buildChipSection(
             'My Journey',
             [
-              'First-time mother', 'Second-time mother', 'Third time (or more)',
-              'Single mother', 'Single father', 'Co-parenting',
-              'Working mother', 'Stay-at-home mother', 'IVF / fertility journey',
-              'Loss and healing', 'Adoptive parent', 'Neurodivergent child',
-              'Postpartum recovery', 'Blended family',
+              'First-time mother',
+              'Second-time mother',
+              'Third time (or more)',
+              'Single mother',
+              'Single father',
+              'Co-parenting',
+              'Working mother',
+              'Stay-at-home mother',
+              'IVF / fertility journey',
+              'Loss and healing',
+              'Adoptive parent',
+              'Neurodivergent child',
+              'Postpartum recovery',
+              'Blended family',
             ],
             null,
             t.gold,
@@ -154,9 +177,15 @@ class _MeTabState extends State<MeTab> {
           _buildChipSection(
             'What Feels Hardest',
             [
-              'Overwhelm', 'Loneliness', 'Sleep exhaustion',
-              'Burnout', 'Mom guilt', 'Identity loss',
-              'Mental load', 'Need calm', 'Finding time for myself',
+              'Overwhelm',
+              'Loneliness',
+              'Sleep exhaustion',
+              'Burnout',
+              'Mom guilt',
+              'Identity loss',
+              'Mental load',
+              'Need calm',
+              'Finding time for myself',
             ],
             null,
             t.green,
@@ -171,8 +200,7 @@ class _MeTabState extends State<MeTab> {
           ),
           const SizedBox(height: 24),
           // Private Letters
-          Text('PRIVATE LETTERS',
-              style: AppTypography.sectionLabel(t.muted)),
+          Text('PRIVATE LETTERS', style: AppTypography.sectionLabel(t.muted)),
           const SizedBox(height: 12),
           _buildLetterCard(
             'A Letter to My Pre-Baby Self',
@@ -195,19 +223,13 @@ class _MeTabState extends State<MeTab> {
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: t.accent.withValues(alpha: 0.4),
-                  ),
+                  border: Border.all(color: t.accent.withValues(alpha: 0.4)),
                   color: t.accent.withValues(alpha: 0.05),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(
-                      Icons.logout_rounded,
-                      color: t.accent,
-                      size: 16,
-                    ),
+                    Icon(Icons.logout_rounded, color: t.accent, size: 16),
                     const SizedBox(width: 8),
                     Text(
                       'Log Out of Sanctuary',
@@ -234,18 +256,26 @@ class _MeTabState extends State<MeTab> {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(color: t.border, width: 3),
-              gradient: _photo == null
-                  ? LinearGradient(colors: [
-                      t.accent.withValues(alpha: 0.4),
-                      t.gold.withValues(alpha: 0.4),
-                    ])
-                  : null,
+              gradient:
+                  _photo == null
+                      ? LinearGradient(
+                        colors: [
+                          t.accent.withValues(alpha: 0.4),
+                          t.gold.withValues(alpha: 0.4),
+                        ],
+                      )
+                      : null,
             ),
             child: ClipOval(
-              child: _photo != null
-                  ? Image.memory(_photo!, fit: BoxFit.cover,
-                      width: 96, height: 96)
-                  : Center(child: AppIcons.me(c: t.accent, s: 42)),
+              child:
+                  _photo != null
+                      ? Image.memory(
+                        _photo!,
+                        fit: BoxFit.cover,
+                        width: 96,
+                        height: 96,
+                      )
+                      : Center(child: AppIcons.me(c: t.accent, s: 42)),
             ),
           ),
           if (_editing)
@@ -259,8 +289,7 @@ class _MeTabState extends State<MeTab> {
                   shape: BoxShape.circle,
                   color: t.accent,
                 ),
-                child: Center(
-                    child: AppIcons.camera(c: Colors.white, s: 14)),
+                child: Center(child: AppIcons.camera(c: Colors.white, s: 14)),
               ),
             ),
         ],
@@ -314,8 +343,10 @@ class _MeTabState extends State<MeTab> {
                   children: [
                     AppIcons.check(c: Colors.white, s: 16),
                     const SizedBox(width: 8),
-                    Text('Save Profile',
-                        style: AppTypography.lato700(14, Colors.white)),
+                    Text(
+                      'Save Profile',
+                      style: AppTypography.lato700(14, Colors.white),
+                    ),
                   ],
                 ),
               ),
@@ -354,8 +385,7 @@ class _MeTabState extends State<MeTab> {
           children: [
             AppIcons.pen(c: t.accent, s: 16),
             const SizedBox(width: 8),
-            Text('Edit My Profile',
-                style: AppTypography.lato700(14, t.accent)),
+            Text('Edit My Profile', style: AppTypography.lato700(14, t.accent)),
           ],
         ),
       ),
@@ -367,21 +397,21 @@ class _MeTabState extends State<MeTab> {
       'About Me',
       _editing
           ? VoiceTextArea(
-              value: _bio,
-              onChange: (v) => setState(() => _bio = v),
-              placeholder: 'Tell Chamomile about you…',
-              t: t,
-              rows: 3,
-              micSize: 34,
-            )
+            value: _bio,
+            onChange: (v) => setState(() => _bio = v),
+            placeholder: 'Tell Chamomile about you…',
+            t: t,
+            rows: 3,
+            micSize: 34,
+          )
           : Text(
-              _bio.isEmpty ? 'Not shared yet.' : _bio,
-              style: AppTypography.cormorantItalic(
-                16,
-                _bio.isEmpty ? t.muted : t.text,
-                height: 1.6,
-              ),
+            _bio.isEmpty ? 'Not shared yet.' : _bio,
+            style: AppTypography.cormorantItalic(
+              16,
+              _bio.isEmpty ? t.muted : t.text,
+              height: 1.6,
             ),
+          ),
     );
   }
 
@@ -397,19 +427,23 @@ class _MeTabState extends State<MeTab> {
       return _sectionWrapper(
         title,
         Wrap(
-          children: allOptions.asMap().entries.map((e) {
-            final val = e.value;
-            final label = displayLabels?[e.key] ?? val;
-            final id = displayLabels != null ? val.split(' ')[0].toLowerCase() : val;
-            final sel = selected.contains(id);
-            return ChipButton(
-              label: label,
-              selected: sel,
-              onTap: () => onToggle(id),
-              color: color,
-              t: t,
-            );
-          }).toList(),
+          children:
+              allOptions.asMap().entries.map((e) {
+                final val = e.value;
+                final label = displayLabels?[e.key] ?? val;
+                final id =
+                    displayLabels != null
+                        ? val.split(' ')[0].toLowerCase()
+                        : val;
+                final sel = selected.contains(id);
+                return ChipButton(
+                  label: label,
+                  selected: sel,
+                  onTap: () => onToggle(id),
+                  color: color,
+                  t: t,
+                );
+              }).toList(),
         ),
       );
     }
@@ -420,18 +454,22 @@ class _MeTabState extends State<MeTab> {
     return _sectionWrapper(
       title,
       Wrap(
-        children: selected.map((s) {
-          return Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            margin: const EdgeInsets.only(right: 6, bottom: 6),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: color.withValues(alpha: 0.3)),
-            ),
-            child: Text(s, style: AppTypography.lato400(12, color)),
-          );
-        }).toList(),
+        children:
+            selected.map((s) {
+              return Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                margin: const EdgeInsets.only(right: 6, bottom: 6),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: color.withValues(alpha: 0.3)),
+                ),
+                child: Text(s, style: AppTypography.lato400(12, color)),
+              );
+            }).toList(),
       ),
     );
   }
@@ -447,8 +485,10 @@ class _MeTabState extends State<MeTab> {
           }),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Text('$_childCount',
-                style: AppTypography.playfair(30, t.text)),
+            child: Text(
+              '$_childCount',
+              style: AppTypography.playfair(30, t.text),
+            ),
           ),
           _stepperBtn('+', () => setState(() => _childCount++)),
         ],
@@ -491,8 +531,10 @@ class _MeTabState extends State<MeTab> {
                 ),
               ),
               const SizedBox(width: 8),
-              Text(title.toUpperCase(),
-                  style: AppTypography.sectionLabel(t.muted)),
+              Text(
+                title.toUpperCase(),
+                style: AppTypography.sectionLabel(t.muted),
+              ),
             ],
           ),
           const SizedBox(height: 10),
@@ -554,12 +596,14 @@ class _MeTabState extends State<MeTab> {
   // ─── Letter Editor ───────────────────────────────
   Widget _buildLetterEditor() {
     final isPreBaby = _activeLetter == 'pre';
-    final title = isPreBaby
-        ? 'A Letter to My Pre-Baby Self'
-        : 'A Letter to My Future Self';
-    final subtitle = isPreBaby
-        ? 'What would you tell yourself before everything changed?'
-        : 'What do you want to remember when this season passes?';
+    final title =
+        isPreBaby
+            ? 'A Letter to My Pre-Baby Self'
+            : 'A Letter to My Future Self';
+    final subtitle =
+        isPreBaby
+            ? 'What would you tell yourself before everything changed?'
+            : 'What do you want to remember when this season passes?';
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(18, 10, 18, 90),
@@ -584,14 +628,12 @@ class _MeTabState extends State<MeTab> {
           const SizedBox(height: 20),
           Text(title, style: AppTypography.playfair(20, t.text)),
           const SizedBox(height: 4),
-          Text(subtitle,
-              style: AppTypography.cormorantItalic(15, t.muted)),
+          Text(subtitle, style: AppTypography.cormorantItalic(15, t.muted)),
           const SizedBox(height: 18),
           Expanded(
             child: VoiceTextArea(
               value: _letters[_activeLetter!]!,
-              onChange: (v) =>
-                  setState(() => _letters[_activeLetter!] = v),
+              onChange: (v) => setState(() => _letters[_activeLetter!] = v),
               placeholder: 'Dear me…',
               t: t,
               rows: 14,
