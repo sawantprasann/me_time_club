@@ -68,6 +68,7 @@ class _HomeTabState extends State<HomeTab> {
   }
 
   void _generate() async {
+    FocusManager.instance.primaryFocus?.unfocus();
     setState(() => _loading = true);
     try {
       final result = await ApiService.generateDailyPage(
@@ -120,28 +121,30 @@ class _HomeTabState extends State<HomeTab> {
           // Date header
           _buildDateHeader(),
           const SizedBox(height: 20),
-          // Mood selector
-          _buildMoodSelector(),
-          const SizedBox(height: 16),
-          // Free text box
-          _buildFreeTextBox(),
-          const SizedBox(height: 4),
-          Center(
-            child: Text(
-              'Tap the mic — one hand is enough ✦',
-              style: AppTypography.lato400(11, t.muted),
+          if (_page == null) ...[
+            // Mood selector
+            _buildMoodSelector(),
+            const SizedBox(height: 16),
+            // Free text box
+            _buildFreeTextBox(),
+            const SizedBox(height: 4),
+            Center(
+              child: Text(
+                'Tap the mic — one hand is enough ✦',
+                style: AppTypography.lato400(11, t.muted),
+              ),
             ),
-          ),
-          // Open Daily Page button
-          CTAButton(
-            label: 'Open My Daily Page',
-            loading: _loading,
-            disabled: _loading,
-            onTap: _generate,
-            t: t,
-            icon: AppIcons.bloom(c: Colors.white, s: 20),
-          ),
-          const SizedBox(height: 24),
+            // Open Daily Page button
+            CTAButton(
+              label: 'Open My Daily Page',
+              loading: _loading,
+              disabled: _loading,
+              onTap: _generate,
+              t: t,
+              icon: AppIcons.bloom(c: Colors.white, s: 20),
+            ),
+            const SizedBox(height: 24),
+          ],
           // Daily page content
           if (_page != null) ...[
             if (_fromFallback)
