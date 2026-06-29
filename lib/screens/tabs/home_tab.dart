@@ -41,30 +41,15 @@ class _HomeTabState extends State<HomeTab> {
 
   String get _dateString {
     final now = DateTime.now();
-    final days = [
-      'MONDAY',
-      'TUESDAY',
-      'WEDNESDAY',
-      'THURSDAY',
-      'FRIDAY',
-      'SATURDAY',
-      'SUNDAY',
+    const days = [
+      'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY',
+      'FRIDAY', 'SATURDAY', 'SUNDAY',
     ];
-    final months = [
-      'JANUARY',
-      'FEBRUARY',
-      'MARCH',
-      'APRIL',
-      'MAY',
-      'JUNE',
-      'JULY',
-      'AUGUST',
-      'SEPTEMBER',
-      'OCTOBER',
-      'NOVEMBER',
-      'DECEMBER',
+    const months = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December',
     ];
-    return '${days[now.weekday - 1]}  ${now.day}  ${months[now.month - 1]}';
+    return '${days[now.weekday - 1]}  ·  ${now.day} ${months[now.month - 1]}';
   }
 
   void _generate() async {
@@ -76,7 +61,6 @@ class _HomeTabState extends State<HomeTab> {
         mood: _mood,
         freeText: _freeText,
       );
-
       if (mounted) {
         setState(() {
           _page = result['content'] as DailyPageContent;
@@ -87,7 +71,6 @@ class _HomeTabState extends State<HomeTab> {
       }
     } catch (e) {
       debugPrint('[CHAMOMILE API ERROR] $e');
-      // On backend error or network timeout, silently load from offline fallback database
       final phase =
           widget.user.phases.isNotEmpty ? widget.user.phases.first : 'baby';
       final page = getFallback(phase);
@@ -114,162 +97,310 @@ class _HomeTabState extends State<HomeTab> {
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(18, 10, 18, 90),
+      padding: const EdgeInsets.only(bottom: 100),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Date header
+          // ── Rich date + greeting header
           _buildDateHeader(),
-          const SizedBox(height: 20),
-          if (_page == null) ...[
-            // Mood selector
-            _buildMoodSelector(),
-            const SizedBox(height: 16),
-            // Free text box
-            _buildFreeTextBox(),
-            const SizedBox(height: 4),
-            Center(
-              child: Text(
-                'Tap the mic — one hand is enough ✦',
-                style: AppTypography.lato400(11, t.muted),
-              ),
-            ),
-            // Open Daily Page button
-            CTAButton(
-              label: 'Open My Daily Page',
-              loading: _loading,
-              disabled: _loading,
-              onTap: _generate,
-              t: t,
-              icon: AppIcons.bloom(c: Colors.white, s: 20),
-            ),
-            const SizedBox(height: 24),
-          ],
-          // Daily page content
-          if (_page != null) ...[
-            if (_fromFallback)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Text(
-                  '✦ From our library',
-                  style: AppTypography.lato400(10, t.muted),
-                ),
-              ),
-            _DailyPageView(page: _page!, t: t, mood: _mood),
-            const SizedBox(height: 8),
-            DailyPageFeedback(
-              user: widget.user,
-              page: _page!,
-              t: t,
-              mood: _mood,
-            ),
-            const SizedBox(height: 16),
-            // New check-in button
-            Center(
-              child: GestureDetector(
-                onTap: _newCheckIn,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 18,
-                    vertical: 10,
-                  ),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: t.border),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      AppIcons.refresh(c: t.muted, s: 14),
-                      const SizedBox(width: 8),
-                      Text(
-                        'New check-in',
-                        style: AppTypography.lato400(13, t.muted),
+
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 24),
+
+                if (_page == null) ...[
+                  _buildCheckinSection(),
+                ],
+
+                if (_page != null) ...[
+                  if (_fromFallback)
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 16),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 7,
                       ),
-                    ],
+                      decoration: BoxDecoration(
+                        color: t.gold.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: t.gold.withValues(alpha: 0.2),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.auto_stories_outlined,
+                            color: t.gold,
+                            size: 14,
+                          ),
+                          const SizedBox(width: 7),
+                          Text(
+                            'From our library',
+                            style: AppTypography.lato400(12, t.gold),
+                          ),
+                        ],
+                      ),
+                    ),
+                  _DailyPageView(page: _page!, t: t, mood: _mood),
+                  const SizedBox(height: 8),
+                  DailyPageFeedback(
+                    user: widget.user,
+                    page: _page!,
+                    t: t,
+                    mood: _mood,
                   ),
-                ),
-              ),
+                  const SizedBox(height: 20),
+                  // New check-in
+                  Center(
+                    child: GestureDetector(
+                      onTap: _newCheckIn,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 22,
+                          vertical: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(30),
+                          border: Border.all(color: t.border),
+                          color: t.card,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            AppIcons.refresh(c: t.muted, s: 15),
+                            const SizedBox(width: 8),
+                            Text(
+                              'New check-in',
+                              style: AppTypography.lato400(14, t.muted),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
             ),
-          ],
+          ),
         ],
       ),
     );
   }
 
+  // ── Rich gradient header ─────────────────────────────────────────────────
   Widget _buildDateHeader() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 22),
       decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: t.border)),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            t.accent.withValues(alpha: 0.12),
+            t.gold.withValues(alpha: 0.07),
+            t.bg,
+          ],
+        ),
+        border: Border(
+          bottom: BorderSide(color: t.border),
+        ),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            _dateString,
-            style: AppTypography.lato700(10, t.muted, letterSpacing: 2.2),
-            textAlign: TextAlign.center,
+          // Date chip
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: t.accent.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(
+              _dateString,
+              style: AppTypography.lato700(
+                10,
+                t.accent,
+                letterSpacing: 1.5,
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          // Greeting
+          RichText(
+            text: TextSpan(
+              style: AppTypography.playfair(28, t.text),
+              children: [
+                TextSpan(text: '$_greeting, '),
+                TextSpan(
+                  text: '${widget.user.name}.',
+                  style: AppTypography.playfair(28, t.accent),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 4),
           Text(
-            '$_greeting, ${widget.user.name}.',
-            style: AppTypography.cormorantItalic(19, t.accent),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMoodSelector() {
-    return SizedBox(
-      width: double.infinity,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Text(
-            'How are you arriving today?',
+            'Your sanctuary is ready.',
             style: AppTypography.cormorantItalic(16, t.muted),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            alignment: WrapAlignment.center,
-            runAlignment: WrapAlignment.center,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children:
-                moodOptions.map((m) {
-                  final sel = _mood == m.id;
-                  return ChipButton(
-                    label: m.label,
-                    selected: sel,
-                    onTap: () => setState(() => _mood = sel ? null : m.id),
-                    color: m.color,
-                    t: t,
-                    iconBuilder: m.icon,
-                  );
-                }).toList(),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildFreeTextBox() {
-    return VoiceTextArea(
-      value: _freeText,
-      onChange: (v) => setState(() => _freeText = v),
-      placeholder:
-          'Or tell Chamomile how you\'re really feeling… type or speak.',
-      t: t,
-      rows: 3,
+  // ── Check-in section (mood + text + generate) ─────────────────────────────
+  Widget _buildCheckinSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Section label
+        Text(
+          'HOW ARE YOU ARRIVING TODAY?',
+          style: AppTypography.sectionLabel(t.muted),
+        ),
+        const SizedBox(height: 14),
+
+        // Mood chips — 2 per row via Wrap
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: moodOptions.map((m) {
+            final sel = _mood == m.id;
+            return GestureDetector(
+              onTap: () => setState(() => _mood = sel ? null : m.id),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color: sel ? m.color.withValues(alpha: 0.14) : t.card,
+                  borderRadius: BorderRadius.circular(30),
+                  border: Border.all(
+                    color: sel ? m.color : t.border,
+                    width: sel ? 1.5 : 1,
+                  ),
+                  boxShadow: sel
+                      ? []
+                      : [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.04),
+                            blurRadius: 4,
+                            offset: const Offset(0, 1),
+                          ),
+                        ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    m.icon(
+                      c: sel ? m.color : t.muted,
+                      s: 15,
+                    ),
+                    const SizedBox(width: 7),
+                    Text(
+                      m.label,
+                      style: TextStyle(
+                        fontFamily: 'Lato',
+                        fontSize: 13.5,
+                        fontWeight:
+                            sel ? FontWeight.w600 : FontWeight.w400,
+                        color: sel ? m.color : t.muted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+
+        const SizedBox(height: 20),
+
+        // Text area
+        VoiceTextArea(
+          value: _freeText,
+          onChange: (v) => setState(() => _freeText = v),
+          placeholder:
+              'Or tell Chamomile how you\'re really feeling… type or speak.',
+          t: t,
+          rows: 3,
+        ),
+        const SizedBox(height: 6),
+        Center(
+          child: Text(
+            'Tap the mic — one hand is enough ✦',
+            style: AppTypography.lato300(11, t.muted),
+          ),
+        ),
+        const SizedBox(height: 22),
+
+        // Generate CTA — gradient button
+        GestureDetector(
+          onTap: _loading ? null : _generate,
+          child: AnimatedOpacity(
+            opacity: _loading ? 0.7 : 1.0,
+            duration: const Duration(milliseconds: 200),
+            child: Container(
+              width: double.infinity,
+              height: 56,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                gradient: LinearGradient(
+                  colors: [t.accent, t.gold],
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: t.accent.withValues(alpha: 0.3),
+                    blurRadius: 20,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (_loading) ...[
+                    const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2.5,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Preparing your page…',
+                      style: AppTypography.lato400(15, Colors.white),
+                    ),
+                  ] else ...[
+                    AppIcons.bloom(c: Colors.white, s: 20),
+                    const SizedBox(width: 10),
+                    Text(
+                      'Open My Daily Page',
+                      style: AppTypography.playfair(17, Colors.white),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 28),
+      ],
     );
   }
 }
 
-/// Renders all 9 sections of a Chamomile daily page
+// ─── Daily page sections renderer ─────────────────────────────────────────────
 class _DailyPageView extends StatelessWidget {
   final DailyPageContent page;
   final AppTokens t;
@@ -281,7 +412,7 @@ class _DailyPageView extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        // 1. Opening Thought — gradient card
+        // 1. Opening Thought
         _buildOpeningThought(),
         const SizedBox(height: 14),
         // 2. Reflection
@@ -300,10 +431,8 @@ class _DailyPageView extends StatelessWidget {
               const SizedBox(height: 10),
               Text(
                 page.reflectionFollowup,
-                style: AppTypography.lato400(
-                  12,
-                  t.muted,
-                ).copyWith(fontStyle: FontStyle.italic),
+                style: AppTypography.lato400(12, t.muted)
+                    .copyWith(fontStyle: FontStyle.italic),
               ),
             ],
           ),
@@ -347,7 +476,7 @@ class _DailyPageView extends StatelessWidget {
             style: AppTypography.lato400(15, t.text, height: 1.6),
           ),
         ),
-        // 5. Micro Ritual — gradient card
+        // 5. Micro Ritual
         _buildMicroRitual(),
         const SizedBox(height: 14),
         // 6. Gentle Read
@@ -364,7 +493,7 @@ class _DailyPageView extends StatelessWidget {
         // 7. Fun Moment
         _buildFunMoment(),
         const SizedBox(height: 14),
-        // 8. Night Reflection — dark card
+        // 8. Night Reflection
         _buildNightReflection(),
       ],
     );
@@ -373,21 +502,29 @@ class _DailyPageView extends StatelessWidget {
   Widget _buildOpeningThought() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(22),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(20),
         gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
           colors: [
-            t.accent.withValues(alpha: 0.18),
-            t.gold.withValues(alpha: 0.1),
+            t.accent.withValues(alpha: 0.15),
+            t.gold.withValues(alpha: 0.08),
           ],
         ),
         border: Border.all(color: t.accent.withValues(alpha: 0.2)),
       ),
-      child: Text(
-        '❝ ${page.openingThought} ❞',
-        style: AppTypography.dmSerifItalic(19, t.accent, height: 1.5),
-        textAlign: TextAlign.center,
+      child: Column(
+        children: [
+          Icon(Icons.format_quote_rounded, color: t.accent.withValues(alpha: 0.4), size: 28),
+          const SizedBox(height: 8),
+          Text(
+            page.openingThought,
+            style: AppTypography.dmSerifItalic(19, t.accent, height: 1.55),
+            textAlign: TextAlign.center,
+          ),
+        ],
       ),
     );
   }
@@ -395,11 +532,11 @@ class _DailyPageView extends StatelessWidget {
   Widget _buildMicroRitual() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(18),
-        color: t.gold.withValues(alpha: 0.14),
-        border: Border.all(color: t.gold.withValues(alpha: 0.25)),
+        color: t.gold.withValues(alpha: 0.1),
+        border: Border.all(color: t.gold.withValues(alpha: 0.22)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -414,7 +551,7 @@ class _DailyPageView extends StatelessWidget {
           const SizedBox(height: 12),
           Text(
             page.microSkill,
-            style: AppTypography.cormorantItalic(15, t.text, height: 1.6),
+            style: AppTypography.cormorantItalic(16, t.text, height: 1.6),
           ),
         ],
       ),
@@ -426,7 +563,7 @@ class _DailyPageView extends StatelessWidget {
       t: t,
       child: Column(
         children: [
-          AppIcons.bloom(c: t.accent, s: 28),
+          AppIcons.bloom(c: t.accent, s: 26),
           const SizedBox(height: 12),
           Text(
             page.funMoment,
@@ -441,11 +578,13 @@ class _DailyPageView extends StatelessWidget {
   Widget _buildNightReflection() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(22),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(20),
         gradient: const LinearGradient(
-          colors: [Color(0xFF2C2825), Color(0xFF1E1C1A)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF2C2825), Color(0xFF1A1614)],
         ),
         border: Border.all(color: const Color(0xFF302C28)),
       ),
@@ -463,7 +602,7 @@ class _DailyPageView extends StatelessWidget {
             style: AppTypography.dmSerifItalic(
               19,
               const Color(0xFFF0EBE3),
-              height: 1.5,
+              height: 1.55,
             ),
             textAlign: TextAlign.center,
           ),
@@ -483,6 +622,7 @@ class _DailyPageView extends StatelessWidget {
   }
 }
 
+// ─── Feedback widget ──────────────────────────────────────────────────────────
 class DailyPageFeedback extends StatefulWidget {
   final UserProfile user;
   final DailyPageContent page;
@@ -508,10 +648,7 @@ class _DailyPageFeedbackState extends State<DailyPageFeedback> {
   String _comment = '';
 
   void _submitFeedback(String vote, {String? comment}) async {
-    setState(() {
-      _submitting = true;
-    });
-
+    setState(() => _submitting = true);
     try {
       await ApiService.submitFeedback(
         token: widget.user.token ?? '',
@@ -538,12 +675,12 @@ class _DailyPageFeedbackState extends State<DailyPageFeedback> {
     final t = widget.t;
 
     if (_submitted) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 20),
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        child: Center(
           child: Text(
             'Thank you for helping Chamomile learn. ✦',
-            style: AppTypography.cormorantItalic(14, t.muted),
+            style: AppTypography.cormorantItalic(15, t.muted),
           ),
         ),
       );
@@ -552,7 +689,7 @@ class _DailyPageFeedbackState extends State<DailyPageFeedback> {
     if (_vote == 'down') {
       return Container(
         margin: const EdgeInsets.symmetric(vertical: 14),
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
           color: t.card,
           borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
@@ -564,24 +701,25 @@ class _DailyPageFeedbackState extends State<DailyPageFeedback> {
           children: [
             Text(
               'What missed?',
-              style: AppTypography.cormorantItalic(15, t.accent),
+              style: AppTypography.cormorantItalic(16, t.accent),
             ),
             const SizedBox(height: 10),
             VoiceTextArea(
               value: _comment,
               onChange: (v) => setState(() => _comment = v),
               placeholder:
-                  'Tell Chamomile what didn\'t resonate… type or speak.',
+                  "Tell Chamomile what didn't resonate… type or speak.",
               t: t,
               rows: 2,
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 TextButton(
-                  onPressed:
-                      _submitting ? null : () => setState(() => _vote = null),
+                  onPressed: _submitting
+                      ? null
+                      : () => setState(() => _vote = null),
                   child: Text(
                     'Cancel',
                     style: AppTypography.lato400(13, t.muted),
@@ -589,35 +727,31 @@ class _DailyPageFeedbackState extends State<DailyPageFeedback> {
                 ),
                 const SizedBox(width: 8),
                 GestureDetector(
-                  onTap:
-                      _submitting
-                          ? null
-                          : () => _submitFeedback('down', comment: _comment),
+                  onTap: _submitting
+                      ? null
+                      : () => _submitFeedback('down', comment: _comment),
                   child: Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
+                      horizontal: 18,
+                      vertical: 9,
                     ),
                     decoration: BoxDecoration(
                       color: t.accent,
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child:
-                        _submitting
-                            ? const SizedBox(
-                              width: 14,
-                              height: 14,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  Colors.white,
-                                ),
-                              ),
-                            )
-                            : Text(
-                              'Submit',
-                              style: AppTypography.lato700(13, Colors.white),
+                    child: _submitting
+                        ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
                             ),
+                          )
+                        : Text(
+                            'Submit',
+                            style: AppTypography.lato700(13, Colors.white),
+                          ),
                   ),
                 ),
               ],
@@ -627,9 +761,10 @@ class _DailyPageFeedbackState extends State<DailyPageFeedback> {
       );
     }
 
+    // Default: thumb up/down row
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 14),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
       decoration: BoxDecoration(
         color: t.card,
         borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
@@ -639,15 +774,14 @@ class _DailyPageFeedbackState extends State<DailyPageFeedback> {
       child: Column(
         children: [
           Text(
-            "DID TODAY'S PAGE FEEL RIGHT FOR YOU?",
-            style: AppTypography.lato700(10, t.muted, letterSpacing: 1.5),
+            "DID TODAY'S PAGE FEEL RIGHT?",
+            style: AppTypography.sectionLabel(t.muted),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // This felt right
               FeedbackPillButton(
                 label: 'This felt right',
                 icon: Icons.thumb_up_alt_outlined,
@@ -658,15 +792,12 @@ class _DailyPageFeedbackState extends State<DailyPageFeedback> {
                   _submitFeedback('up');
                 },
               ),
-              const SizedBox(width: 14),
-              // Not quite
+              const SizedBox(width: 12),
               FeedbackPillButton(
                 label: 'Not quite',
                 icon: Icons.thumb_down_alt_outlined,
                 t: t,
-                onTap: () {
-                  setState(() => _vote = 'down');
-                },
+                onTap: () => setState(() => _vote = 'down'),
               ),
             ],
           ),
@@ -697,9 +828,9 @@ class FeedbackPillButton extends StatelessWidget {
     return GestureDetector(
       onTap: loading ? null : onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 11),
         decoration: BoxDecoration(
-          color: t.card,
+          color: t.bg,
           borderRadius: BorderRadius.circular(30),
           border: Border.all(color: t.border, width: 1.5),
         ),
@@ -712,7 +843,7 @@ class FeedbackPillButton extends StatelessWidget {
                 height: 16,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.black),
+                  color: Colors.grey,
                 ),
               )
             else
