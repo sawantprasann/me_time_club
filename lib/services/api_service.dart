@@ -42,7 +42,10 @@ class ApiService {
       final decoded = jsonDecode(response.body);
 
       if (response.statusCode == 200 || response.statusCode == 201) {
-        final token = decoded['token'] as String;
+        final authHeader = response.headers['authorization'] ?? '';
+        final token = authHeader.startsWith('Bearer ')
+            ? authHeader.substring(7)
+            : authHeader;
         final userJson = decoded['user'] as Map<String, dynamic>;
 
         // Map backend fields to UserProfile model
@@ -101,7 +104,10 @@ class ApiService {
       final decoded = jsonDecode(response.body);
 
       if (response.statusCode == 200) {
-        final token = decoded['token'] as String;
+        final authHeader = response.headers['authorization'] ?? '';
+        final token = authHeader.startsWith('Bearer ')
+            ? authHeader.substring(7)
+            : authHeader;
         final userJson = decoded['user'] as Map<String, dynamic>;
 
         return UserProfile.fromJson({...userJson, 'token': token});
