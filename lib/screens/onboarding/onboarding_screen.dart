@@ -32,18 +32,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   List<String> _hardships = [];
   String _hardshipsText = '';
 
-  // Registration step form states
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
   bool _loading = false;
   String? _errorMessage;
-
-  @override
-  void initState() {
-    super.initState();
-  }
 
   @override
   void dispose() {
@@ -53,28 +47,38 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   void _next() {
-    if (_step < 4) {
-      setState(() => _step++);
-    }
+    if (_step < 4) setState(() => _step++);
   }
 
   void _prev() {
-    if (_step > 0) {
-      setState(() => _step--);
-    }
+    if (_step > 0) setState(() => _step--);
   }
 
-  void _complete(UserProfile user) {
-    widget.onComplete(user);
-  }
+  void _complete(UserProfile user) => widget.onComplete(user);
+
+  // ── Warm background decoration for steps 1-4 ────────────────────────────
+  static const _stepBg = Color(0xFFF8F3EC);
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _step == 0 ? const Color(0xFF2C2825) : AppTokens.day.bg,
+      backgroundColor: _step == 0 ? const Color(0xFF1E1C1A) : _stepBg,
       body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 400),
-        child: _buildStep(),
+        duration: const Duration(milliseconds: 380),
+        transitionBuilder: (child, anim) => FadeTransition(
+          opacity: anim,
+          child: SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(0.04, 0),
+              end: Offset.zero,
+            ).animate(CurvedAnimation(parent: anim, curve: Curves.easeOut)),
+            child: child,
+          ),
+        ),
+        child: KeyedSubtree(
+          key: ValueKey(_step),
+          child: _buildStep(),
+        ),
       ),
     );
   }
@@ -96,124 +100,170 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     }
   }
 
-  // ─── Screen 0: Welcome ───────────────────────────
+  // ─── Screen 0: Welcome ───────────────────────────────────────────────────
   Widget _buildWelcome() {
     return Container(
-      key: const ValueKey('welcome'),
       width: double.infinity,
       height: double.infinity,
       decoration: const BoxDecoration(color: Color(0xFF1E1C1A)),
       child: Stack(
         fit: StackFit.expand,
         children: [
-          // Background Image
           Image.asset('assets/chamomile_background.png', fit: BoxFit.cover),
-          // Dark overlay to match design
-          Container(color: const Color(0xFF2C2825).withValues(alpha: 0.65)),
-          // Gradient for soft vignette
+          // Cinematic dark gradient
           Container(
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
+                stops: [0.0, 0.25, 0.6, 1.0],
                 colors: [
-                  Colors.black.withValues(alpha: 0.2),
-                  Colors.transparent,
-                  Colors.black.withValues(alpha: 0.6),
+                  Color(0xCC1A1714),
+                  Color(0x552C2825),
+                  Color(0x882C2825),
+                  Color(0xF01A1714),
                 ],
               ),
             ),
           ),
-          // Screen contents wrapped in SafeArea
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
               child: Column(
                 children: [
-                  const Spacer(flex: 3),
-                  // Brand Title
+                  const Spacer(flex: 2),
+
+                  // Badge
+                  Container(
+                    width: 56,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: const Color(0xFFC4945A).withValues(alpha: 0.4),
+                        width: 1,
+                      ),
+                      color: const Color(0xFF2C2825).withValues(alpha: 0.5),
+                    ),
+                    child: Center(
+                      child: Text(
+                        'M',
+                        style: AppTypography.playfair(
+                          24,
+                          const Color(0xFFC4945A),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
                   Text(
                     'Me Time Club',
-                    style: AppTypography.playfair(38, const Color(0xFFF5F0E8)),
+                    style: AppTypography.playfair(40, const Color(0xFFF5F0E8)),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 10),
-                  // Subtitle
                   Text(
                     'Your daily sanctuary.',
                     style: AppTypography.cormorantItalic(
-                      20,
+                      21,
                       const Color(0xFFC4945A),
                     ),
                     textAlign: TextAlign.center,
                   ),
-                  // Line divider
-                  Container(
-                    margin: const EdgeInsets.symmetric(vertical: 20),
-                    width: 44,
-                    height: 1.5,
-                    color: const Color(0xFFB8706A).withValues(alpha: 0.6),
+                  const SizedBox(height: 20),
+
+                  // Decorative dots
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(3, (i) {
+                      final sizes = [4.0, 6.0, 4.0];
+                      return Container(
+                        width: sizes[i],
+                        height: sizes[i],
+                        margin: const EdgeInsets.symmetric(horizontal: 4),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: const Color(0xFFC4945A)
+                              .withValues(alpha: i == 1 ? 0.7 : 0.3),
+                        ),
+                      );
+                    }),
                   ),
-                  // Description
+                  const SizedBox(height: 20),
+
                   Text(
                     'A calm, intelligent companion for every\nseason of motherhood.',
                     style: AppTypography.lato400(
-                      14.5,
-                      const Color(0xFFF5F0E8).withValues(alpha: 0.8),
-                      height: 1.6,
+                      15,
+                      const Color(0xFFF5F0E8).withValues(alpha: 0.72),
+                      height: 1.65,
                     ),
                     textAlign: TextAlign.center,
                   ),
-                  const Spacer(flex: 2),
-                  // CTA button
+
+                  const Spacer(flex: 3),
+
+                  // Primary CTA
                   GestureDetector(
                     onTap: _next,
                     child: Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      height: 56,
                       decoration: BoxDecoration(
-                        color: const Color(0xFFB8706A).withValues(alpha: 0.85),
                         borderRadius: BorderRadius.circular(16),
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFFB8706A), Color(0xFFC4945A)],
+                        ),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(
-                              0xFFB8706A,
-                            ).withValues(alpha: 0.33),
-                            blurRadius: 20,
-                            offset: const Offset(0, 4),
+                            color: const Color(0xFFB8706A)
+                                .withValues(alpha: 0.38),
+                            blurRadius: 24,
+                            offset: const Offset(0, 8),
                           ),
                         ],
                       ),
                       child: Center(
                         child: Text(
-                          'Welcome to Me Time Club',
+                          'Begin Your Journey',
                           style: AppTypography.playfair(17, Colors.white),
                         ),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 18),
+
                   GestureDetector(
                     onTap: widget.onNavigateToLogin,
-                    child: Text(
-                      'Already a member? Sign In',
-                      style: AppTypography.lato400(
-                        14,
-                        const Color(0xFFC4945A),
-                      ).copyWith(decoration: TextDecoration.underline),
+                    child: RichText(
+                      text: TextSpan(
+                        style: AppTypography.lato400(
+                          14,
+                          const Color(0xFFF5F0E8).withValues(alpha: 0.5),
+                        ),
+                        children: [
+                          const TextSpan(text: 'Already a member?   '),
+                          TextSpan(
+                            text: 'Sign In',
+                            style: AppTypography.lato700(
+                              14,
+                              const Color(0xFFC4945A),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
                   Text(
                     'Meet Chamomile ✦ She is waiting for you',
                     style: AppTypography.lato300(
                       11,
-                      const Color(0xFFF5F0E8).withValues(alpha: 0.6),
-                      height: 1.5,
+                      const Color(0xFFF5F0E8).withValues(alpha: 0.3),
                     ),
-                    textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
                 ],
               ),
             ),
@@ -223,13 +273,81 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     );
   }
 
-  // ─── Screen 1: Name + Phase ──────────────────────
+  // ─── Steps header with linear progress ───────────────────────────────────
+  Widget _buildStepHeader(int activeIndex, {String? subtitle}) {
+    final t = AppTokens.day;
+    final totalSteps = 3; // steps 1-3 (step 4 is register)
+    return Container(
+      color: _stepBg,
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              GestureDetector(
+                onTap: _prev,
+                behavior: HitTestBehavior.opaque,
+                child: Padding(
+                  padding: const EdgeInsets.only(right: 16, top: 4, bottom: 4),
+                  child: Icon(
+                    Icons.arrow_back_ios_new_rounded,
+                    color: t.muted,
+                    size: 18,
+                  ),
+                ),
+              ),
+              Expanded(
+                child: Row(
+                  children: List.generate(totalSteps, (i) {
+                    return Expanded(
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 350),
+                        curve: Curves.easeOut,
+                        height: 3,
+                        margin: const EdgeInsets.only(right: 4),
+                        decoration: BoxDecoration(
+                          color: i < activeIndex
+                              ? t.accent
+                              : i == activeIndex
+                                  ? t.accent.withValues(alpha: 0.5)
+                                  : t.border,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    );
+                  }),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Text(
+                '${activeIndex + 1} of $totalSteps',
+                style: AppTypography.lato400(12, t.muted),
+              ),
+            ],
+          ),
+          if (subtitle != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              subtitle.toUpperCase(),
+              style: AppTypography.sectionLabel(
+                t.accent.withValues(alpha: 0.7),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  // ─── Screen 1: Name + Phase ───────────────────────────────────────────────
   Widget _buildPhaseChip(String phase, AppTokens t) {
     final id = phase.split(' ')[0].toLowerCase();
     final sel = _phases.contains(id);
-    return ChipButton(
+    return _SelectChip(
       label: phase,
       selected: sel,
+      color: t.accent,
       onTap: () {
         setState(() {
           if (sel) {
@@ -241,688 +359,491 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           }
         });
       },
-      color: t.accent,
-      t: t,
     );
   }
 
   Widget _buildNamePhase() {
     final t = AppTokens.day;
     final pregnancyMonths = [
-      '1-4 weeks',
-      '5-8 weeks',
-      '9-12 weeks',
-      '13-16 weeks',
-      '17-20 weeks',
-      '21-24 weeks',
-      '25-28 weeks',
-      '29-32 weeks',
-      '33-36 weeks',
-      '37-40 weeks',
+      '1-4 weeks', '5-8 weeks', '9-12 weeks', '13-16 weeks',
+      '17-20 weeks', '21-24 weeks', '25-28 weeks', '29-32 weeks',
+      '33-36 weeks', '37-40 weeks',
     ];
 
     return Column(
       children: [
-        _buildHeader(0),
+        _buildStepHeader(0, subtitle: 'About you'),
         Expanded(
           child: SingleChildScrollView(
-            key: const ValueKey('name'),
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+            padding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SizedBox(height: 16),
                 Text(
-                  'What should we call you?',
-                  style: AppTypography.playfair(30, t.text),
-                  textAlign: TextAlign.center,
+                  'What should\nwe call you?',
+                  style: AppTypography.playfair(34, t.text),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   "You are more than a mother. Let's start with you.",
-                  style: AppTypography.cormorantItalic(16, t.muted),
-                  textAlign: TextAlign.center,
+                  style: AppTypography.cormorantItalic(17, t.muted),
                 ),
                 const SizedBox(height: 24),
-                SizedBox(
-                  width: double.infinity,
-                  child: VoiceTextInput(
-                    value: _name,
-                    onChange: (v) => setState(() => _name = v),
-                    placeholder: 'Your name...',
-                    t: t,
-                    textAlign: TextAlign.start,
-                  ),
+                VoiceTextInput(
+                  value: _name,
+                  onChange: (v) => setState(() => _name = v),
+                  placeholder: 'Your name…',
+                  t: t,
+                  textAlign: TextAlign.start,
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 36),
+
                 Text(
-                  'Where are you in your motherhood right now?',
-                  style: AppTypography.cormorantItalic(16, t.text),
-                  textAlign: TextAlign.center,
+                  'Where are you in your motherhood?',
+                  style: AppTypography.playfair(22, t.text),
                 ),
                 const SizedBox(height: 6),
                 Text(
                   'Motherhood holds many seasons — choose where you are right now.',
-                  style: AppTypography.lato400(13, t.muted),
-                  textAlign: TextAlign.center,
+                  style: AppTypography.lato400(13.5, t.muted, height: 1.5),
                 ),
                 const SizedBox(height: 16),
                 Wrap(
-                  alignment: WrapAlignment.center,
-                  children:
-                      [
-                        'Expecting',
-                        'Newborn (0-6m)',
-                        'Baby (6-18m)',
-                        'Toddler (18m-3y)',
-                        'Preschool (3-5y)',
-                        'School Age (5+)',
-                      ].map((phase) {
-                        return _buildPhaseChip(phase, t);
-                      }).toList(),
+                  alignment: WrapAlignment.start,
+                  children: [
+                    'Expecting', 'Newborn (0-6m)', 'Baby (6-18m)',
+                    'Toddler (18m-3y)', 'Preschool (3-5y)', 'School Age (5+)',
+                  ].map((p) => _buildPhaseChip(p, t)).toList(),
                 ),
-                // Pregnancy month picker
+
                 if (_phases.contains('expecting')) ...[
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 24),
                   Text(
                     'How far along are you?',
-                    style: AppTypography.cormorantItalic(15, t.muted),
-                    textAlign: TextAlign.center,
+                    style: AppTypography.cormorantItalic(17, t.muted),
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 12),
                   Wrap(
-                    alignment: WrapAlignment.center,
-                    children:
-                        pregnancyMonths.map((m) {
-                          final sel = _pregnancyMonth == m;
-                          return GestureDetector(
-                            onTap: () => setState(() => _pregnancyMonth = m),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 6,
-                              ),
-                              margin: const EdgeInsets.all(3),
-                              decoration: BoxDecoration(
-                                color: sel ? t.accent : t.card,
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(
-                                  color: sel ? t.accent : t.border,
-                                ),
-                              ),
-                              child: Text(
-                                m,
-                                style: AppTypography.lato400(
-                                  11,
-                                  sel ? Colors.white : t.muted,
-                                ),
-                              ),
+                    children: pregnancyMonths.map((m) {
+                      final sel = _pregnancyMonth == m;
+                      return GestureDetector(
+                        onTap: () => setState(() => _pregnancyMonth = m),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 180),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                          margin: const EdgeInsets.only(right: 8, bottom: 8),
+                          decoration: BoxDecoration(
+                            color: sel
+                                ? t.accent.withValues(alpha: 0.15)
+                                : t.card,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: sel ? t.accent : t.border,
+                              width: sel ? 1.5 : 1,
                             ),
-                          );
-                        }).toList(),
+                          ),
+                          child: Text(
+                            m,
+                            style: AppTypography.lato400(
+                              12,
+                              sel ? t.accent : t.muted,
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
                   ),
                 ],
-                // Child count stepper
-                const SizedBox(height: 24),
+
+                const SizedBox(height: 28),
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text(
-                      'How many little ones?',
-                      style: AppTypography.cormorantItalic(16, t.text),
-                    ),
-                    const SizedBox(width: 24),
-                    _stepperBtn('−', () {
-                      if (_childCount > 0) setState(() => _childCount--);
-                    }, t),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                    Expanded(
                       child: Text(
-                        '$_childCount',
-                        style: AppTypography.playfair(22, t.text),
+                        'How many little ones?',
+                        style: AppTypography.cormorantItalic(17, t.text),
                       ),
                     ),
-                    _stepperBtn('+', () => setState(() => _childCount++), t),
+                    _StepperControl(
+                      value: _childCount,
+                      onDecrement: () {
+                        if (_childCount > 0) setState(() => _childCount--);
+                      },
+                      onIncrement: () => setState(() => _childCount++),
+                      t: t,
+                    ),
                   ],
                 ),
+                const SizedBox(height: 16),
               ],
             ),
           ),
         ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(24, 8, 24, 20),
-          child: CTAButton(
-            label: 'Continue →',
-            disabled: _name.trim().isEmpty,
-            onTap: _next,
-            t: t,
-          ),
+        _BottomBar(
+          onTap: _name.trim().isEmpty ? null : _next,
+          label: 'Continue',
+          t: t,
         ),
       ],
     );
   }
 
-  // ─── Screen 2: Journey ───────────────────────────
-  Widget _buildJourneyChip(String option, AppTokens t) {
-    final sel = _journey.contains(option);
-    return ChipButton(
-      label: option,
-      selected: sel,
-      onTap: () {
-        setState(() {
-          if (sel) {
-            _journey.remove(option);
-          } else {
-            _journey = [..._journey, option];
-          }
-        });
-      },
-      color: t.gold,
-      t: t,
-    );
-  }
-
+  // ─── Screen 2: Journey ────────────────────────────────────────────────────
   Widget _buildJourney() {
     final t = AppTokens.day;
+    final journeyOptions = [
+      'First-time mother', 'Second-time mother', 'Third time (or more)',
+      'Single mother', "Single father — we see you, and we'd love to build something for you too",
+      'Co-parenting', 'Working mother', 'Stay-at-home mother',
+      'IVF / fertility journey', 'Loss and healing', 'Adoptive parent',
+      'Neurodivergent child', 'Postpartum recovery', 'Blended family',
+    ];
 
     return Column(
       children: [
-        _buildHeader(1),
+        _buildStepHeader(1, subtitle: 'Your journey'),
         Expanded(
           child: SingleChildScrollView(
-            key: const ValueKey('journey'),
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+            padding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SizedBox(height: 16),
                 Text(
-                  'What makes your journey yours?',
-                  style: AppTypography.playfair(30, t.text),
-                  textAlign: TextAlign.center,
+                  'What makes\nyour journey yours?',
+                  style: AppTypography.playfair(34, t.text),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  "Chamomile listens better when she knows you a little more. Take what feels right, leave what doesn't.",
-                  style: AppTypography.cormorantItalic(16, t.muted),
-                  textAlign: TextAlign.center,
+                  "Chamomile listens better when she knows you a little more.",
+                  style: AppTypography.cormorantItalic(17, t.muted),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 24),
                 Wrap(
-                  alignment: WrapAlignment.center,
-                  children:
-                      [
-                        'First-time mother',
-                        'Second-time mother',
-                        'Third time (or more)',
-                        'Single mother',
-                        "Single father — we see you, and we'd love to build something for you too",
-                        'Co-parenting',
-                        'Working mother',
-                        'Stay-at-home mother',
-                        'IVF / fertility journey',
-                        'Loss and healing',
-                        'Adoptive parent',
-                        'Neurodivergent child',
-                        'Postpartum recovery',
-                        'Blended family',
-                      ].map((j) {
-                        return _buildJourneyChip(j, t);
-                      }).toList(),
+                  children: journeyOptions.map((j) {
+                    final sel = _journey.contains(j);
+                    return _SelectChip(
+                      label: j,
+                      selected: sel,
+                      color: t.gold,
+                      onTap: () {
+                        setState(() {
+                          if (sel) {
+                            _journey.remove(j);
+                          } else {
+                            _journey = [..._journey, j];
+                          }
+                        });
+                      },
+                    );
+                  }).toList(),
                 ),
                 const SizedBox(height: 20),
                 VoiceTextArea(
                   value: _bio,
                   onChange: (v) => setState(() => _bio = v),
                   placeholder:
-                      'Or just tell Chamomile anything about you, in your own words...',
+                      'Or just tell Chamomile anything about you, in your own words…',
                   t: t,
                   rows: 3,
                   micSize: 32,
                 ),
+                const SizedBox(height: 16),
               ],
             ),
           ),
         ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(24, 8, 24, 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              CTAButton(label: 'Continue →', onTap: _next, t: t),
-              const SizedBox(height: 8),
-              GestureDetector(
-                onTap: _next,
-                child: Padding(
-                  padding: const EdgeInsets.all(8),
-                  child: Text(
-                    'I\'ll share this later',
-                    style: AppTypography.lato400(
-                      13,
-                      t.muted,
-                    ).copyWith(decoration: TextDecoration.underline),
-                  ),
-                ),
-              ),
-            ],
-          ),
+        _BottomBar(
+          onTap: _next,
+          label: 'Continue',
+          t: t,
+          skipLabel: "I'll share this later",
+          onSkip: _next,
         ),
       ],
     );
   }
 
-  // ─── Screen 3: Hardships ─────────────────────────
+  // ─── Screen 3: Hardships ──────────────────────────────────────────────────
   Widget _buildHardships() {
     final t = AppTokens.day;
     final hardshipOptions = [
-      'Overwhelm',
-      'Loneliness',
-      'Sleep exhaustion',
-      'Burnout',
-      'Mom guilt',
-      'Identity loss',
-      'Mental load',
-      'Need calm',
+      'Overwhelm', 'Loneliness', 'Sleep exhaustion', 'Burnout',
+      'Mom guilt', 'Identity loss', 'Mental load', 'Need calm',
       'Finding time for myself',
     ];
 
     return Column(
       children: [
-        _buildHeader(2),
+        _buildStepHeader(2, subtitle: 'What feels heavy'),
         Expanded(
           child: SingleChildScrollView(
-            key: const ValueKey('hardships'),
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+            padding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SizedBox(height: 16),
                 Text(
-                  'What feels heaviest right now?',
-                  style: AppTypography.playfair(30, t.text),
-                  textAlign: TextAlign.center,
+                  'What feels heaviest\nright now?',
+                  style: AppTypography.playfair(34, t.text),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'This helps Chamomile meet you exactly where you are.\nYou can speak it, tap it, or skip it entirely.',
-                  style: AppTypography.cormorantItalic(
-                    16,
-                    t.muted,
-                    height: 1.5,
-                  ),
-                  textAlign: TextAlign.center,
+                  'This helps Chamomile meet you exactly where you are.',
+                  style: AppTypography.cormorantItalic(17, t.muted),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 24),
                 Wrap(
-                  alignment: WrapAlignment.center,
-                  children:
-                      hardshipOptions.map((h) {
-                        final sel = _hardships.contains(h);
-                        return ChipButton(
-                          label: h,
-                          selected: sel,
-                          onTap: () {
-                            setState(() {
-                              if (sel) {
-                                _hardships.remove(h);
-                              } else {
-                                _hardships = [..._hardships, h];
-                              }
-                            });
-                          },
-                          color: t.green,
-                          t: t,
-                        );
-                      }).toList(),
+                  children: hardshipOptions.map((h) {
+                    final sel = _hardships.contains(h);
+                    return _SelectChip(
+                      label: h,
+                      selected: sel,
+                      color: t.green,
+                      onTap: () {
+                        setState(() {
+                          if (sel) {
+                            _hardships.remove(h);
+                          } else {
+                            _hardships = [..._hardships, h];
+                          }
+                        });
+                      },
+                    );
+                  }).toList(),
                 ),
                 const SizedBox(height: 20),
                 VoiceTextArea(
                   value: _hardshipsText,
                   onChange: (v) => setState(() => _hardshipsText = v),
-                  placeholder: 'Or speak or write what\'s on your heart…',
+                  placeholder: "Or speak or write what's on your heart…",
                   t: t,
                   rows: 3,
                   micSize: 32,
                 ),
+                const SizedBox(height: 16),
               ],
             ),
           ),
         ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(24, 8, 24, 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              CTAButton(label: 'Enter My Sanctuary →', onTap: _next, t: t),
-              const SizedBox(height: 8),
-              GestureDetector(
-                onTap: _next,
-                child: Padding(
-                  padding: const EdgeInsets.all(8),
-                  child: Text(
-                    'I\'ll share this later',
-                    style: AppTypography.lato400(
-                      13,
-                      t.muted,
-                    ).copyWith(decoration: TextDecoration.underline),
-                  ),
-                ),
-              ),
-            ],
-          ),
+        _BottomBar(
+          onTap: _next,
+          label: 'Enter My Sanctuary',
+          t: t,
+          skipLabel: "I'll share this later",
+          onSkip: _next,
         ),
       ],
     );
   }
 
-  // ─── Helpers ─────────────────────────────────────
-  Widget _buildHeader(int activeIndex) {
-    final t = AppTokens.day;
-    return Container(
-      width: double.infinity,
-      height: 40,
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          _buildProgressDots(activeIndex),
-          Positioned(
-            left: 8,
-            child: GestureDetector(
-              onTap: _prev,
-              behavior: HitTestBehavior.opaque,
-              child: Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: Icon(
-                  Icons.arrow_back_ios_new_rounded,
-                  color: t.muted,
-                  size: 18,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProgressDots(int activeIndex) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: List.generate(3, (i) {
-        final isActive = i <= activeIndex;
-        return AnimatedContainer(
-          duration: const Duration(milliseconds: 300),
-          width: 26,
-          height: 4,
-          margin: const EdgeInsets.symmetric(horizontal: 4),
-          decoration: BoxDecoration(
-            color: isActive ? AppTokens.day.accent : AppTokens.day.border,
-            borderRadius: BorderRadius.circular(2),
-          ),
-        );
-      }),
-    );
-  }
-
-  Widget _stepperBtn(String label, VoidCallback onTap, AppTokens t) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 38,
-        height: 38,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          border: Border.all(color: t.border, width: 1.5),
-          color: t.card,
-        ),
-        child: Center(
-          child: Text(label, style: AppTypography.lato700(18, t.text)),
-        ),
-      ),
-    );
-  }
-
+  // ─── Screen 4: Email + Register ───────────────────────────────────────────
   Widget _buildEmailRegister() {
     final t = AppTokens.day;
     return Form(
       key: _formKey,
       child: Column(
         children: [
-          _buildHeader(2),
+          // Minimal header — back only
+          Container(
+            color: _stepBg,
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+            child: Row(
+              children: [
+                GestureDetector(
+                  onTap: _prev,
+                  behavior: HitTestBehavior.opaque,
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 16, top: 4, bottom: 4),
+                    child: Icon(
+                      Icons.arrow_back_ios_new_rounded,
+                      color: t.muted,
+                      size: 18,
+                    ),
+                  ),
+                ),
+                Text(
+                  'Almost there',
+                  style: AppTypography.cormorantItalic(18, t.muted),
+                ),
+              ],
+            ),
+          ),
+
           Expanded(
             child: SingleChildScrollView(
-              key: const ValueKey('email_register'),
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+              padding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const SizedBox(height: 16),
                   Text(
-                    'Me Time Club',
+                    'Secure your\nsanctuary',
                     style: AppTypography.playfair(34, t.text),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Secure Your Sanctuary',
-                    style: AppTypography.cormorantItalic(24, t.text),
-                    textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Enter your email to complete registration and enter Me Time Club.',
-                    style: AppTypography.lato400(13.5, t.muted),
-                    textAlign: TextAlign.center,
+                    'Create your account to save your journey and meet Chamomile.',
+                    style: AppTypography.lato400(14, t.muted, height: 1.55),
                   ),
-                  const SizedBox(height: 24),
-                  TextFormField(
+                  const SizedBox(height: 32),
+
+                  // Email
+                  _StepField(
                     controller: _emailController,
+                    hint: 'Email address',
                     keyboardType: TextInputType.emailAddress,
-                    style: AppTypography.lato400(15, t.text),
-                    decoration: InputDecoration(
-                      hintText: 'email@example.com',
-                      hintStyle: AppTypography.lato400(15, t.muted),
-                      prefixIcon: Icon(
-                        Icons.email_outlined,
-                        color: t.muted,
-                        size: 20,
-                      ),
-                      filled: true,
-                      fillColor: t.card,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 14,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: t.border),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: t.border),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: t.accent, width: 1.5),
-                      ),
-                      errorStyle: AppTypography.lato400(12, t.accent),
-                    ),
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
+                    prefixIcon: Icons.mail_outline_rounded,
+                    t: t,
+                    validator: (v) {
+                      if (v == null || v.trim().isEmpty) {
                         return 'Please enter your email';
                       }
                       if (!RegExp(
-                        r"^[a-zA-Z0-9.a-zA-Z0-9.!#$%&'*+-/=?^_`{|}~]+@[a-zA-Z0-9]+\.[a-zA-Z]+",
-                      ).hasMatch(value.trim())) {
+                        r"^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+\.[a-zA-Z]+",
+                      ).hasMatch(v.trim())) {
                         return 'Please enter a valid email address';
                       }
                       return null;
                     },
                   ),
-                  const SizedBox(height: 16),
-                  TextFormField(
+                  const SizedBox(height: 14),
+
+                  // Password
+                  _StepField(
                     controller: _passwordController,
+                    hint: 'Password',
                     obscureText: _obscurePassword,
-                    style: AppTypography.lato400(15, t.text),
-                    decoration: InputDecoration(
-                      hintText: 'Password',
-                      hintStyle: AppTypography.lato400(15, t.muted),
-                      prefixIcon: Icon(
-                        Icons.lock_outline_rounded,
+                    prefixIcon: Icons.lock_outline_rounded,
+                    t: t,
+                    suffixIcon: GestureDetector(
+                      onTap: () => setState(
+                        () => _obscurePassword = !_obscurePassword,
+                      ),
+                      child: Icon(
+                        _obscurePassword
+                            ? Icons.visibility_off_outlined
+                            : Icons.visibility_outlined,
                         color: t.muted,
                         size: 20,
                       ),
-                      suffixIcon: GestureDetector(
-                        onTap:
-                            () => setState(
-                              () => _obscurePassword = !_obscurePassword,
-                            ),
-                        child: Icon(
-                          _obscurePassword
-                              ? Icons.visibility_off_outlined
-                              : Icons.visibility_outlined,
-                          color: t.muted,
-                          size: 20,
-                        ),
-                      ),
-                      filled: true,
-                      fillColor: t.card,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 14,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: t.border),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: t.border),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: t.accent, width: 1.5),
-                      ),
-                      errorStyle: AppTypography.lato400(12, t.accent),
                     ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
+                    validator: (v) {
+                      if (v == null || v.isEmpty) {
                         return 'Please enter a password';
                       }
-                      if (value.length < 6) {
+                      if (v.length < 6) {
                         return 'Password must be at least 6 characters';
                       }
                       return null;
                     },
                   ),
+
                   if (_errorMessage != null) ...[
-                    const SizedBox(height: 14),
-                    Row(
-                      children: [
-                        Icon(Icons.error_outline, color: t.accent, size: 16),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            _errorMessage!,
-                            style: AppTypography.lato400(12, t.accent),
-                          ),
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: t.accent.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: t.accent.withValues(alpha: 0.25),
                         ),
-                      ],
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.info_outline_rounded,
+                            color: t.accent,
+                            size: 16,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _errorMessage!,
+                              style: AppTypography.lato400(13, t.accent),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
+
+                  const SizedBox(height: 12),
+                  Text(
+                    'By creating an account you agree to our terms of service.',
+                    style: AppTypography.lato400(
+                      11,
+                      t.muted.withValues(alpha: 0.6),
+                      height: 1.5,
+                    ),
+                  ),
                 ],
               ),
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(24, 8, 24, 20),
-            child: CTAButton(
-              label: 'Complete Registration',
-              onTap: _registerUser,
-              loading: _loading,
-              t: t,
-            ),
+          _BottomBar(
+            onTap: _registerUser,
+            label: 'Complete Registration',
+            loading: _loading,
+            t: t,
           ),
         ],
       ),
     );
   }
 
+  // ─── Register logic (unchanged) ────────────────────────────────────────
   Future<void> _registerUser() async {
-    setState(() {
-      _errorMessage = null;
-    });
-
+    setState(() => _errorMessage = null);
     if (!_formKey.currentState!.validate()) return;
-
-    setState(() {
-      _loading = true;
-    });
+    setState(() => _loading = true);
 
     String getJourneyStage() {
       if (_phases.isEmpty) return 'expecting';
-      final first = _phases.first;
-      switch (first) {
-        case 'expecting':
-          return 'expecting';
-        case 'newborn':
-          return 'newborn';
-        case 'baby':
-          return 'baby';
-        case 'toddler':
-          return 'toddler';
-        case 'preschool':
-          return 'preschool';
-        case 'school_age':
-          return 'school_age';
-        default:
-          return 'expecting';
+      switch (_phases.first) {
+        case 'expecting': return 'expecting';
+        case 'newborn': return 'newborn';
+        case 'baby': return 'baby';
+        case 'toddler': return 'toddler';
+        case 'preschool': return 'preschool';
+        case 'school_age': return 'school_age';
+        default: return 'expecting';
       }
     }
 
-    List<String> mapHardships(List<String> rawHardships) {
-      return rawHardships.map((h) {
-        switch (h.toLowerCase()) {
-          case 'overwhelm':
-            return 'overwhelm';
-          case 'loneliness':
-            return 'loneliness';
-          case 'sleep exhaustion':
-            return 'sleep_deprivation';
-          case 'burnout':
-            return 'burnout';
-          case 'mom guilt':
-            return 'mom_guilt';
-          case 'identity loss':
-            return 'identity_loss';
-          case 'mental load':
-            return 'mental_load';
-          case 'need calm':
-            return 'need_calm';
-          case 'finding time for myself':
-            return 'finding_time_for_myself';
-          default:
-            return h.toLowerCase().replaceAll(' ', '_');
-        }
-      }).toList();
-    }
+    List<String> mapHardships(List<String> raw) => raw.map((h) {
+      switch (h.toLowerCase()) {
+        case 'overwhelm': return 'overwhelm';
+        case 'loneliness': return 'loneliness';
+        case 'sleep exhaustion': return 'sleep_deprivation';
+        case 'burnout': return 'burnout';
+        case 'mom guilt': return 'mom_guilt';
+        case 'identity loss': return 'identity_loss';
+        case 'mental load': return 'mental_load';
+        case 'need calm': return 'need_calm';
+        case 'finding time for myself': return 'finding_time_for_myself';
+        default: return h.toLowerCase().replaceAll(' ', '_');
+      }
+    }).toList();
 
-    List<String> mapJourneyTags(List<String> rawJourney) {
-      return rawJourney.map((j) {
-        if (j.contains('First-time')) return 'first_time_mother';
-        if (j.contains('Second-time')) return 'second_time_mother';
-        if (j.contains('Third time')) return 'third_time_or_more';
-        if (j.contains('Single mother')) return 'single_mother';
-        if (j.contains('Single father')) return 'single_father';
-        if (j.contains('Co-parenting')) return 'co_parenting';
-        if (j.contains('Working mother')) return 'working_mother';
-        if (j.contains('Stay-at-home')) return 'stay_at_home_mother';
-        if (j.contains('IVF')) return 'ivf_fertility_journey';
-        if (j.contains('Loss')) return 'loss_and_healing';
-        if (j.contains('Adoptive')) return 'adoptive_parent';
-        if (j.contains('Neurodivergent')) return 'neurodivergent_child';
-        if (j.contains('Postpartum')) return 'postpartum_recovery';
-        if (j.contains('Blended')) return 'blended_family';
-        return j.toLowerCase().replaceAll(' ', '_');
-      }).toList();
-    }
+    List<String> mapJourneyTags(List<String> raw) => raw.map((j) {
+      if (j.contains('First-time')) return 'first_time_mother';
+      if (j.contains('Second-time')) return 'second_time_mother';
+      if (j.contains('Third time')) return 'third_time_or_more';
+      if (j.contains('Single mother')) return 'single_mother';
+      if (j.contains('Single father')) return 'single_father';
+      if (j.contains('Co-parenting')) return 'co_parenting';
+      if (j.contains('Working mother')) return 'working_mother';
+      if (j.contains('Stay-at-home')) return 'stay_at_home_mother';
+      if (j.contains('IVF')) return 'ivf_fertility_journey';
+      if (j.contains('Loss')) return 'loss_and_healing';
+      if (j.contains('Adoptive')) return 'adoptive_parent';
+      if (j.contains('Neurodivergent')) return 'neurodivergent_child';
+      if (j.contains('Postpartum')) return 'postpartum_recovery';
+      if (j.contains('Blended')) return 'blended_family';
+      return j.toLowerCase().replaceAll(' ', '_');
+    }).toList();
 
     try {
       final userParams = {
@@ -943,7 +864,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       };
 
       final userProfile = await ApiService.register(userParams: userParams);
-
       final completedProfile = userProfile.copyWith(
         phases: _phases,
         pregnancyMonth: _pregnancyMonth,
@@ -953,14 +873,278 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         hardships: _hardships,
         hardshipsText: _hardshipsText,
       );
-
       _complete(completedProfile);
     } on ApiException catch (e) {
       setState(() => _errorMessage = e.message);
-    } catch (e) {
+    } catch (_) {
       setState(() => _errorMessage = 'Registration failed. Please try again.');
     } finally {
       setState(() => _loading = false);
     }
+  }
+}
+
+// ─── Shared sub-widgets ───────────────────────────────────────────────────────
+
+/// Pill chip used in phase / journey / hardship selectors
+class _SelectChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _SelectChip({
+    required this.label,
+    required this.selected,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+        margin: const EdgeInsets.only(right: 8, bottom: 8),
+        decoration: BoxDecoration(
+          color: selected ? color.withValues(alpha: 0.12) : Colors.white,
+          borderRadius: BorderRadius.circular(30),
+          border: Border.all(
+            color: selected ? color : const Color(0xFFE8DDD5),
+            width: selected ? 1.5 : 1,
+          ),
+          boxShadow: selected
+              ? []
+              : [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    blurRadius: 4,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontFamily: 'Lato',
+            fontSize: 13.5,
+            fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+            color: selected ? color : const Color(0xFF8A7D76),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Stepper +/- control with value display
+class _StepperControl extends StatelessWidget {
+  final int value;
+  final VoidCallback onDecrement;
+  final VoidCallback onIncrement;
+  final AppTokens t;
+
+  const _StepperControl({
+    required this.value,
+    required this.onDecrement,
+    required this.onIncrement,
+    required this.t,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _btn('−', onDecrement),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Text('$value', style: AppTypography.playfair(24, t.text)),
+        ),
+        _btn('+', onIncrement),
+      ],
+    );
+  }
+
+  Widget _btn(String label, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: Colors.white,
+          border: Border.all(color: const Color(0xFFE8DDD5)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 4,
+              offset: const Offset(0, 1),
+            ),
+          ],
+        ),
+        child: Center(
+          child: Text(
+            label,
+            style: AppTypography.lato700(20, const Color(0xFF2C2825)),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Pinned bottom action bar with primary CTA and optional skip
+class _BottomBar extends StatelessWidget {
+  final VoidCallback? onTap;
+  final String label;
+  final bool loading;
+  final AppTokens t;
+  final String? skipLabel;
+  final VoidCallback? onSkip;
+
+  const _BottomBar({
+    required this.onTap,
+    required this.label,
+    required this.t,
+    this.loading = false,
+    this.skipLabel,
+    this.onSkip,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: const Color(0xFFF8F3EC),
+      padding: const EdgeInsets.fromLTRB(24, 8, 24, 28),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          GestureDetector(
+            onTap: loading ? null : onTap,
+            child: AnimatedOpacity(
+              opacity: (onTap == null && !loading) ? 0.45 : 1.0,
+              duration: const Duration(milliseconds: 200),
+              child: Container(
+                width: double.infinity,
+                height: 54,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  gradient: LinearGradient(
+                    colors: [t.accent, t.gold],
+                  ),
+                  boxShadow: onTap != null
+                      ? [
+                          BoxShadow(
+                            color: t.accent.withValues(alpha: 0.32),
+                            blurRadius: 20,
+                            offset: const Offset(0, 6),
+                          ),
+                        ]
+                      : [],
+                ),
+                child: Center(
+                  child: loading
+                      ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2.5,
+                          ),
+                        )
+                      : Text(
+                          label,
+                          style: AppTypography.playfair(17, Colors.white),
+                        ),
+                ),
+              ),
+            ),
+          ),
+          if (skipLabel != null && onSkip != null) ...[
+            const SizedBox(height: 12),
+            GestureDetector(
+              onTap: onSkip,
+              child: Text(
+                skipLabel!,
+                style: AppTypography.lato400(13, t.muted).copyWith(
+                  decoration: TextDecoration.underline,
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Light text field for step 4 (on warm cream background)
+class _StepField extends StatelessWidget {
+  final TextEditingController controller;
+  final String hint;
+  final bool obscureText;
+  final TextInputType? keyboardType;
+  final IconData prefixIcon;
+  final Widget? suffixIcon;
+  final String? Function(String?)? validator;
+  final AppTokens t;
+
+  const _StepField({
+    required this.controller,
+    required this.hint,
+    required this.prefixIcon,
+    required this.t,
+    this.obscureText = false,
+    this.keyboardType,
+    this.suffixIcon,
+    this.validator,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return TextFormField(
+      controller: controller,
+      obscureText: obscureText,
+      keyboardType: keyboardType,
+      style: AppTypography.lato400(15, t.text),
+      validator: validator,
+      decoration: InputDecoration(
+        hintText: hint,
+        hintStyle: AppTypography.lato400(15, t.muted),
+        prefixIcon: Icon(prefixIcon, color: t.muted, size: 20),
+        suffixIcon: suffixIcon,
+        filled: true,
+        fillColor: Colors.white,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 16,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: t.border),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: t.border),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: t.accent, width: 1.5),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: t.accent),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: t.accent, width: 1.5),
+        ),
+        errorStyle: AppTypography.lato400(12, t.accent),
+      ),
+    );
   }
 }
