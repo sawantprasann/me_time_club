@@ -4,7 +4,7 @@ import '../theme/tokens.dart';
 import 'speech_button.dart';
 
 /// Single-line input + SpeechButton inside a Stack
-class VoiceTextInput extends StatelessWidget {
+class VoiceTextInput extends StatefulWidget {
   final String value;
   final ValueChanged<String> onChange;
   final String placeholder;
@@ -25,27 +25,57 @@ class VoiceTextInput extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    final controller = TextEditingController(text: value);
-    controller.selection = TextSelection.collapsed(offset: value.length);
+  State<VoiceTextInput> createState() => _VoiceTextInputState();
+}
 
+class _VoiceTextInputState extends State<VoiceTextInput> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.value);
+    _controller.selection = TextSelection.collapsed(offset: widget.value.length);
+  }
+
+  @override
+  void didUpdateWidget(VoiceTextInput oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Only sync when the parent programmatically changes the value
+    // (e.g., clearing after submit). Do NOT update during normal typing.
+    if (widget.value != _controller.text) {
+      _controller.text = widget.value;
+      _controller.selection = TextSelection.collapsed(offset: widget.value.length);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = widget.t;
+    final hasValue = widget.value.isNotEmpty;
     return Stack(
       clipBehavior: Clip.none,
       children: [
         TextField(
-          controller: controller,
-          onChanged: onChange,
-          textAlign: textAlign,
-          maxLength: maxLength,
+          controller: _controller,
+          onChanged: widget.onChange,
+          textAlign: widget.textAlign,
+          maxLength: widget.maxLength,
           style:
-              style ??
+              widget.style ??
               GoogleFonts.cormorantGaramond(
                 fontSize: 22,
                 fontStyle: FontStyle.italic,
                 color: t.text,
               ),
           decoration: InputDecoration(
-            hintText: placeholder,
+            hintText: widget.placeholder,
             hintStyle: GoogleFonts.cormorantGaramond(
               fontSize: 22,
               fontStyle: FontStyle.italic,
@@ -55,13 +85,13 @@ class VoiceTextInput extends StatelessWidget {
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
               borderSide: BorderSide(
-                color: value.isNotEmpty ? t.accent : t.border,
+                color: hasValue ? t.accent : t.border,
               ),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
               borderSide: BorderSide(
-                color: value.isNotEmpty ? t.accent : t.border,
+                color: hasValue ? t.accent : t.border,
               ),
             ),
             focusedBorder: OutlineInputBorder(
@@ -81,7 +111,7 @@ class VoiceTextInput extends StatelessWidget {
           child: Center(
             child: SpeechButton(
               onResult: (transcript) {
-                onChange(transcript);
+                widget.onChange(transcript);
               },
               t: t,
               size: 36,
@@ -94,7 +124,7 @@ class VoiceTextInput extends StatelessWidget {
 }
 
 /// Multi-line textarea + SpeechButton inside a Stack
-class VoiceTextArea extends StatelessWidget {
+class VoiceTextArea extends StatefulWidget {
   final String value;
   final ValueChanged<String> onChange;
   final String placeholder;
@@ -117,20 +147,49 @@ class VoiceTextArea extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    final controller = TextEditingController(text: value);
-    controller.selection = TextSelection.collapsed(offset: value.length);
+  State<VoiceTextArea> createState() => _VoiceTextAreaState();
+}
 
+class _VoiceTextAreaState extends State<VoiceTextArea> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.value);
+    _controller.selection = TextSelection.collapsed(offset: widget.value.length);
+  }
+
+  @override
+  void didUpdateWidget(VoiceTextArea oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Only sync when the parent programmatically changes the value
+    // (e.g., clearing after submit). Do NOT update during normal typing.
+    if (widget.value != _controller.text) {
+      _controller.text = widget.value;
+      _controller.selection = TextSelection.collapsed(offset: widget.value.length);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = widget.t;
     return Stack(
       clipBehavior: Clip.none,
       children: [
         TextField(
-          controller: controller,
-          onChanged: onChange,
-          autofocus: autoFocus,
-          maxLines: rows,
+          controller: _controller,
+          onChanged: widget.onChange,
+          autofocus: widget.autoFocus,
+          maxLines: widget.rows,
           style:
-              style ??
+              widget.style ??
               GoogleFonts.cormorantGaramond(
                 fontSize: 17,
                 fontStyle: FontStyle.italic,
@@ -138,13 +197,13 @@ class VoiceTextArea extends StatelessWidget {
                 height: 1.65,
               ),
           decoration: InputDecoration(
-            hintText: placeholder,
+            hintText: widget.placeholder,
             hintStyle: GoogleFonts.cormorantGaramond(
               fontSize: 15,
               fontStyle: FontStyle.italic,
               color: t.muted,
             ),
-            contentPadding: EdgeInsets.fromLTRB(16, 14, micSize + 16, 14),
+            contentPadding: EdgeInsets.fromLTRB(16, 14, widget.micSize + 16, 14),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(18),
               borderSide: BorderSide(color: t.border),
@@ -167,11 +226,13 @@ class VoiceTextArea extends StatelessWidget {
           right: 10,
           child: SpeechButton(
             onResult: (transcript) {
-              final newVal = value.isEmpty ? transcript : '$value $transcript';
-              onChange(newVal);
+              final newVal = widget.value.isEmpty
+                  ? transcript
+                  : '${widget.value} $transcript';
+              widget.onChange(newVal);
             },
             t: t,
-            size: micSize,
+            size: widget.micSize,
           ),
         ),
       ],

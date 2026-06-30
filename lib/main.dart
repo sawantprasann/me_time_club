@@ -325,7 +325,7 @@ class _AppRootState extends State<AppRoot> {
       case 'journal':
         return JournalTab(user: _user!, t: t);
       case 'circle':
-        return CircleTab(t: t, userName: _user!.name);
+        return CircleTab(user: _user!, t: t, userName: _user!.name);
       case 'me':
         return MeTab(
           user: _user!,

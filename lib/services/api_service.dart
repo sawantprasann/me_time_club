@@ -868,4 +868,146 @@ class ApiService {
       throw ApiException('An unexpected error occurred: ${e.toString()}');
     }
   }
+
+  /// Gets all circle posts.
+  static Future<List<dynamic>> getCirclePosts({required String token}) async {
+    const url = 'http://139.59.23.15/api/v1/circle_posts';
+
+    print('[API REQUEST] GET $url');
+
+    try {
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {
+          'accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      print('[API RESPONSE] ${response.statusCode} GET $url');
+      print('[API RESPONSE BODY] ${response.body}');
+
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+        return decoded as List<dynamic>;
+      } else {
+        final decoded = jsonDecode(response.body);
+        final errorMsg =
+            decoded['error'] as String? ?? 'Failed to get circle posts.';
+        throw ApiException(errorMsg);
+      }
+    } on http.ClientException catch (e) {
+      print('[API ERROR] ClientException: ${e.message}');
+      throw ApiException(
+        'Network error: Please check your internet connection.',
+      );
+    } catch (e) {
+      print('[API ERROR] Exception: ${e.toString()}');
+      if (e is ApiException) rethrow;
+      throw ApiException('An unexpected error occurred: ${e.toString()}');
+    }
+  }
+
+  /// Creates a new circle post.
+  static Future<Map<String, dynamic>> createCirclePost({
+    required String token,
+    required String body,
+    bool isAnon = false,
+  }) async {
+    const url = 'http://139.59.23.15/api/v1/circle_posts';
+    final requestBody = {
+      'circle_post': {'body': body, 'is_anon': isAnon},
+    };
+
+    print('[API REQUEST] POST $url');
+    print('[API REQUEST BODY] ${jsonEncode(requestBody)}');
+
+    try {
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {
+          'accept': 'application/json',
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(requestBody),
+      );
+
+      print('[API RESPONSE] ${response.statusCode} POST $url');
+      print('[API RESPONSE BODY] ${response.body}');
+
+      final decoded = jsonDecode(response.body);
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return decoded as Map<String, dynamic>;
+      } else {
+        String errorMsg = 'Failed to create circle post.';
+        if (decoded is Map) {
+          if (decoded['error'] != null) {
+            errorMsg = decoded['error'].toString();
+          } else if (decoded['errors'] != null) {
+            if (decoded['errors'] is List) {
+              errorMsg = (decoded['errors'] as List).join(', ');
+            } else {
+              errorMsg = decoded['errors'].toString();
+            }
+          }
+        }
+        throw ApiException(errorMsg);
+      }
+    } on http.ClientException catch (e) {
+      print('[API ERROR] ClientException: ${e.message}');
+      throw ApiException(
+        'Network error: Please check your internet connection.',
+      );
+    } catch (e) {
+      print('[API ERROR] Exception: ${e.toString()}');
+      if (e is ApiException) rethrow;
+      throw ApiException('An unexpected error occurred: ${e.toString()}');
+    }
+  }
+
+  /// Reacts to a circle post.
+  static Future<void> reactToCirclePost({
+    required String token,
+    required String postId,
+    required String reactionType,
+  }) async {
+    final url = 'http://139.59.23.15/api/v1/circle_posts/$postId/react';
+    final requestBody = {'reaction_type': reactionType};
+
+    print('[API REQUEST] POST $url');
+    print('[API REQUEST BODY] ${jsonEncode(requestBody)}');
+
+    try {
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {
+          'accept': '*/*',
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(requestBody),
+      );
+
+      print('[API RESPONSE] ${response.statusCode} POST $url');
+      print('[API RESPONSE BODY] ${response.body}');
+
+      if (response.statusCode != 200 &&
+          response.statusCode != 201 &&
+          response.statusCode != 204) {
+        throw ApiException(
+          'Failed to react to circle post (status code: ${response.statusCode}).',
+        );
+      }
+    } on http.ClientException catch (e) {
+      print('[API ERROR] ClientException: ${e.message}');
+      throw ApiException(
+        'Network error: Please check your internet connection.',
+      );
+    } catch (e) {
+      print('[API ERROR] Exception: ${e.toString()}');
+      if (e is ApiException) rethrow;
+      throw ApiException('An unexpected error occurred: ${e.toString()}');
+    }
+  }
 }

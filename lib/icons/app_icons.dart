@@ -59,11 +59,12 @@ class AppIcons {
   // ── Mood Icons ────────────────────────────────────
 
   /// Diagonal leaf with stem — Tender
-  static Widget leaf({required Color c, double s = 20}) => SizedBox(
-    width: s,
-    height: s,
-    child: CustomPaint(painter: _LeafPainter(c)),
-  );
+  static Widget leaf({required Color c, double s = 20, bool filled = false}) =>
+      SizedBox(
+        width: s,
+        height: s,
+        child: CustomPaint(painter: _LeafPainter(c, filled: filled)),
+      );
 
   /// Sine wave lines — Overwhelmed
   static Widget wave({required Color c, double s = 20}) => SizedBox(
@@ -117,18 +118,20 @@ class AppIcons {
   // ── UI Icons ──────────────────────────────────────
 
   /// Heart outline — Emotional Alignment, Circle reactions
-  static Widget heart({required Color c, double s = 20}) => SizedBox(
-    width: s,
-    height: s,
-    child: CustomPaint(painter: _HeartPainter(c)),
-  );
+  static Widget heart({required Color c, double s = 20, bool filled = false}) =>
+      SizedBox(
+        width: s,
+        height: s,
+        child: CustomPaint(painter: _HeartPainter(c, filled: filled)),
+      );
 
   /// Person with open arms — Circle reactions
-  static Widget hug({required Color c, double s = 20}) => SizedBox(
-    width: s,
-    height: s,
-    child: CustomPaint(painter: _HugPainter(c)),
-  );
+  static Widget hug({required Color c, double s = 20, bool filled = false}) =>
+      SizedBox(
+        width: s,
+        height: s,
+        child: CustomPaint(painter: _HugPainter(c, filled: filled)),
+      );
 
   /// 5-point star — Insight section
   static Widget star({required Color c, double s = 20}) => SizedBox(
@@ -467,11 +470,18 @@ class _BloomPainter extends CustomPainter {
 
 class _LeafPainter extends CustomPainter {
   final Color color;
-  _LeafPainter(this.color);
+  final bool filled;
+  _LeafPainter(this.color, {this.filled = false});
 
   @override
   void paint(Canvas canvas, Size size) {
-    final p =
+    final pOutline =
+        Paint()
+          ..color = color
+          ..strokeWidth = 1.5
+          ..style = filled ? PaintingStyle.fill : PaintingStyle.stroke
+          ..strokeCap = StrokeCap.round;
+    final pStroke =
         Paint()
           ..color = color
           ..strokeWidth = 1.5
@@ -483,9 +493,13 @@ class _LeafPainter extends CustomPainter {
           ..moveTo(s * 0.2, s * 0.8)
           ..quadraticBezierTo(s * 0.1, s * 0.2, s * 0.8, s * 0.15)
           ..quadraticBezierTo(s * 0.85, s * 0.8, s * 0.2, s * 0.8);
-    canvas.drawPath(leaf, p);
+    canvas.drawPath(leaf, pOutline);
     // Stem
-    canvas.drawLine(Offset(s * 0.2, s * 0.8), Offset(s * 0.65, s * 0.35), p);
+    canvas.drawLine(
+      Offset(s * 0.2, s * 0.8),
+      Offset(s * 0.65, s * 0.35),
+      pStroke,
+    );
   }
 
   @override
@@ -727,7 +741,8 @@ class _CloudPainter extends CustomPainter {
 
 class _HeartPainter extends CustomPainter {
   final Color color;
-  _HeartPainter(this.color);
+  final bool filled;
+  _HeartPainter(this.color, {this.filled = false});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -735,7 +750,7 @@ class _HeartPainter extends CustomPainter {
         Paint()
           ..color = color
           ..strokeWidth = 1.5
-          ..style = PaintingStyle.stroke
+          ..style = filled ? PaintingStyle.fill : PaintingStyle.stroke
           ..strokeJoin = StrokeJoin.round;
     final s = size.width;
     final heart =
@@ -752,35 +767,53 @@ class _HeartPainter extends CustomPainter {
 
 class _HugPainter extends CustomPainter {
   final Color color;
-  _HugPainter(this.color);
+  final bool filled;
+  _HugPainter(this.color, {this.filled = false});
 
   @override
   void paint(Canvas canvas, Size size) {
-    final p =
+    final pCircle =
         Paint()
           ..color = color
           ..strokeWidth = 1.5
+          ..style = filled ? PaintingStyle.fill : PaintingStyle.stroke;
+    final pStroke =
+        Paint()
+          ..color = color
+          ..strokeWidth = filled ? 3.0 : 1.5
           ..style = PaintingStyle.stroke
           ..strokeCap = StrokeCap.round;
     final s = size.width;
     // Head
-    canvas.drawCircle(Offset(s * 0.5, s * 0.22), s * 0.14, p);
+    canvas.drawCircle(Offset(s * 0.5, s * 0.22), s * 0.14, pCircle);
     // Body
-    canvas.drawLine(Offset(s * 0.5, s * 0.36), Offset(s * 0.5, s * 0.7), p);
+    canvas.drawLine(
+      Offset(s * 0.5, s * 0.36),
+      Offset(s * 0.5, s * 0.7),
+      pStroke,
+    );
     // Arms reaching out/around
     final leftArm =
         Path()
           ..moveTo(s * 0.5, s * 0.45)
           ..quadraticBezierTo(s * 0.15, s * 0.42, s * 0.2, s * 0.6);
-    canvas.drawPath(leftArm, p);
+    canvas.drawPath(leftArm, pStroke);
     final rightArm =
         Path()
           ..moveTo(s * 0.5, s * 0.45)
           ..quadraticBezierTo(s * 0.85, s * 0.42, s * 0.8, s * 0.6);
-    canvas.drawPath(rightArm, p);
+    canvas.drawPath(rightArm, pStroke);
     // Legs
-    canvas.drawLine(Offset(s * 0.5, s * 0.7), Offset(s * 0.35, s * 0.9), p);
-    canvas.drawLine(Offset(s * 0.5, s * 0.7), Offset(s * 0.65, s * 0.9), p);
+    canvas.drawLine(
+      Offset(s * 0.5, s * 0.7),
+      Offset(s * 0.35, s * 0.9),
+      pStroke,
+    );
+    canvas.drawLine(
+      Offset(s * 0.5, s * 0.7),
+      Offset(s * 0.65, s * 0.9),
+      pStroke,
+    );
   }
 
   @override

@@ -1,13 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../theme/tokens.dart';
 import '../../icons/app_icons.dart';
+import '../../models/user_profile.dart';
+import '../../services/api_service.dart';
 import '../../widgets/shared_widgets.dart';
 import '../../widgets/voice_text_input.dart';
 
 class CircleTab extends StatefulWidget {
+  final UserProfile user;
   final AppTokens t;
   final String userName;
-  const CircleTab({super.key, required this.t, required this.userName});
+  const CircleTab({
+    super.key,
+    required this.user,
+    required this.t,
+    required this.userName,
+  });
 
   @override
   State<CircleTab> createState() => _CircleTabState();
@@ -16,60 +25,186 @@ class CircleTab extends StatefulWidget {
 class _CircleTabState extends State<CircleTab> {
   String _newPost = '';
   bool _isAnon = false;
-  final List<_Post> _posts = [
-    // Seeded posts for a non-empty feel
-    _Post(
-      name: 'A quiet mother',
-      body:
-          'Today I realised that I haven\'t listened to my favourite song in months. I played it during nap time and cried. Not from sadness — from recognition. I\'m still in here.',
-      isAnon: true,
-      time: '2 hours ago',
-      hearts: 14,
-      hugs: 8,
-      leaves: 3,
-    ),
-    _Post(
-      name: 'Priya',
-      body:
-          'My toddler held my face with both hands today and said "Mama, you\'re my best." I didn\'t correct his grammar. I just held that moment.',
-      isAnon: false,
-      time: '5 hours ago',
-      hearts: 22,
-      hugs: 11,
-      leaves: 7,
-    ),
-    _Post(
-      name: 'A quiet mother',
-      body:
-          'Some days the hardest thing isn\'t the baby. It\'s the loneliness that sits next to you while you\'re surrounded by people who love you.',
-      isAnon: true,
-      time: 'Yesterday',
-      hearts: 31,
-      hugs: 19,
-      leaves: 5,
-    ),
-  ];
+  bool _loadingPosts = false;
+  final List<_Post> _posts = [];
+  final Set<String> _userReactions = {};
 
   AppTokens get t => widget.t;
 
-  void _sharePost() {
-    if (_newPost.trim().isEmpty) return;
-    setState(() {
-      _posts.insert(
-        0,
-        _Post(
-          name: _isAnon ? 'A quiet mother' : widget.userName,
-          body: _newPost.trim(),
-          isAnon: _isAnon,
-          time: 'Just now',
-          hearts: 0,
-          hugs: 0,
-          leaves: 0,
-        ),
+  @override
+  void initState() {
+    super.initState();
+    _loadUserReactions();
+    _loadPosts();
+  }
+
+  void _loadUserReactions() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final list = prefs.getStringList('circle_user_reactions') ?? [];
+      if (mounted) {
+        setState(() {
+          _userReactions.addAll(list);
+        });
+      }
+    } catch (e) {
+      debugPrint('[LOAD USER REACTIONS ERROR] $e');
+    }
+  }
+
+  void _saveUserReactions() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList(
+        'circle_user_reactions',
+        _userReactions.toList(),
       );
+    } catch (e) {
+      debugPrint('[SAVE USER REACTIONS ERROR] $e');
+    }
+  }
+
+  void _loadPosts() async {
+    setState(() {
+      _loadingPosts = true;
+    });
+
+    try {
+      final postsList = await ApiService.getCirclePosts(
+        token: widget.user.token ?? '',
+      );
+
+      final loadedPosts =
+          postsList.map((item) {
+            final id = item['id']?.toString();
+            final body = item['body']?.toString() ?? '';
+            final isAnon = item['is_anon'] as bool? ?? true;
+            final name =
+                isAnon
+                    ? 'A quiet mother'
+                    : (item['name']?.toString() ?? 'A quiet mother');
+            final createdAtStr = item['created_at']?.toString() ?? '';
+
+            String timeString = 'Just now';
+            try {
+              final createdAt = DateTime.parse(createdAtStr);
+              final diff = DateTime.now().difference(createdAt);
+              if (diff.inDays > 0) {
+                timeString =
+                    diff.inDays == 1 ? '1 day ago' : '${diff.inDays} days ago';
+              } else if (diff.inHours > 0) {
+                timeString =
+                    diff.inHours == 1
+                        ? '1 hour ago'
+                        : '${diff.inHours} hours ago';
+              } else if (diff.inMinutes > 0) {
+                timeString =
+                    diff.inMinutes == 1
+                        ? '1 minute ago'
+                        : '${diff.inMinutes} minutes ago';
+              } else {
+                timeString = 'Just now';
+              }
+            } catch (_) {}
+
+            final heartsCount =
+                item['heart_count'] as int? ??
+                item['hearts_count'] as int? ??
+                item['hearts'] as int? ??
+                0;
+            final hugsCount =
+                item['hug_count'] as int? ??
+                item['hugs_count'] as int? ??
+                item['hugs'] as int? ??
+                0;
+            final leavesCount =
+                item['leaf_count'] as int? ??
+                item['leaves_count'] as int? ??
+                item['leaves'] as int? ??
+                0;
+
+            return _Post(
+              id: id,
+              name: name,
+              body: body,
+              isAnon: isAnon,
+              time: timeString,
+              hearts: heartsCount,
+              hugs: hugsCount,
+              leaves: leavesCount,
+            );
+          }).toList();
+
+      if (mounted) {
+        setState(() {
+          _posts.clear();
+          _posts.addAll(loadedPosts);
+          _loadingPosts = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('[LOAD CIRCLE POSTS ERROR] $e');
+      if (mounted) {
+        setState(() {
+          _posts.clear();
+          _loadingPosts = false;
+        });
+      }
+    }
+  }
+
+  void _sharePost() async {
+    if (_newPost.trim().isEmpty) return;
+    final bodyText = _newPost.trim();
+    final anon = _isAnon;
+    setState(() {
       _newPost = '';
       _isAnon = false;
     });
+
+    try {
+      final res = await ApiService.createCirclePost(
+        token: widget.user.token ?? '',
+        body: bodyText,
+        isAnon: anon,
+      );
+      final createdId = res['id']?.toString();
+
+      if (mounted) {
+        setState(() {
+          _posts.insert(
+            0,
+            _Post(
+              id: createdId,
+              name: anon ? 'A quiet mother' : widget.userName,
+              body: bodyText,
+              isAnon: anon,
+              time: 'Just now',
+              hearts: 0,
+              hugs: 0,
+              leaves: 0,
+            ),
+          );
+        });
+      }
+    } catch (e) {
+      debugPrint('[CREATE CIRCLE POST ERROR] $e');
+      if (mounted) {
+        setState(() {
+          _newPost = bodyText;
+          _isAnon = anon;
+        });
+
+        String errMsg = e.toString();
+        if (errMsg.startsWith('Exception: ')) {
+          errMsg = errMsg.substring(11);
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(errMsg), backgroundColor: Colors.redAccent),
+        );
+      }
+    }
   }
 
   @override
@@ -82,7 +217,22 @@ class _CircleTabState extends State<CircleTab> {
           _buildComposer(),
           const SizedBox(height: 16),
           // Posts
-          ..._posts.map((post) => _buildPostCard(post)),
+          if (_loadingPosts)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 20),
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.black26),
+                  ),
+                ),
+              ),
+            )
+          else
+            ..._posts.map((post) => _buildPostCard(post)),
         ],
       ),
     );
@@ -200,24 +350,117 @@ class _CircleTabState extends State<CircleTab> {
           Row(
             children: [
               _reactionBtn(
-                AppIcons.heart(c: t.accent, s: 16),
+                AppIcons.heart(
+                  c: t.accent,
+                  s: 16,
+                  filled: _userReactions.contains('${post.id}_heart'),
+                ),
                 post.hearts,
                 t.accent,
-                () => setState(() => post.hearts++),
+                () async {
+                  final key = '${post.id}_heart';
+                  if (_userReactions.contains(key)) {
+                    setState(() {
+                      post.hearts = (post.hearts - 1).clamp(0, 999999);
+                      _userReactions.remove(key);
+                    });
+                    _saveUserReactions();
+                  } else {
+                    setState(() {
+                      post.hearts++;
+                      _userReactions.add(key);
+                    });
+                    _saveUserReactions();
+                    if (post.id != null) {
+                      try {
+                        await ApiService.reactToCirclePost(
+                          token: widget.user.token ?? '',
+                          postId: post.id!,
+                          reactionType: 'heart',
+                        );
+                      } catch (err) {
+                        debugPrint('[REACT HEART ERROR] $err');
+                      }
+                    }
+                  }
+                },
+                isActive: _userReactions.contains('${post.id}_heart'),
               ),
               const SizedBox(width: 10),
               _reactionBtn(
-                AppIcons.hug(c: t.green, s: 16),
+                AppIcons.hug(
+                  c: t.green,
+                  s: 16,
+                  filled: _userReactions.contains('${post.id}_hug'),
+                ),
                 post.hugs,
                 t.green,
-                () => setState(() => post.hugs++),
+                () async {
+                  final key = '${post.id}_hug';
+                  if (_userReactions.contains(key)) {
+                    setState(() {
+                      post.hugs = (post.hugs - 1).clamp(0, 999999);
+                      _userReactions.remove(key);
+                    });
+                    _saveUserReactions();
+                  } else {
+                    setState(() {
+                      post.hugs++;
+                      _userReactions.add(key);
+                    });
+                    _saveUserReactions();
+                    if (post.id != null) {
+                      try {
+                        await ApiService.reactToCirclePost(
+                          token: widget.user.token ?? '',
+                          postId: post.id!,
+                          reactionType: 'hug',
+                        );
+                      } catch (err) {
+                        debugPrint('[REACT HUG ERROR] $err');
+                      }
+                    }
+                  }
+                },
+                isActive: _userReactions.contains('${post.id}_hug'),
               ),
               const SizedBox(width: 10),
               _reactionBtn(
-                AppIcons.leaf(c: t.gold, s: 16),
+                AppIcons.leaf(
+                  c: t.gold,
+                  s: 16,
+                  filled: _userReactions.contains('${post.id}_leaf'),
+                ),
                 post.leaves,
                 t.gold,
-                () => setState(() => post.leaves++),
+                () async {
+                  final key = '${post.id}_leaf';
+                  if (_userReactions.contains(key)) {
+                    setState(() {
+                      post.leaves = (post.leaves - 1).clamp(0, 999999);
+                      _userReactions.remove(key);
+                    });
+                    _saveUserReactions();
+                  } else {
+                    setState(() {
+                      post.leaves++;
+                      _userReactions.add(key);
+                    });
+                    _saveUserReactions();
+                    if (post.id != null) {
+                      try {
+                        await ApiService.reactToCirclePost(
+                          token: widget.user.token ?? '',
+                          postId: post.id!,
+                          reactionType: 'leaf',
+                        );
+                      } catch (err) {
+                        debugPrint('[REACT LEAF ERROR] $err');
+                      }
+                    }
+                  }
+                },
+                isActive: _userReactions.contains('${post.id}_leaf'),
               ),
             ],
           ),
@@ -226,14 +469,21 @@ class _CircleTabState extends State<CircleTab> {
     );
   }
 
-  Widget _reactionBtn(Widget icon, int count, Color color, VoidCallback onTap) {
+  Widget _reactionBtn(
+    Widget icon,
+    int count,
+    Color color,
+    VoidCallback onTap, {
+    bool isActive = false,
+  }) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: t.border),
+          border: Border.all(color: isActive ? color : t.border),
+          color: isActive ? color.withAlpha(20) : Colors.transparent,
         ),
         child: Row(
           children: [
@@ -248,6 +498,7 @@ class _CircleTabState extends State<CircleTab> {
 }
 
 class _Post {
+  final String? id;
   final String name;
   final String body;
   final bool isAnon;
@@ -257,6 +508,7 @@ class _Post {
   int leaves;
 
   _Post({
+    this.id,
     required this.name,
     required this.body,
     required this.isAnon,
