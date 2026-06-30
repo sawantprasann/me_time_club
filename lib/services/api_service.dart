@@ -42,10 +42,19 @@ class ApiService {
       final decoded = jsonDecode(response.body);
 
       if (response.statusCode == 200 || response.statusCode == 201) {
-        final authHeader = response.headers['authorization'] ?? '';
-        final token = authHeader.startsWith('Bearer ')
-            ? authHeader.substring(7)
-            : authHeader;
+        String? token;
+        final authHeader =
+            response.headers['Authorization'] ??
+            response.headers['authorization'];
+        if (authHeader != null && authHeader.startsWith('Bearer ')) {
+          token = authHeader.substring(7).trim();
+        }
+        if (token == null || token.isEmpty) {
+          token = decoded['token'] as String?;
+        }
+        if (token == null) {
+          throw ApiException('No token returned in response.');
+        }
         final userJson = decoded['user'] as Map<String, dynamic>;
 
         // Map backend fields to UserProfile model
@@ -104,10 +113,19 @@ class ApiService {
       final decoded = jsonDecode(response.body);
 
       if (response.statusCode == 200) {
-        final authHeader = response.headers['authorization'] ?? '';
-        final token = authHeader.startsWith('Bearer ')
-            ? authHeader.substring(7)
-            : authHeader;
+        String? token;
+        final authHeader =
+            response.headers['Authorization'] ??
+            response.headers['authorization'];
+        if (authHeader != null && authHeader.startsWith('Bearer ')) {
+          token = authHeader.substring(7).trim();
+        }
+        if (token == null || token.isEmpty) {
+          token = decoded['token'] as String?;
+        }
+        if (token == null) {
+          throw ApiException('No token returned in response.');
+        }
         final userJson = decoded['user'] as Map<String, dynamic>;
 
         return UserProfile.fromJson({...userJson, 'token': token});
@@ -204,14 +222,16 @@ class ApiService {
   }) async {
     final url = 'http://139.59.23.15/api/v1/daily_pages/$pageId/feedback';
     final requestBody = {
-      'vote': vote,
-      if (feedbackText != null) 'feedback_text': feedbackText,
-      if (mood != null) 'mood': mood,
-      if (openingThought != null)
-        'opening_thought': openingThought.substring(
-          0,
-          openingThought.length > 100 ? 100 : openingThought.length,
-        ),
+      'feedback': {
+        'vote': vote,
+        if (feedbackText != null) 'feedback_text': feedbackText,
+        if (mood != null) 'mood': mood,
+        if (openingThought != null)
+          'opening_thought': openingThought.substring(
+            0,
+            openingThought.length > 100 ? 100 : openingThought.length,
+          ),
+      },
     };
 
     print('[API REQUEST] POST $url');

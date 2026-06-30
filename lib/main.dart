@@ -277,7 +277,7 @@ class _AppRootState extends State<AppRoot> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   _night
-                      ? AppIcons.moon2(c: t.accent, s: 15)
+                      ? AppIcons.moon(c: t.accent, s: 15)
                       : AppIcons.sun2(c: t.gold, s: 15),
                   const SizedBox(width: 6),
                   Text(

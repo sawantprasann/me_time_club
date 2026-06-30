@@ -70,8 +70,12 @@ class UserProfile {
   /// Create a UserProfile from JSON map
   factory UserProfile.fromJson(Map<String, dynamic> json) {
     final phasesList = List<String>.from(json['phases'] ?? []);
-    final journeyStage = json['journey_stage'] as String?;
+    final primaryPhase = json['primary_phase'] as String?;
+    if (phasesList.isEmpty && primaryPhase != null) {
+      phasesList.add(primaryPhase);
+    }
 
+    final journeyStage = json['journey_stage'] as String?;
     if (phasesList.isEmpty && journeyStage != null) {
       final stageToPhase = {
         'expecting_mom': 'expecting',
@@ -92,14 +96,20 @@ class UserProfile {
       email: json['email'] as String?,
       token: json['token'] as String?,
       journeyStage: journeyStage,
-      name: json['name'] as String? ?? '',
+      name: json['name'] as String? ?? json['display_name'] as String? ?? '',
       phases: phasesList,
-      pregnancyMonth: json['pregnancyMonth'] as String?,
-      childCount: json['childCount'] as int? ?? 0,
-      journey: List<String>.from(json['journey'] ?? []),
+      pregnancyMonth:
+          json['pregnancy_week'] as String? ??
+          json['pregnancyMonth'] as String?,
+      childCount:
+          json['child_count'] as int? ?? json['childCount'] as int? ?? 0,
+      journey: List<String>.from(json['journey_tags'] ?? json['journey'] ?? []),
       bio: json['bio'] as String? ?? '',
       hardships: List<String>.from(json['hardships'] ?? []),
-      hardshipsText: json['hardshipsText'] as String? ?? '',
+      hardshipsText:
+          json['hardships_text'] as String? ??
+          json['hardshipsText'] as String? ??
+          '',
       photo:
           json['photo'] != null ? base64Decode(json['photo'] as String) : null,
     );

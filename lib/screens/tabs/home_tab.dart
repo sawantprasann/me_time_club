@@ -451,7 +451,7 @@ class _DailyPageView extends StatelessWidget {
       ),
       child: Column(
         children: [
-          AppIcons.moon2(c: const Color(0xFFC4878A), s: 20),
+          AppIcons.moon(c: const Color(0xFFC4878A), s: 20),
           const SizedBox(height: 8),
           Text(
             'NIGHT REFLECTION',

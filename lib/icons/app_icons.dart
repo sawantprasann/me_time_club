@@ -532,32 +532,26 @@ class _MoonPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    final s = size.width;
+    canvas.save();
+    canvas.translate(s * 0.5, s * 0.5);
+    canvas.rotate(-0.55);
+    canvas.translate(-s * 0.5, -s * 0.5);
+
     final p =
         Paint()
           ..color = color
           ..strokeWidth = 1.5
-          ..style = PaintingStyle.stroke;
-    final s = size.width;
-    final moon =
-        Path()..addArc(
-          Rect.fromCircle(center: Offset(s * 0.5, s * 0.5), radius: s * 0.35),
-          0,
-          2 * pi,
-        );
-    canvas.drawPath(moon, p);
-    // Cutout effect with thick stroke matching bg — just draw crescent
-    final cut =
-        Paint()
-          ..color = color
-          ..strokeWidth = 1.5
-          ..style = PaintingStyle.stroke;
-    canvas.drawArc(
-      Rect.fromCircle(center: Offset(s * 0.62, s * 0.42), radius: s * 0.28),
-      0.5,
-      pi * 1.4,
-      false,
-      cut,
-    );
+          ..style = PaintingStyle.stroke
+          ..strokeCap = StrokeCap.round
+          ..strokeJoin = StrokeJoin.round;
+    final path =
+        Path()
+          ..moveTo(s * 0.62, s * 0.13)
+          ..quadraticBezierTo(s * 0.13, s * 0.5, s * 0.62, s * 0.87)
+          ..quadraticBezierTo(s * 0.38, s * 0.5, s * 0.62, s * 0.13);
+    canvas.drawPath(path, p);
+    canvas.restore();
   }
 
   @override
@@ -1120,30 +1114,25 @@ class _Moon2Painter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final s = size.width;
+    canvas.save();
+    canvas.translate(s * 0.5, s * 0.5);
+    canvas.rotate(-0.55);
+    canvas.translate(-s * 0.5, -s * 0.5);
+
     final p =
         Paint()
           ..color = color
-          ..style = PaintingStyle.fill;
+          ..strokeWidth = 1.5
+          ..style = PaintingStyle.stroke
+          ..strokeCap = StrokeCap.round
+          ..strokeJoin = StrokeJoin.round;
     final path =
         Path()
-          ..addArc(
-            Rect.fromCircle(
-              center: Offset(s * 0.45, s * 0.5),
-              radius: s * 0.35,
-            ),
-            -pi / 2,
-            pi,
-          )
-          ..arcTo(
-            Rect.fromCircle(
-              center: Offset(s * 0.55, s * 0.5),
-              radius: s * 0.25,
-            ),
-            pi / 2,
-            -pi,
-            false,
-          );
+          ..moveTo(s * 0.62, s * 0.13)
+          ..quadraticBezierTo(s * 0.13, s * 0.5, s * 0.62, s * 0.87)
+          ..quadraticBezierTo(s * 0.38, s * 0.5, s * 0.62, s * 0.13);
     canvas.drawPath(path, p);
+    canvas.restore();
   }
 
   @override

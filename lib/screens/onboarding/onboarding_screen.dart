@@ -930,6 +930,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         'name': _name.trim(),
         'display_name': _name.trim(),
         'password': _passwordController.text,
+        'password_confirmation': _passwordController.text,
         'journey_stage': getJourneyStage(),
         'primary_phase': getJourneyStage(),
         'pregnancy_week': _pregnancyMonth?.replaceAll(' weeks', ''),
