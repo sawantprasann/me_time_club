@@ -319,11 +319,11 @@ class _AppRootState extends State<AppRoot> {
       case 'home':
         return HomeTab(user: _user!, t: t, onSavePage: _onSavePage);
       case 'calendar':
-        return CalendarTab(t: t, dailyPages: _dailyPages);
+        return CalendarTab(user: _user!, t: t, dailyPages: _dailyPages);
       case 'memories':
         return MemoriesTab(t: t);
       case 'journal':
-        return JournalTab(t: t);
+        return JournalTab(user: _user!, t: t);
       case 'circle':
         return CircleTab(t: t, userName: _user!.name);
       case 'me':

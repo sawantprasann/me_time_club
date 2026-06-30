@@ -2,14 +2,21 @@ import 'package:flutter/material.dart';
 import '../../theme/tokens.dart';
 import '../../icons/app_icons.dart';
 import '../../models/user_profile.dart';
+import '../../services/api_service.dart';
 import '../../widgets/shared_widgets.dart';
 import '../../widgets/speech_button.dart';
 
 class CalendarTab extends StatefulWidget {
+  final UserProfile user;
   final AppTokens t;
   final Map<int, DailyPageContent> dailyPages;
 
-  const CalendarTab({super.key, required this.t, required this.dailyPages});
+  const CalendarTab({
+    super.key,
+    required this.user,
+    required this.t,
+    required this.dailyPages,
+  });
 
   @override
   State<CalendarTab> createState() => _CalendarTabState();
@@ -29,6 +36,10 @@ class _CalendarTabState extends State<CalendarTab> {
   // Cycle days: key = "YYYY-MM-DD"
   final Set<String> _cycleDays = {};
 
+  // Cache fetched daily pages by date key YYYY-MM-DD
+  final Map<String, DailyPageContent?> _fetchedPages = {};
+  bool _loadingPage = false;
+
   AppTokens get t => widget.t;
 
   @override
@@ -38,6 +49,52 @@ class _CalendarTabState extends State<CalendarTab> {
     _viewYear = now.year;
     _viewMonth = now.month;
     _sel = now.day;
+    _fetchDailyPageForSelected();
+  }
+
+  void _fetchDailyPageForSelected() async {
+    final dateKey =
+        '$_viewYear-${_viewMonth.toString().padLeft(2, '0')}-${_sel.toString().padLeft(2, '0')}';
+
+    // Check session generated page first
+    final isSessionCurrent =
+        _isCurrentMonth && widget.dailyPages.containsKey(_sel);
+    if (isSessionCurrent) return;
+
+    if (_fetchedPages.containsKey(dateKey)) return;
+
+    setState(() {
+      _loadingPage = true;
+    });
+
+    try {
+      final page = await ApiService.getDailyPageByDate(
+        token: widget.user.token ?? '',
+        dateKey: dateKey,
+      );
+      if (mounted) {
+        setState(() {
+          _fetchedPages[dateKey] = page;
+          _loadingPage = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('[GET DAILY PAGE ERROR] $e');
+      if (mounted) {
+        setState(() {
+          _fetchedPages[dateKey] = null;
+          _loadingPage = false;
+        });
+      }
+    }
+  }
+
+  void _selectDay(int dayNum) {
+    setState(() {
+      _sel = dayNum;
+      _pageExpanded = false;
+    });
+    _fetchDailyPageForSelected();
   }
 
   String get _taskKey => '$_viewYear-$_viewMonth-$_sel';
@@ -65,6 +122,7 @@ class _CalendarTabState extends State<CalendarTab> {
       _sel = 1;
       _pageExpanded = false;
     });
+    _fetchDailyPageForSelected();
   }
 
   void _nextMonth() {
@@ -78,17 +136,43 @@ class _CalendarTabState extends State<CalendarTab> {
       _sel = 1;
       _pageExpanded = false;
     });
+    _fetchDailyPageForSelected();
   }
 
-  void _addTask() {
+  void _addTask() async {
     if (_newTask.trim().isEmpty) return;
+    final taskText = _newTask.trim();
     setState(() {
-      _tasks[_taskKey] = [
-        ..._currentTasks,
-        _TaskItem(text: _newTask.trim(), done: false),
-      ];
       _newTask = '';
     });
+
+    try {
+      final res = await ApiService.createTask(
+        token: widget.user.token ?? '',
+        title: taskText,
+        completed: false,
+      );
+      final createdId = res['id']?.toString();
+
+      if (mounted) {
+        setState(() {
+          _tasks[_taskKey] = [
+            ..._currentTasks,
+            _TaskItem(id: createdId, text: taskText, done: false),
+          ];
+        });
+      }
+    } catch (e) {
+      debugPrint('[CALENDAR TASK API ERROR] $e');
+      if (mounted) {
+        setState(() {
+          _tasks[_taskKey] = [
+            ..._currentTasks,
+            _TaskItem(text: taskText, done: false),
+          ];
+        });
+      }
+    }
   }
 
   void _markCycleDay() {
@@ -229,12 +313,14 @@ class _CalendarTabState extends State<CalendarTab> {
             years.map((y) {
               final sel = y == _viewYear;
               return GestureDetector(
-                onTap:
-                    () => setState(() {
-                      _viewYear = y;
-                      _showYearPicker = false;
-                      _sel = 1;
-                    }),
+                onTap: () {
+                  setState(() {
+                    _viewYear = y;
+                    _showYearPicker = false;
+                    _sel = 1;
+                  });
+                  _fetchDailyPageForSelected();
+                },
                 child: Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 14,
@@ -305,17 +391,17 @@ class _CalendarTabState extends State<CalendarTab> {
                 );
                 final hasTask =
                     (_tasks['$_viewYear-$_viewMonth-$dayNum'] ?? []).isNotEmpty;
+                final dotDateKey =
+                    '$_viewYear-${_viewMonth.toString().padLeft(2, '0')}-${dayNum.toString().padLeft(2, '0')}';
                 final hasPage =
-                    _isCurrentMonth && widget.dailyPages.containsKey(dayNum);
+                    (_isCurrentMonth &&
+                        widget.dailyPages.containsKey(dayNum)) ||
+                    (_fetchedPages[dotDateKey] != null);
                 final hasCycle = _cycleDays.contains(dayKey);
 
                 return Expanded(
                   child: GestureDetector(
-                    onTap:
-                        () => setState(() {
-                          _sel = dayNum;
-                          _pageExpanded = false;
-                        }),
+                    onTap: () => _selectDay(dayNum),
                     child: Container(
                       height: 42,
                       margin: const EdgeInsets.all(1.5),
@@ -412,8 +498,19 @@ class _CalendarTabState extends State<CalendarTab> {
   );
 
   Widget _buildDailyPageSection() {
-    final hasPage = _isCurrentMonth && widget.dailyPages.containsKey(_sel);
-    final page = hasPage ? widget.dailyPages[_sel] : null;
+    final dateKey =
+        '$_viewYear-${_viewMonth.toString().padLeft(2, '0')}-${_sel.toString().padLeft(2, '0')}';
+
+    DailyPageContent? page;
+    final isSessionCurrent =
+        _isCurrentMonth && widget.dailyPages.containsKey(_sel);
+    if (isSessionCurrent) {
+      page = widget.dailyPages[_sel];
+    } else {
+      page = _fetchedPages[dateKey];
+    }
+
+    final hasPage = page != null;
 
     return AppCard(
       t: t,
@@ -426,7 +523,7 @@ class _CalendarTabState extends State<CalendarTab> {
               const SizedBox(width: 8),
               Text('DAILY PAGE', style: AppTypography.sectionLabel(t.muted)),
               const Spacer(),
-              if (hasPage)
+              if (hasPage && !_loadingPage)
                 SolidButton(
                   onTap: () => setState(() => _pageExpanded = !_pageExpanded),
                   icon: Transform.rotate(
@@ -439,7 +536,21 @@ class _CalendarTabState extends State<CalendarTab> {
             ],
           ),
           const SizedBox(height: 10),
-          if (page != null) ...[
+          if (_loadingPage)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 20),
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.black26),
+                  ),
+                ),
+              ),
+            )
+          else if (page != null) ...[
             Text(
               '❝ ${page.openingThought} ❞',
               style: AppTypography.dmSerifItalic(15, t.accent, height: 1.5),
@@ -537,13 +648,26 @@ class _CalendarTabState extends State<CalendarTab> {
               child: Row(
                 children: [
                   GestureDetector(
-                    onTap: () {
+                    onTap: () async {
+                      final newDone = !task.done;
                       setState(() {
                         _tasks[_taskKey]![i] = _TaskItem(
+                          id: task.id,
                           text: task.text,
-                          done: !task.done,
+                          done: newDone,
                         );
                       });
+                      if (task.id != null) {
+                        try {
+                          await ApiService.updateTask(
+                            token: widget.user.token ?? '',
+                            taskId: task.id!,
+                            completed: newDone,
+                          );
+                        } catch (err) {
+                          debugPrint('[CALENDAR TASK UPDATE API ERROR] $err');
+                        }
+                      }
                     },
                     child: Container(
                       width: 20,
@@ -574,10 +698,21 @@ class _CalendarTabState extends State<CalendarTab> {
                     ),
                   ),
                   GestureDetector(
-                    onTap: () {
+                    onTap: () async {
+                      final removedTask = _tasks[_taskKey]![i];
                       setState(() {
                         _tasks[_taskKey]!.removeAt(i);
                       });
+                      if (removedTask.id != null) {
+                        try {
+                          await ApiService.deleteTask(
+                            token: widget.user.token ?? '',
+                            taskId: removedTask.id!,
+                          );
+                        } catch (err) {
+                          debugPrint('[CALENDAR TASK DELETE API ERROR] $err');
+                        }
+                      }
                     },
                     child: AppIcons.close(c: t.muted, s: 14),
                   ),
@@ -709,7 +844,8 @@ class _CalendarTabState extends State<CalendarTab> {
 }
 
 class _TaskItem {
+  final String? id;
   final String text;
   final bool done;
-  _TaskItem({required this.text, required this.done});
+  _TaskItem({this.id, required this.text, required this.done});
 }

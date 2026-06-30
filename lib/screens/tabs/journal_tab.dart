@@ -2,13 +2,16 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import '../../theme/tokens.dart';
 import '../../icons/app_icons.dart';
+import '../../models/user_profile.dart';
+import '../../services/api_service.dart';
 import '../../widgets/shared_widgets.dart';
 import '../../widgets/voice_text_input.dart';
 import '../../widgets/speech_button.dart';
 
 class JournalTab extends StatefulWidget {
+  final UserProfile user;
   final AppTokens t;
-  const JournalTab({super.key, required this.t});
+  const JournalTab({super.key, required this.user, required this.t});
 
   @override
   State<JournalTab> createState() => _JournalTabState();
@@ -18,7 +21,11 @@ class _JournalTabState extends State<JournalTab> {
   String _sub = 'journal'; // journal | tasks | shopping
   // Journal sub-tab
   String _journalText = '';
+  String? _journalEntryId;
   bool _saved = false;
+  List<dynamic> _pastEntries = [];
+  bool _loadingEntries = false;
+
   // Tasks sub-tab
   final List<_TaskItem> _tasks = [];
   String _newTask = '';
@@ -50,6 +57,32 @@ class _JournalTabState extends State<JournalTab> {
   void initState() {
     super.initState();
     _openCat = _categories.first.name;
+    _fetchPastEntries();
+  }
+
+  void _fetchPastEntries() async {
+    setState(() {
+      _loadingEntries = true;
+    });
+
+    try {
+      final entries = await ApiService.getJournalEntries(
+        token: widget.user.token ?? '',
+      );
+      if (mounted) {
+        setState(() {
+          _pastEntries = entries;
+          _loadingEntries = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('[FETCH JOURNAL ENTRIES ERROR] $e');
+      if (mounted) {
+        setState(() {
+          _loadingEntries = false;
+        });
+      }
+    }
   }
 
   String get _dateLabel {
@@ -132,6 +165,65 @@ class _JournalTabState extends State<JournalTab> {
     );
   }
 
+  void _saveJournalEntry() async {
+    if (_journalText.trim().isEmpty) return;
+    setState(() {
+      _saved = false;
+    });
+
+    try {
+      if (_journalEntryId == null) {
+        await ApiService.createJournalEntry(
+          token: widget.user.token ?? '',
+          body: _journalText.trim(),
+        );
+        if (mounted) {
+          setState(() {
+            _journalText = '';
+            _journalEntryId = null;
+            _saved = true;
+          });
+          _fetchPastEntries();
+          Future.delayed(const Duration(seconds: 2), () {
+            if (mounted) {
+              setState(() {
+                _saved = false;
+              });
+            }
+          });
+        }
+      } else {
+        await ApiService.updateJournalEntry(
+          token: widget.user.token ?? '',
+          entryId: _journalEntryId!,
+          body: _journalText.trim(),
+        );
+        if (mounted) {
+          setState(() {
+            _journalText = '';
+            _journalEntryId = null;
+            _saved = true;
+          });
+          _fetchPastEntries();
+          Future.delayed(const Duration(seconds: 2), () {
+            if (mounted) {
+              setState(() {
+                _saved = false;
+              });
+            }
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('[JOURNAL SAVE ERROR] $e');
+      if (mounted) {
+        setState(() {
+          _saved = true;
+        });
+      }
+    }
+  }
+
   // ─── Journal Sub-Tab ─────────────────────────────
   Widget _buildJournal() {
     return Column(
@@ -155,11 +247,7 @@ class _JournalTabState extends State<JournalTab> {
         ),
         const SizedBox(height: 14),
         GestureDetector(
-          onTap: () {
-            if (_journalText.trim().isNotEmpty) {
-              setState(() => _saved = true);
-            }
-          },
+          onTap: _saveJournalEntry,
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             decoration: BoxDecoration(
@@ -181,6 +269,139 @@ class _JournalTabState extends State<JournalTab> {
             ),
           ),
         ),
+        const SizedBox(height: 30),
+        Text(
+          'PAST JOURNAL ENTRIES',
+          style: AppTypography.lato700(10, t.muted, letterSpacing: 1.8),
+        ),
+        const SizedBox(height: 12),
+        if (_loadingEntries)
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.symmetric(vertical: 20),
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.black26),
+                ),
+              ),
+            ),
+          )
+        else if (_pastEntries.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            child: Text(
+              'No past entries found.',
+              style: AppTypography.cormorantItalic(14, t.muted),
+            ),
+          )
+        else
+          Column(
+            children:
+                _pastEntries.map((entry) {
+                  final entryId = entry['id']?.toString() ?? '';
+                  final body = entry['body']?.toString() ?? '';
+                  final createdAtStr = entry['created_at']?.toString() ?? '';
+
+                  DateTime? date;
+                  try {
+                    date = DateTime.parse(createdAtStr);
+                  } catch (_) {}
+
+                  String dateString = 'Unknown Date';
+                  if (date != null) {
+                    final months = [
+                      'Jan',
+                      'Feb',
+                      'Mar',
+                      'Apr',
+                      'May',
+                      'Jun',
+                      'Jul',
+                      'Aug',
+                      'Sep',
+                      'Oct',
+                      'Nov',
+                      'Dec',
+                    ];
+                    dateString =
+                        '${date.day} ${months[date.month - 1]} ${date.year}';
+                  }
+
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: t.card,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: t.border),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () {
+                              setState(() {
+                                _journalText = body;
+                                _journalEntryId = entryId;
+                                _saved = true;
+                              });
+                            },
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  dateString,
+                                  style: AppTypography.lato700(10, t.accent),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  body,
+                                  style: AppTypography.lato400(13, t.text),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        GestureDetector(
+                          onTap: () async {
+                            try {
+                              await ApiService.deleteJournalEntry(
+                                token: widget.user.token ?? '',
+                                entryId: entryId,
+                              );
+                              _fetchPastEntries();
+                              if (_journalEntryId == entryId) {
+                                setState(() {
+                                  _journalText = '';
+                                  _journalEntryId = null;
+                                  _saved = false;
+                                });
+                              }
+                            } catch (e) {
+                              debugPrint('[DELETE JOURNAL ENTRY ERROR] $e');
+                            }
+                          },
+                          child: Padding(
+                            padding: const EdgeInsets.all(4.0),
+                            child: Icon(
+                              Icons.delete_outline,
+                              size: 18,
+                              color: t.muted,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+          ),
       ],
     );
   }
@@ -264,13 +485,27 @@ class _JournalTabState extends State<JournalTab> {
             child: Row(
               children: [
                 GestureDetector(
-                  onTap:
-                      () => setState(() {
-                        _tasks[i] = _TaskItem(
-                          text: task.text,
-                          done: !task.done,
+                  onTap: () async {
+                    final newDone = !task.done;
+                    setState(() {
+                      _tasks[i] = _TaskItem(
+                        id: task.id,
+                        text: task.text,
+                        done: newDone,
+                      );
+                    });
+                    if (task.id != null) {
+                      try {
+                        await ApiService.updateTask(
+                          token: widget.user.token ?? '',
+                          taskId: task.id!,
+                          completed: newDone,
                         );
-                      }),
+                      } catch (err) {
+                        debugPrint('[JOURNAL TASK UPDATE API ERROR] $err');
+                      }
+                    }
+                  },
                   child: Container(
                     width: 20,
                     height: 20,
@@ -299,7 +534,22 @@ class _JournalTabState extends State<JournalTab> {
                   ),
                 ),
                 GestureDetector(
-                  onTap: () => setState(() => _tasks.removeAt(i)),
+                  onTap: () async {
+                    final removedTask = _tasks[i];
+                    setState(() {
+                      _tasks.removeAt(i);
+                    });
+                    if (removedTask.id != null) {
+                      try {
+                        await ApiService.deleteTask(
+                          token: widget.user.token ?? '',
+                          taskId: removedTask.id!,
+                        );
+                      } catch (err) {
+                        debugPrint('[JOURNAL TASK DELETE API ERROR] $err');
+                      }
+                    }
+                  },
                   child: AppIcons.close(c: t.muted, s: 14),
                 ),
               ],
@@ -337,12 +587,34 @@ class _JournalTabState extends State<JournalTab> {
     );
   }
 
-  void _addTask() {
+  void _addTask() async {
     if (_newTask.trim().isEmpty) return;
+    final taskText = _newTask.trim();
     setState(() {
-      _tasks.add(_TaskItem(text: _newTask.trim(), done: false));
       _newTask = '';
     });
+
+    try {
+      final res = await ApiService.createTask(
+        token: widget.user.token ?? '',
+        title: taskText,
+        completed: false,
+      );
+      final createdId = res['id']?.toString();
+
+      if (mounted) {
+        setState(() {
+          _tasks.add(_TaskItem(id: createdId, text: taskText, done: false));
+        });
+      }
+    } catch (e) {
+      debugPrint('[JOURNAL TASK API ERROR] $e');
+      if (mounted) {
+        setState(() {
+          _tasks.add(_TaskItem(text: taskText, done: false));
+        });
+      }
+    }
   }
 
   // ─── Shopping Sub-Tab ────────────────────────────
@@ -621,9 +893,10 @@ class _JournalTabState extends State<JournalTab> {
 }
 
 class _TaskItem {
+  final String? id;
   final String text;
   final bool done;
-  _TaskItem({required this.text, required this.done});
+  _TaskItem({this.id, required this.text, required this.done});
 }
 
 class _ShopCategory {
