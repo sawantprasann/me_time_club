@@ -58,6 +58,7 @@ class _JournalTabState extends State<JournalTab> {
     super.initState();
     _openCat = _categories.first.name;
     _fetchPastEntries();
+    _fetchShoppingItems();
   }
 
   void _fetchPastEntries() async {
@@ -82,6 +83,55 @@ class _JournalTabState extends State<JournalTab> {
           _loadingEntries = false;
         });
       }
+    }
+  }
+
+  void _fetchShoppingItems() async {
+    try {
+      final items = await ApiService.getShoppingItems(
+        token: widget.user.token ?? '',
+      );
+
+      final Map<String, List<_ShopItem>> loadedItems = {};
+      for (final cat in _categories) {
+        loadedItems[cat.name] = [];
+      }
+
+      for (final item in items) {
+        final id = item['id']?.toString();
+        final name = item['name']?.toString() ?? '';
+        final done = item['checked'] as bool? ?? false;
+
+        if (name.contains('|')) {
+          final parts = name.split('|');
+          final catName = parts[0];
+          final itemName = parts.sublist(1).join('|');
+
+          if (!loadedItems.containsKey(catName)) {
+            loadedItems[catName] = [];
+          }
+          loadedItems[catName]!.add(
+            _ShopItem(id: id, text: itemName, done: done),
+          );
+        } else {
+          const defaultCat = 'Groceries';
+          if (!loadedItems.containsKey(defaultCat)) {
+            loadedItems[defaultCat] = [];
+          }
+          loadedItems[defaultCat]!.add(
+            _ShopItem(id: id, text: name, done: done),
+          );
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          _shopItems.clear();
+          _shopItems.addAll(loadedItems);
+        });
+      }
+    } catch (e) {
+      debugPrint('[FETCH SHOPPING ITEMS ERROR] $e');
     }
   }
 
@@ -774,13 +824,30 @@ class _JournalTabState extends State<JournalTab> {
                       child: Row(
                         children: [
                           GestureDetector(
-                            onTap:
-                                () => setState(() {
-                                  _shopItems[cat.name]![i] = _ShopItem(
-                                    text: item.text,
-                                    done: !item.done,
+                            onTap: () async {
+                              final newDone = !item.done;
+                              setState(() {
+                                _shopItems[cat.name]![i] = _ShopItem(
+                                  id: item.id,
+                                  text: item.text,
+                                  done: newDone,
+                                );
+                              });
+                              if (item.id != null) {
+                                try {
+                                  await ApiService.updateShoppingItem(
+                                    token: widget.user.token ?? '',
+                                    itemId: item.id!,
+                                    name: '${cat.name}|${item.text}',
+                                    checked: newDone,
                                   );
-                                }),
+                                } catch (err) {
+                                  debugPrint(
+                                    '[UPDATE SHOPPING ITEM ERROR] $err',
+                                  );
+                                }
+                              }
+                            },
                             child: Container(
                               width: 20,
                               height: 20,
@@ -813,10 +880,24 @@ class _JournalTabState extends State<JournalTab> {
                             ),
                           ),
                           GestureDetector(
-                            onTap:
-                                () => setState(() {
-                                  _shopItems[cat.name]!.removeAt(i);
-                                }),
+                            onTap: () async {
+                              final removedItem = _shopItems[cat.name]![i];
+                              setState(() {
+                                _shopItems[cat.name]!.removeAt(i);
+                              });
+                              if (removedItem.id != null) {
+                                try {
+                                  await ApiService.deleteShoppingItem(
+                                    token: widget.user.token ?? '',
+                                    itemId: removedItem.id!,
+                                  );
+                                } catch (err) {
+                                  debugPrint(
+                                    '[DELETE SHOPPING ITEM ERROR] $err',
+                                  );
+                                }
+                              }
+                            },
                             child: AppIcons.close(c: t.muted, s: 14),
                           ),
                         ],
@@ -859,15 +940,41 @@ class _JournalTabState extends State<JournalTab> {
     );
   }
 
-  void _addItem(String catName) {
+  void _addItem(String catName) async {
     if (_newItem.trim().isEmpty) return;
+    final itemText = _newItem.trim();
     setState(() {
-      _shopItems[catName] = [
-        ...(_shopItems[catName] ?? []),
-        _ShopItem(text: _newItem.trim(), done: false),
-      ];
       _newItem = '';
     });
+
+    try {
+      final nameWithCat = '$catName|$itemText';
+      final res = await ApiService.createShoppingItem(
+        token: widget.user.token ?? '',
+        name: nameWithCat,
+        checked: false,
+      );
+      final createdId = res['id']?.toString();
+
+      if (mounted) {
+        setState(() {
+          _shopItems[catName] = [
+            ...(_shopItems[catName] ?? []),
+            _ShopItem(id: createdId, text: itemText, done: false),
+          ];
+        });
+      }
+    } catch (e) {
+      debugPrint('[CREATE SHOPPING ITEM ERROR] $e');
+      if (mounted) {
+        setState(() {
+          _shopItems[catName] = [
+            ...(_shopItems[catName] ?? []),
+            _ShopItem(text: itemText, done: false),
+          ];
+        });
+      }
+    }
   }
 
   InputDecoration _inputDeco(String hint) => InputDecoration(
@@ -906,7 +1013,8 @@ class _ShopCategory {
 }
 
 class _ShopItem {
+  final String? id;
   final String text;
   final bool done;
-  _ShopItem({required this.text, required this.done});
+  _ShopItem({this.id, required this.text, required this.done});
 }

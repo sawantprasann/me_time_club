@@ -697,4 +697,175 @@ class ApiService {
       throw ApiException('An unexpected error occurred: ${e.toString()}');
     }
   }
+
+  /// Gets all shopping items.
+  static Future<List<dynamic>> getShoppingItems({required String token}) async {
+    const url = 'http://139.59.23.15/api/v1/shopping_items';
+
+    print('[API REQUEST] GET $url');
+
+    try {
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {
+          'accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      print('[API RESPONSE] ${response.statusCode} GET $url');
+      print('[API RESPONSE BODY] ${response.body}');
+
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+        return decoded as List<dynamic>;
+      } else {
+        final decoded = jsonDecode(response.body);
+        final errorMsg =
+            decoded['error'] as String? ?? 'Failed to get shopping items.';
+        throw ApiException(errorMsg);
+      }
+    } on http.ClientException catch (e) {
+      print('[API ERROR] ClientException: ${e.message}');
+      throw ApiException(
+        'Network error: Please check your internet connection.',
+      );
+    } catch (e) {
+      print('[API ERROR] Exception: ${e.toString()}');
+      if (e is ApiException) rethrow;
+      throw ApiException('An unexpected error occurred: ${e.toString()}');
+    }
+  }
+
+  /// Creates a new shopping item.
+  static Future<Map<String, dynamic>> createShoppingItem({
+    required String token,
+    required String name,
+    required bool checked,
+  }) async {
+    const url = 'http://139.59.23.15/api/v1/shopping_items';
+    final requestBody = {
+      'shopping_item': {'name': name, 'checked': checked},
+    };
+
+    print('[API REQUEST] POST $url');
+    print('[API REQUEST BODY] ${jsonEncode(requestBody)}');
+
+    try {
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {
+          'accept': 'application/json',
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(requestBody),
+      );
+
+      print('[API RESPONSE] ${response.statusCode} POST $url');
+      print('[API RESPONSE BODY] ${response.body}');
+
+      final decoded = jsonDecode(response.body);
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return decoded as Map<String, dynamic>;
+      } else {
+        final errorMsg =
+            decoded['error'] as String? ?? 'Failed to create shopping item.';
+        throw ApiException(errorMsg);
+      }
+    } on http.ClientException catch (e) {
+      print('[API ERROR] ClientException: ${e.message}');
+      throw ApiException(
+        'Network error: Please check your internet connection.',
+      );
+    } catch (e) {
+      print('[API ERROR] Exception: ${e.toString()}');
+      if (e is ApiException) rethrow;
+      throw ApiException('An unexpected error occurred: ${e.toString()}');
+    }
+  }
+
+  /// Updates an existing shopping item.
+  static Future<Map<String, dynamic>> updateShoppingItem({
+    required String token,
+    required String itemId,
+    String? name,
+    required bool checked,
+  }) async {
+    final url = 'http://139.59.23.15/api/v1/shopping_items/$itemId';
+    final requestBody = {
+      'shopping_item': {if (name != null) 'name': name, 'checked': checked},
+    };
+
+    print('[API REQUEST] PATCH $url');
+    print('[API REQUEST BODY] ${jsonEncode(requestBody)}');
+
+    try {
+      final response = await http.patch(
+        Uri.parse(url),
+        headers: {
+          'accept': 'application/json',
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(requestBody),
+      );
+
+      print('[API RESPONSE] ${response.statusCode} PATCH $url');
+      print('[API RESPONSE BODY] ${response.body}');
+
+      final decoded = jsonDecode(response.body);
+      if (response.statusCode == 200 || response.statusCode == 204) {
+        return decoded as Map<String, dynamic>;
+      } else {
+        final errorMsg =
+            decoded['error'] as String? ?? 'Failed to update shopping item.';
+        throw ApiException(errorMsg);
+      }
+    } on http.ClientException catch (e) {
+      print('[API ERROR] ClientException: ${e.message}');
+      throw ApiException(
+        'Network error: Please check your internet connection.',
+      );
+    } catch (e) {
+      print('[API ERROR] Exception: ${e.toString()}');
+      if (e is ApiException) rethrow;
+      throw ApiException('An unexpected error occurred: ${e.toString()}');
+    }
+  }
+
+  /// Deletes a specific shopping item.
+  static Future<void> deleteShoppingItem({
+    required String token,
+    required String itemId,
+  }) async {
+    final url = 'http://139.59.23.15/api/v1/shopping_items/$itemId';
+
+    print('[API REQUEST] DELETE $url');
+
+    try {
+      final response = await http.delete(
+        Uri.parse(url),
+        headers: {'accept': '*/*', 'Authorization': 'Bearer $token'},
+      );
+
+      print('[API RESPONSE] ${response.statusCode} DELETE $url');
+      print('[API RESPONSE BODY] ${response.body}');
+
+      if (response.statusCode != 200 && response.statusCode != 204) {
+        throw ApiException(
+          'Failed to delete shopping item (status code: ${response.statusCode}).',
+        );
+      }
+    } on http.ClientException catch (e) {
+      print('[API ERROR] ClientException: ${e.message}');
+      throw ApiException(
+        'Network error: Please check your internet connection.',
+      );
+    } catch (e) {
+      print('[API ERROR] Exception: ${e.toString()}');
+      if (e is ApiException) rethrow;
+      throw ApiException('An unexpected error occurred: ${e.toString()}');
+    }
+  }
 }
