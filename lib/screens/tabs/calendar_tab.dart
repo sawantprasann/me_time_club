@@ -32,6 +32,7 @@ class _CalendarTabState extends State<CalendarTab> {
   // Tasks: key = "$year-$month-$day" (local cache key)
   final Map<String, List<_TaskItem>> _tasks = {};
   late TextEditingController _taskController;
+  String _newTask = '';
 
   // Cycle days — local display keys (non-padded, matches _dateKey output)
   final Set<String> _cycleDays = {};
