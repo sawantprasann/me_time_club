@@ -321,7 +321,7 @@ class _AppRootState extends State<AppRoot> {
       case 'calendar':
         return CalendarTab(user: _user!, t: t, dailyPages: _dailyPages);
       case 'memories':
-        return MemoriesTab(t: t);
+        return MemoriesTab(user: _user!, t: t);
       case 'journal':
         return JournalTab(user: _user!, t: t);
       case 'circle':

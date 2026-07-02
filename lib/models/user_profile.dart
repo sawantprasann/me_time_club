@@ -79,17 +79,35 @@ class UserProfile {
     if (phasesList.isEmpty && journeyStage != null) {
       final stageToPhase = {
         'expecting_mom': 'expecting',
+        'expecting': 'expecting',
         'newborn_mom': 'newborn',
+        'newborn': 'newborn',
         'baby_mom': 'baby',
+        'baby': 'baby',
         'toddler_mom': 'toddler',
+        'toddler': 'toddler',
         'preschool_mom': 'preschool',
+        'preschool': 'preschool',
         'school_age_mom': 'school_age',
+        'school_age': 'school_age',
       };
       final mappedPhase = stageToPhase[journeyStage];
       if (mappedPhase != null) {
         phasesList.add(mappedPhase);
       }
     }
+
+    // Map hardships from api snake_case to human-readable
+    final rawHardships = List<String>.from(json['hardships'] ?? []);
+    final mappedHardships = rawHardships.map((h) {
+      return apiToHardship[h] ?? h;
+    }).toList();
+
+    // Map journey tags from api snake_case to human-readable
+    final rawJourney = List<String>.from(json['journey_tags'] ?? json['journey'] ?? []);
+    final mappedJourney = rawJourney.map((j) {
+      return apiToJourney[j] ?? j;
+    }).toList();
 
     return UserProfile(
       id: json['id'] as int?,
@@ -103,9 +121,9 @@ class UserProfile {
           json['pregnancyMonth'] as String?,
       childCount:
           json['child_count'] as int? ?? json['childCount'] as int? ?? 0,
-      journey: List<String>.from(json['journey_tags'] ?? json['journey'] ?? []),
+      journey: mappedJourney,
       bio: json['bio'] as String? ?? '',
-      hardships: List<String>.from(json['hardships'] ?? []),
+      hardships: mappedHardships,
       hardshipsText:
           json['hardships_text'] as String? ??
           json['hardshipsText'] as String? ??
@@ -325,3 +343,61 @@ final List<MoodOption> moodOptions = [
     icon: ({required Color c, double s = 20}) => AppIcons.cloud(c: c, s: s),
   ),
 ];
+
+const Map<String, String> hardshipToApi = {
+  'Overwhelm': 'overwhelm',
+  'Loneliness': 'loneliness',
+  'Sleep exhaustion': 'sleep_deprivation',
+  'Burnout': 'burnout',
+  'Mom guilt': 'mom_guilt',
+  'Identity loss': 'identity_loss',
+  'Mental load': 'mental_load',
+  'Need calm': 'need_calm',
+  'Finding time for myself': 'finding_time_for_myself',
+};
+
+const Map<String, String> apiToHardship = {
+  'overwhelm': 'Overwhelm',
+  'loneliness': 'Loneliness',
+  'sleep_deprivation': 'Sleep exhaustion',
+  'burnout': 'Burnout',
+  'mom_guilt': 'Mom guilt',
+  'identity_loss': 'Identity loss',
+  'mental_load': 'Mental load',
+  'need_calm': 'Need calm',
+  'finding_time_for_myself': 'Finding time for myself',
+};
+
+const Map<String, String> journeyToApi = {
+  'First-time mother': 'first_time_mother',
+  'Second-time mother': 'second_time_mother',
+  'Third time (or more)': 'third_time_or_more',
+  'Single mother': 'single_mother',
+  'Single father': 'single_father',
+  'Co-parenting': 'co_parenting',
+  'Working mother': 'working_mother',
+  'Stay-at-home mother': 'stay_at_home_mother',
+  'IVF / fertility journey': 'ivf_fertility_journey',
+  'Loss and healing': 'loss_and_healing',
+  'Adoptive parent': 'adoptive_parent',
+  'Neurodivergent child': 'neurodivergent_child',
+  'Postpartum recovery': 'postpartum_recovery',
+  'Blended family': 'blended_family',
+};
+
+const Map<String, String> apiToJourney = {
+  'first_time_mother': 'First-time mother',
+  'second_time_mother': 'Second-time mother',
+  'third_time_or_more': 'Third time (or more)',
+  'single_mother': 'Single mother',
+  'single_father': 'Single father',
+  'co_parenting': 'Co-parenting',
+  'working_mother': 'Working mother',
+  'stay_at_home_mother': 'Stay-at-home mother',
+  'ivf_fertility_journey': 'IVF / fertility journey',
+  'loss_and_healing': 'Loss and healing',
+  'adoptive_parent': 'Adoptive parent',
+  'neurodivergent_child': 'Neurodivergent child',
+  'postpartum_recovery': 'Postpartum recovery',
+  'blended_family': 'Blended family',
+};

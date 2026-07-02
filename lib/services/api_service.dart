@@ -1135,4 +1135,269 @@ class ApiService {
       throw ApiException('An unexpected error occurred: ${e.toString()}');
     }
   }
+
+  /// Gets the user's profile.
+  static Future<Map<String, dynamic>> getProfile({required String token}) async {
+    const url = 'http://139.59.23.15/api/v1/profile';
+
+    print('[API REQUEST] GET $url');
+
+    try {
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {
+          'accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      print('[API RESPONSE] ${response.statusCode} GET $url');
+      print('[API RESPONSE BODY] ${response.body}');
+
+      final decoded = jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        return decoded as Map<String, dynamic>;
+      } else {
+        final errorMsg = decoded['error'] as String? ?? 'Failed to get profile.';
+        throw ApiException(errorMsg);
+      }
+    } on http.ClientException catch (e) {
+      print('[API ERROR] ClientException: ${e.message}');
+      throw ApiException(
+        'Network error: Please check your internet connection.',
+      );
+    } catch (e) {
+      print('[API ERROR] Exception: ${e.toString()}');
+      if (e is ApiException) rethrow;
+      throw ApiException('An unexpected error occurred: ${e.toString()}');
+    }
+  }
+
+  /// Updates the user's profile.
+  static Future<Map<String, dynamic>> updateProfile({
+    required String token,
+    required Map<String, dynamic> profileParams,
+  }) async {
+    const url = 'http://139.59.23.15/api/v1/profile';
+    final requestBody = {'profile': profileParams};
+
+    print('[API REQUEST] PATCH $url');
+    print('[API REQUEST BODY] ${jsonEncode(requestBody)}');
+
+    try {
+      final response = await http.patch(
+        Uri.parse(url),
+        headers: {
+          'accept': 'application/json',
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(requestBody),
+      );
+
+      print('[API RESPONSE] ${response.statusCode} PATCH $url');
+      print('[API RESPONSE BODY] ${response.body}');
+
+      final decoded = jsonDecode(response.body);
+      if (response.statusCode == 200 || response.statusCode == 204) {
+        return decoded as Map<String, dynamic>;
+      } else {
+        String errorMsg = 'Failed to update profile.';
+        if (decoded is Map) {
+          if (decoded['error'] != null) {
+            errorMsg = decoded['error'].toString();
+          } else if (decoded['errors'] != null) {
+            if (decoded['errors'] is List) {
+              errorMsg = (decoded['errors'] as List).join(', ');
+            } else {
+              errorMsg = decoded['errors'].toString();
+            }
+          }
+        }
+        throw ApiException(errorMsg);
+      }
+    } on http.ClientException catch (e) {
+      print('[API ERROR] ClientException: ${e.message}');
+      throw ApiException(
+        'Network error: Please check your internet connection.',
+      );
+    } catch (e) {
+      print('[API ERROR] Exception: ${e.toString()}');
+      if (e is ApiException) rethrow;
+      throw ApiException('An unexpected error occurred: ${e.toString()}');
+    }
+  }
+
+  /// Gets all memories.
+  static Future<List<dynamic>> getMemories({required String token}) async {
+    const url = 'http://139.59.23.15/api/v1/memories';
+
+    print('[API REQUEST] GET $url');
+
+    try {
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {
+          'accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      print('[API RESPONSE] ${response.statusCode} GET $url');
+      print('[API RESPONSE BODY] ${response.body}');
+
+      final decoded = jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        return decoded as List<dynamic>;
+      } else {
+        final errorMsg = decoded['error'] as String? ?? 'Failed to get memories.';
+        throw ApiException(errorMsg);
+      }
+    } on http.ClientException catch (e) {
+      print('[API ERROR] ClientException: ${e.message}');
+      throw ApiException(
+        'Network error: Please check your internet connection.',
+      );
+    } catch (e) {
+      print('[API ERROR] Exception: ${e.toString()}');
+      if (e is ApiException) rethrow;
+      throw ApiException('An unexpected error occurred: ${e.toString()}');
+    }
+  }
+
+  /// Creates a new memory.
+  static Future<Map<String, dynamic>> createMemory({
+    required String token,
+    required String title,
+    required String body,
+  }) async {
+    const url = 'http://139.59.23.15/api/v1/memories';
+    final requestBody = {
+      'memory': {'title': title, 'body': body},
+    };
+
+    print('[API REQUEST] POST $url');
+    print('[API REQUEST BODY] ${jsonEncode(requestBody)}');
+
+    try {
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {
+          'accept': 'application/json',
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(requestBody),
+      );
+
+      print('[API RESPONSE] ${response.statusCode} POST $url');
+      print('[API RESPONSE BODY] ${response.body}');
+
+      final decoded = jsonDecode(response.body);
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return decoded as Map<String, dynamic>;
+      } else {
+        final errorMsg = decoded['error'] as String? ?? 'Failed to create memory.';
+        throw ApiException(errorMsg);
+      }
+    } on http.ClientException catch (e) {
+      print('[API ERROR] ClientException: ${e.message}');
+      throw ApiException(
+        'Network error: Please check your internet connection.',
+      );
+    } catch (e) {
+      print('[API ERROR] Exception: ${e.toString()}');
+      if (e is ApiException) rethrow;
+      throw ApiException('An unexpected error occurred: ${e.toString()}');
+    }
+  }
+
+  /// Updates a specific memory.
+  static Future<Map<String, dynamic>> updateMemory({
+    required String token,
+    required String memoryId,
+    String? title,
+    String? body,
+  }) async {
+    final url = 'http://139.59.23.15/api/v1/memories/$memoryId';
+    final requestBody = {
+      'memory': {
+        if (title != null) 'title': title,
+        if (body != null) 'body': body,
+      },
+    };
+
+    print('[API REQUEST] PATCH $url');
+    print('[API REQUEST BODY] ${jsonEncode(requestBody)}');
+
+    try {
+      final response = await http.patch(
+        Uri.parse(url),
+        headers: {
+          'accept': 'application/json',
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(requestBody),
+      );
+
+      print('[API RESPONSE] ${response.statusCode} PATCH $url');
+      print('[API RESPONSE BODY] ${response.body}');
+
+      final decoded = jsonDecode(response.body);
+      if (response.statusCode == 200 || response.statusCode == 204) {
+        return decoded as Map<String, dynamic>;
+      } else {
+        final errorMsg = decoded['error'] as String? ?? 'Failed to update memory.';
+        throw ApiException(errorMsg);
+      }
+    } on http.ClientException catch (e) {
+      print('[API ERROR] ClientException: ${e.message}');
+      throw ApiException(
+        'Network error: Please check your internet connection.',
+      );
+    } catch (e) {
+      print('[API ERROR] Exception: ${e.toString()}');
+      if (e is ApiException) rethrow;
+      throw ApiException('An unexpected error occurred: ${e.toString()}');
+    }
+  }
+
+  /// Deletes a specific memory.
+  static Future<void> deleteMemory({
+    required String token,
+    required String memoryId,
+  }) async {
+    final url = 'http://139.59.23.15/api/v1/memories/$memoryId';
+
+    print('[API REQUEST] DELETE $url');
+
+    try {
+      final response = await http.delete(
+        Uri.parse(url),
+        headers: {
+          'accept': '*/*',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      print('[API RESPONSE] ${response.statusCode} DELETE $url');
+      print('[API RESPONSE BODY] ${response.body}');
+
+      if (response.statusCode != 200 && response.statusCode != 204) {
+        throw ApiException(
+          'Failed to delete memory (status code: ${response.statusCode}).',
+        );
+      }
+    } on http.ClientException catch (e) {
+      print('[API ERROR] ClientException: ${e.message}');
+      throw ApiException(
+        'Network error: Please check your internet connection.',
+      );
+    } catch (e) {
+      print('[API ERROR] Exception: ${e.toString()}');
+      if (e is ApiException) rethrow;
+      throw ApiException('An unexpected error occurred: ${e.toString()}');
+    }
+  }
 }

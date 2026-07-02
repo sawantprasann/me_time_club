@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../theme/tokens.dart';
 import '../../icons/app_icons.dart';
 import '../../models/user_profile.dart';
+import '../../services/api_service.dart';
 import '../../widgets/shared_widgets.dart';
 import '../../widgets/voice_text_input.dart';
 
@@ -38,6 +39,7 @@ class _MeTabState extends State<MeTab> {
   late List<String> _hardships;
   late String _bio;
   Uint8List? _photo;
+  bool _saving = false;
 
   AppTokens get t => widget.t;
 
@@ -45,6 +47,24 @@ class _MeTabState extends State<MeTab> {
   void initState() {
     super.initState();
     _syncFromUser();
+    _fetchProfileFromServer();
+  }
+
+  void _fetchProfileFromServer() async {
+    final token = widget.user.token;
+    if (token == null || token.isEmpty) return;
+
+    try {
+      final json = await ApiService.getProfile(token: token);
+      final profile = UserProfile.fromJson({...json, 'token': token});
+      // Preserve local photo
+      final completed = profile.copyWith(photo: widget.user.photo);
+      if (mounted) {
+        widget.onUpdateUser(completed);
+      }
+    } catch (e) {
+      debugPrint('[ME TAB FETCH ERROR] $e');
+    }
   }
 
   @override
@@ -63,19 +83,74 @@ class _MeTabState extends State<MeTab> {
     _photo = widget.user.photo;
   }
 
-  void _save() {
-    widget.onUpdateUser(
-      widget.user.copyWith(
-        name: _name,
-        phases: _phases,
-        childCount: _childCount,
-        journey: _journey,
-        hardships: _hardships,
-        bio: _bio,
-        photo: _photo,
-      ),
-    );
-    setState(() => _editing = false);
+  void _save() async {
+    final token = widget.user.token;
+    if (token == null || token.isEmpty) return;
+
+    setState(() {
+      _saving = true;
+    });
+
+    // Map human readable hardships back to snake_case for API
+    final apiHardships = _hardships.map((h) => hardshipToApi[h] ?? h).toList();
+
+    // Map human readable journey back to snake_case for API
+    final apiJourney = _journey.map((j) => journeyToApi[j] ?? j).toList();
+
+    // Determine primary phase / journey stage
+    final String phase = _phases.isNotEmpty ? _phases.first : 'expecting';
+
+    final pregnancyWeek = widget.user.pregnancyMonth?.replaceAll(' weeks', '');
+
+    final Map<String, dynamic> profileParams = {
+      'name': _name.trim(),
+      'display_name': _name.trim(),
+      'bio': _bio.trim(),
+      'child_count': _childCount,
+      'pregnancy_week': pregnancyWeek,
+      'journey_stage': phase,
+      'primary_phase': phase,
+      'hardships': apiHardships,
+      'hardships_text': widget.user.hardshipsText,
+      'journey_tags': apiJourney,
+      'journey_text': _bio.trim(),
+      'free_text': widget.user.hardshipsText,
+    };
+
+    try {
+      final json = await ApiService.updateProfile(
+        token: token,
+        profileParams: profileParams,
+      );
+
+      final updatedProfile = UserProfile.fromJson({...json, 'token': token});
+
+      // Also preserve local photo
+      final completedProfile = updatedProfile.copyWith(photo: _photo);
+
+      if (mounted) {
+        widget.onUpdateUser(completedProfile);
+        setState(() {
+          _editing = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('[ME TAB SAVE ERROR] $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString()),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _saving = false;
+        });
+      }
+    }
   }
 
   Future<void> _pickPhoto() async {
@@ -331,20 +406,29 @@ class _MeTabState extends State<MeTab> {
         children: [
           Expanded(
             child: GestureDetector(
-              onTap: _save,
+              onTap: _saving ? null : _save,
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 decoration: BoxDecoration(
-                  color: t.accent,
+                  color: _saving ? t.accent.withValues(alpha: 0.5) : t.accent,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    AppIcons.check(c: Colors.white, s: 16),
+                    _saving
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            ),
+                          )
+                        : AppIcons.check(c: Colors.white, s: 16),
                     const SizedBox(width: 8),
                     Text(
-                      'Save Profile',
+                      _saving ? 'Saving...' : 'Save Profile',
                       style: AppTypography.lato700(14, Colors.white),
                     ),
                   ],
@@ -354,10 +438,12 @@ class _MeTabState extends State<MeTab> {
           ),
           const SizedBox(width: 10),
           GestureDetector(
-            onTap: () {
-              _syncFromUser();
-              setState(() => _editing = false);
-            },
+            onTap: _saving
+                ? null
+                : () {
+                    _syncFromUser();
+                    setState(() => _editing = false);
+                  },
             child: Container(
               width: 44,
               height: 44,
