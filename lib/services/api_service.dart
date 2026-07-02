@@ -269,6 +269,50 @@ class ApiService {
     }
   }
 
+  /// Fetches all tasks for a specific date.
+  /// Returns a list of task maps from the server.
+  static Future<List<Map<String, dynamic>>> getTasksForDate({
+    required String token,
+    required String dateKey,
+  }) async {
+    final url =
+        'http://139.59.23.15/api/v1/tasks?date_key=${Uri.encodeQueryComponent(dateKey)}';
+
+    print('[API REQUEST] GET $url');
+
+    try {
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {
+          'accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      print('[API RESPONSE] ${response.statusCode} GET $url');
+      print('[API RESPONSE BODY] ${response.body}');
+
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+        return List<Map<String, dynamic>>.from(decoded as List);
+      } else {
+        final decoded = jsonDecode(response.body);
+        final errorMsg =
+            decoded['error'] as String? ?? 'Failed to fetch tasks.';
+        throw ApiException(errorMsg);
+      }
+    } on http.ClientException catch (e) {
+      print('[API ERROR] ClientException: ${e.message}');
+      throw ApiException(
+        'Network error: Please check your internet connection.',
+      );
+    } catch (e) {
+      print('[API ERROR] Exception: ${e.toString()}');
+      if (e is ApiException) rethrow;
+      throw ApiException('An unexpected error occurred: ${e.toString()}');
+    }
+  }
+
   /// Creates a new task.
   /// [dateKey] = YYYY-MM-DD — associates the task with a specific day on the server.
   static Future<Map<String, dynamic>> createTask({

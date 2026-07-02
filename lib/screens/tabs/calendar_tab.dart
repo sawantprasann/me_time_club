@@ -32,6 +32,7 @@ class _CalendarTabState extends State<CalendarTab> {
   // Tasks: key = "$year-$month-$day" (local cache key)
   final Map<String, List<_TaskItem>> _tasks = {};
   late TextEditingController _taskController;
+  String _newTask = '';
 
   // Cycle days — local display keys (non-padded, matches _dateKey output)
   final Set<String> _cycleDays = {};
@@ -60,6 +61,7 @@ class _CalendarTabState extends State<CalendarTab> {
     _viewMonth = now.month;
     _sel = now.day;
     _fetchDailyPageForSelected();
+    _loadTasksForSelected();
     _loadCycleDays();
   }
 
@@ -94,6 +96,37 @@ class _CalendarTabState extends State<CalendarTab> {
       });
     } catch (e) {
       debugPrint('[CYCLE DAYS LOAD ERROR] $e');
+    }
+  }
+
+  /// Fetch tasks for the currently selected day from the server.
+  /// Results are cached in [_tasks] under [_taskKey] so re-selecting the same
+  /// day does not fire a duplicate network call.
+  Future<void> _loadTasksForSelected() async {
+    if (_tasks.containsKey(_taskKey)) return; // already cached
+
+    final dateKey = _apiDateKey;
+    try {
+      final raw = await ApiService.getTasksForDate(
+        token: widget.user.token ?? '',
+        dateKey: dateKey,
+      );
+      if (!mounted) return;
+      setState(() {
+        _tasks[_taskKey] = raw
+            .map(
+              (t) => _TaskItem(
+                id: t['id'].toString(),
+                text: t['title'] as String? ?? '',
+                done: t['completed'] as bool? ?? false,
+              ),
+            )
+            .toList();
+      });
+    } catch (e) {
+      debugPrint('[TASKS LOAD ERROR] $e');
+      // Leave the cache empty — user can still add tasks optimistically.
+      if (mounted) setState(() => _tasks.putIfAbsent(_taskKey, () => []));
     }
   }
 
@@ -140,6 +173,7 @@ class _CalendarTabState extends State<CalendarTab> {
       _pageExpanded = false;
     });
     _fetchDailyPageForSelected();
+    _loadTasksForSelected();
   }
 
   String get _taskKey => '$_viewYear-$_viewMonth-$_sel';
@@ -168,8 +202,10 @@ class _CalendarTabState extends State<CalendarTab> {
       _pageExpanded = false;
       _cycleDays.clear();
       _cycleDayIds.clear();
+      _tasks.clear(); // clear cache so new month re-fetches
     });
     _fetchDailyPageForSelected();
+    _loadTasksForSelected();
     _loadCycleDays();
   }
 
@@ -185,8 +221,10 @@ class _CalendarTabState extends State<CalendarTab> {
       _pageExpanded = false;
       _cycleDays.clear();
       _cycleDayIds.clear();
+      _tasks.clear(); // clear cache so new month re-fetches
     });
     _fetchDailyPageForSelected();
+    _loadTasksForSelected();
     _loadCycleDays();
   }
 
@@ -409,8 +447,10 @@ class _CalendarTabState extends State<CalendarTab> {
                     _sel = 1;
                     _cycleDays.clear();
                     _cycleDayIds.clear();
+                    _tasks.clear();
                   });
                   _fetchDailyPageForSelected();
+                  _loadTasksForSelected();
                   _loadCycleDays();
                 },
                 child: Container(
