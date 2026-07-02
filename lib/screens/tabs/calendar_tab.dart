@@ -29,12 +29,15 @@ class _CalendarTabState extends State<CalendarTab> {
   bool _pageExpanded = false;
   bool _showYearPicker = false;
 
-  // Tasks: key = "YYYY-MM-DD"
+  // Tasks: key = "$year-$month-$day" (local cache key)
   final Map<String, List<_TaskItem>> _tasks = {};
+  late TextEditingController _taskController;
   String _newTask = '';
 
-  // Cycle days: key = "YYYY-MM-DD"
+  // Cycle days — local display keys (non-padded, matches _dateKey output)
   final Set<String> _cycleDays = {};
+  // API ids keyed by zero-padded date (YYYY-MM-DD) for delete calls
+  final Map<String, String> _cycleDayIds = {};
 
   // Cache fetched daily pages by date key YYYY-MM-DD
   final Map<String, DailyPageContent?> _fetchedPages = {};
@@ -42,14 +45,89 @@ class _CalendarTabState extends State<CalendarTab> {
 
   AppTokens get t => widget.t;
 
+  // Zero-padded YYYY-MM-DD for the currently selected day (used for API calls)
+  String get _apiDateKey =>
+      '$_viewYear-${_viewMonth.toString().padLeft(2, '0')}-${_sel.toString().padLeft(2, '0')}';
+
+  String get _apiMonth =>
+      '$_viewYear-${_viewMonth.toString().padLeft(2, '0')}';
+
   @override
   void initState() {
     super.initState();
+    _taskController = TextEditingController();
     final now = DateTime.now();
     _viewYear = now.year;
     _viewMonth = now.month;
     _sel = now.day;
     _fetchDailyPageForSelected();
+    _loadTasksForSelected();
+    _loadCycleDays();
+  }
+
+  @override
+  void dispose() {
+    _taskController.dispose();
+    super.dispose();
+  }
+
+  /// Load cycle days for the current view month from the server.
+  Future<void> _loadCycleDays() async {
+    try {
+      final raw = await ApiService.fetchMonthCycleDays(
+        token: widget.user.token ?? '',
+        month: _apiMonth,
+      );
+      if (!mounted) return;
+      setState(() {
+        for (final r in raw) {
+          final dk = r['date_key'] as String; // "2026-07-02"
+          final id = r['id'].toString();
+          _cycleDayIds[dk] = id;
+          // Convert to non-padded local key matching _dateKey()
+          final parts = dk.split('-');
+          final d = DateTime(
+            int.parse(parts[0]),
+            int.parse(parts[1]),
+            int.parse(parts[2]),
+          );
+          _cycleDays.add(_dateKey(d));
+        }
+      });
+    } catch (e) {
+      debugPrint('[CYCLE DAYS LOAD ERROR] $e');
+    }
+  }
+
+  /// Fetch tasks for the currently selected day from the server.
+  /// Results are cached in [_tasks] under [_taskKey] so re-selecting the same
+  /// day does not fire a duplicate network call.
+  Future<void> _loadTasksForSelected() async {
+    if (_tasks.containsKey(_taskKey)) return; // already cached
+
+    final dateKey = _apiDateKey;
+    try {
+      final raw = await ApiService.getTasksForDate(
+        token: widget.user.token ?? '',
+        dateKey: dateKey,
+      );
+      if (!mounted) return;
+      setState(() {
+        _tasks[_taskKey] = raw
+            .map(
+              (t) => _TaskItem(
+                id: t['id'].toString(),
+                text: t['title'] as String? ?? '',
+                done: t['completed'] as bool? ?? false,
+              ),
+            )
+            .toList();
+      });
+    } catch (e) {
+      debugPrint('[TASKS LOAD ERROR] $e');
+      // Leave the cache empty — user can still add tasks optimistically.
+      if (mounted) setState(() => _tasks.putIfAbsent(_taskKey, () => []));
+    }
   }
 
   void _fetchDailyPageForSelected() async {
@@ -95,6 +173,7 @@ class _CalendarTabState extends State<CalendarTab> {
       _pageExpanded = false;
     });
     _fetchDailyPageForSelected();
+    _loadTasksForSelected();
   }
 
   String get _taskKey => '$_viewYear-$_viewMonth-$_sel';
@@ -121,8 +200,13 @@ class _CalendarTabState extends State<CalendarTab> {
       }
       _sel = 1;
       _pageExpanded = false;
+      _cycleDays.clear();
+      _cycleDayIds.clear();
+      _tasks.clear(); // clear cache so new month re-fetches
     });
     _fetchDailyPageForSelected();
+    _loadTasksForSelected();
+    _loadCycleDays();
   }
 
   void _nextMonth() {
@@ -135,22 +219,28 @@ class _CalendarTabState extends State<CalendarTab> {
       }
       _sel = 1;
       _pageExpanded = false;
+      _cycleDays.clear();
+      _cycleDayIds.clear();
+      _tasks.clear(); // clear cache so new month re-fetches
     });
     _fetchDailyPageForSelected();
+    _loadTasksForSelected();
+    _loadCycleDays();
   }
 
   void _addTask() async {
     if (_newTask.trim().isEmpty) return;
     final taskText = _newTask.trim();
-    setState(() {
-      _newTask = '';
-    });
+    final dateKey = _apiDateKey; // zero-padded YYYY-MM-DD for the server
+    setState(() => _newTask = '');
+    _taskController.clear();
 
     try {
       final res = await ApiService.createTask(
         token: widget.user.token ?? '',
         title: taskText,
         completed: false,
+        dateKey: dateKey,
       );
       final createdId = res['id']?.toString();
 
@@ -175,18 +265,55 @@ class _CalendarTabState extends State<CalendarTab> {
     }
   }
 
-  void _markCycleDay() {
+  Future<void> _markCycleDay() async {
     final base = DateTime(_viewYear, _viewMonth, _sel);
-    setState(() {
-      final key = _dateKey(base);
-      if (_cycleDays.contains(key)) {
-        _cycleDays.remove(key);
-      } else {
-        for (int i = 0; i < 3; i++) {
-          _cycleDays.add(_dateKey(base.add(Duration(days: i))));
+    final localKey = _dateKey(base); // non-padded, for grid display
+    final paddedKey = _apiDateKey;   // zero-padded, for API
+
+    if (_cycleDays.contains(localKey)) {
+      // Unmark — remove from local set immediately, then delete from server
+      setState(() => _cycleDays.remove(localKey));
+      final id = _cycleDayIds.remove(paddedKey);
+      if (id != null) {
+        try {
+          await ApiService.deleteCycleDay(
+            token: widget.user.token ?? '',
+            cycleDayId: id,
+          );
+        } catch (e) {
+          debugPrint('[CYCLE DELETE ERROR] $e');
         }
       }
-    });
+    } else {
+      // Mark 3 consecutive days — update UI first, then persist to API
+      final localKeys = <String>[];
+      final paddedKeys = <String>[];
+      for (int i = 0; i < 3; i++) {
+        final d = base.add(Duration(days: i));
+        localKeys.add(_dateKey(d));
+        paddedKeys.add(
+          '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}',
+        );
+      }
+      setState(() => _cycleDays.addAll(localKeys));
+
+      try {
+        final results = await ApiService.bulkCreateCycleDays(
+          token: widget.user.token ?? '',
+          dateKeys: paddedKeys,
+        );
+        if (mounted) {
+          setState(() {
+            for (final r in results) {
+              final dk = r['date_key'] as String;
+              _cycleDayIds[dk] = r['id'].toString();
+            }
+          });
+        }
+      } catch (e) {
+        debugPrint('[CYCLE MARK ERROR] $e');
+      }
+    }
   }
 
   String _dateKey(DateTime d) => '${d.year}-${d.month}-${d.day}';
@@ -318,8 +445,13 @@ class _CalendarTabState extends State<CalendarTab> {
                     _viewYear = y;
                     _showYearPicker = false;
                     _sel = 1;
+                    _cycleDays.clear();
+                    _cycleDayIds.clear();
+                    _tasks.clear();
                   });
                   _fetchDailyPageForSelected();
+                  _loadTasksForSelected();
+                  _loadCycleDays();
                 },
                 child: Container(
                   padding: const EdgeInsets.symmetric(
@@ -725,9 +857,9 @@ class _CalendarTabState extends State<CalendarTab> {
             children: [
               Expanded(
                 child: TextField(
+                  controller: _taskController,
                   onChanged: (v) => _newTask = v,
                   onSubmitted: (_) => _addTask(),
-                  controller: TextEditingController(text: _newTask),
                   style: AppTypography.lato400(14, t.text),
                   decoration: InputDecoration(
                     hintText: 'Add a task…',
@@ -756,7 +888,13 @@ class _CalendarTabState extends State<CalendarTab> {
               ),
               const SizedBox(width: 8),
               SpeechButton(
-                onResult: (s) => setState(() => _newTask = s),
+                onResult: (s) {
+                  setState(() => _newTask = s);
+                  _taskController.text = s;
+                  _taskController.selection = TextSelection.fromPosition(
+                    TextPosition(offset: s.length),
+                  );
+                },
                 t: t,
                 size: 36,
               ),

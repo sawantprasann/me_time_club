@@ -269,15 +269,65 @@ class ApiService {
     }
   }
 
+  /// Fetches all tasks for a specific date.
+  /// Returns a list of task maps from the server.
+  static Future<List<Map<String, dynamic>>> getTasksForDate({
+    required String token,
+    required String dateKey,
+  }) async {
+    final url =
+        'http://139.59.23.15/api/v1/tasks?date_key=${Uri.encodeQueryComponent(dateKey)}';
+
+    print('[API REQUEST] GET $url');
+
+    try {
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {
+          'accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      print('[API RESPONSE] ${response.statusCode} GET $url');
+      print('[API RESPONSE BODY] ${response.body}');
+
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+        return List<Map<String, dynamic>>.from(decoded as List);
+      } else {
+        final decoded = jsonDecode(response.body);
+        final errorMsg =
+            decoded['error'] as String? ?? 'Failed to fetch tasks.';
+        throw ApiException(errorMsg);
+      }
+    } on http.ClientException catch (e) {
+      print('[API ERROR] ClientException: ${e.message}');
+      throw ApiException(
+        'Network error: Please check your internet connection.',
+      );
+    } catch (e) {
+      print('[API ERROR] Exception: ${e.toString()}');
+      if (e is ApiException) rethrow;
+      throw ApiException('An unexpected error occurred: ${e.toString()}');
+    }
+  }
+
   /// Creates a new task.
+  /// [dateKey] = YYYY-MM-DD — associates the task with a specific day on the server.
   static Future<Map<String, dynamic>> createTask({
     required String token,
     required String title,
     required bool completed,
+    String? dateKey,
   }) async {
     const url = 'http://139.59.23.15/api/v1/tasks';
     final requestBody = {
-      'task': {'title': title, 'completed': completed},
+      'task': {
+        'title': title,
+        'completed': completed,
+        if (dateKey != null) 'date_key': dateKey,
+      },
     };
 
     print('[API REQUEST] POST $url');
@@ -421,8 +471,9 @@ class ApiService {
       print('[API RESPONSE] ${response.statusCode} PATCH $url');
       print('[API RESPONSE BODY] ${response.body}');
 
+      if (response.statusCode == 204) return {}; // No Content — success, empty body
       final decoded = jsonDecode(response.body);
-      if (response.statusCode == 200 || response.statusCode == 204) {
+      if (response.statusCode == 200) {
         return decoded as Map<String, dynamic>;
       } else {
         final errorMsg =
@@ -695,6 +746,80 @@ class ApiService {
       print('[API ERROR] Exception: ${e.toString()}');
       if (e is ApiException) rethrow;
       throw ApiException('An unexpected error occurred: ${e.toString()}');
+    }
+  }
+
+  // ── Cycle days ──────────────────────────────────────────────────────────────
+
+  /// Fetch all cycle days for a given month (YYYY-MM).
+  static Future<List<Map<String, dynamic>>> fetchMonthCycleDays({
+    required String token,
+    required String month,
+  }) async {
+    final url = 'http://139.59.23.15/api/v1/cycle_days?month=$month';
+    print('[API REQUEST] GET $url');
+    try {
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {'accept': 'application/json', 'Authorization': 'Bearer $token'},
+      );
+      print('[API RESPONSE] ${response.statusCode} GET $url');
+      if (response.statusCode == 200) {
+        return (jsonDecode(response.body) as List<dynamic>)
+            .cast<Map<String, dynamic>>();
+      }
+      return [];
+    } catch (e) {
+      print('[API ERROR] fetchMonthCycleDays: $e');
+      return [];
+    }
+  }
+
+  /// Bulk-create/upsert cycle days — marks 3 consecutive days in one call.
+  /// [dateKeys] = list of YYYY-MM-DD strings.
+  static Future<List<Map<String, dynamic>>> bulkCreateCycleDays({
+    required String token,
+    required List<String> dateKeys,
+  }) async {
+    const url = 'http://139.59.23.15/api/v1/cycle_days/bulk_create';
+    print('[API REQUEST] POST $url');
+    try {
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {
+          'accept': 'application/json',
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({'date_keys': dateKeys}),
+      );
+      print('[API RESPONSE] ${response.statusCode} POST $url');
+      if (response.statusCode == 201) {
+        return (jsonDecode(response.body) as List<dynamic>)
+            .cast<Map<String, dynamic>>();
+      }
+      return [];
+    } catch (e) {
+      print('[API ERROR] bulkCreateCycleDays: $e');
+      return [];
+    }
+  }
+
+  /// Delete a single cycle day by its API ID.
+  static Future<void> deleteCycleDay({
+    required String token,
+    required String cycleDayId,
+  }) async {
+    final url = 'http://139.59.23.15/api/v1/cycle_days/$cycleDayId';
+    print('[API REQUEST] DELETE $url');
+    try {
+      final response = await http.delete(
+        Uri.parse(url),
+        headers: {'accept': '*/*', 'Authorization': 'Bearer $token'},
+      );
+      print('[API RESPONSE] ${response.statusCode} DELETE $url');
+    } catch (e) {
+      print('[API ERROR] deleteCycleDay: $e');
     }
   }
 
