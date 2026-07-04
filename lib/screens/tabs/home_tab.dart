@@ -421,7 +421,7 @@ class _DailyPageView extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               _answerField(
-                controller: _reflectionAnswerCtrl,
+                controller: reflectionAnswerCtrl,
                 hint: 'Your reflection…',
               ),
               const SizedBox(height: 14),
@@ -434,7 +434,7 @@ class _DailyPageView extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               _answerField(
-                controller: _reflectionFollowupAnswerCtrl,
+                controller: reflectionFollowupAnswerCtrl,
                 hint: 'Your answer…',
               ),
             ],
@@ -601,7 +601,7 @@ class _DailyPageView extends StatelessWidget {
           ),
           const SizedBox(height: 14),
           _answerField(
-            controller: _nightReflectionAnswerCtrl,
+            controller: nightReflectionAnswerCtrl,
             hint: 'Your evening thoughts…',
             dark: true,
           ),

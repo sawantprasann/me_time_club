@@ -1009,7 +1009,7 @@ class ApiService {
   /// Deletes a user-owned shopping category.
   static Future<void> deleteShoppingCategory({
     required String token,
-    required String categoryId,
+    required int categoryId,
   }) async {
     final url = 'http://139.59.23.15/api/v1/categories/$categoryId';
     print('[API REQUEST] DELETE $url');
