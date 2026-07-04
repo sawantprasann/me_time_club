@@ -37,6 +37,11 @@ class _HomeTabState extends State<HomeTab> {
   bool _fromFallback = false;
   bool _checkingExisting = false;
 
+  // Answer fields — loaded from page, saved on change
+  final _reflectionAnswerCtrl = TextEditingController();
+  final _reflectionFollowupAnswerCtrl = TextEditingController();
+  final _nightReflectionAnswerCtrl = TextEditingController();
+
   AppTokens get t => widget.t;
 
   @override
@@ -46,10 +51,42 @@ class _HomeTabState extends State<HomeTab> {
     _freeText = '';
     _page = widget.initialPage;
     _checkingExisting = false;
+    _syncAnswerControllers();
 
     if (!widget.hasCheckedToday && _page == null) {
       _checkExistingPage();
     }
+  }
+
+  @override
+  void dispose() {
+    _reflectionAnswerCtrl.dispose();
+    _reflectionFollowupAnswerCtrl.dispose();
+    _nightReflectionAnswerCtrl.dispose();
+    super.dispose();
+  }
+
+  void _syncAnswerControllers() {
+    final p = _page;
+    if (p == null) return;
+    _reflectionAnswerCtrl.text = p.reflectionAnswer;
+    _reflectionFollowupAnswerCtrl.text = p.reflectionFollowupAnswer;
+    _nightReflectionAnswerCtrl.text = p.nightReflectionAnswer;
+  }
+
+  void _saveAnswers() {
+    final p = _page;
+    if (p == null || p.id == null) return;
+    final now = DateTime.now();
+    final dateKey =
+        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    ApiService.saveDailyPageAnswers(
+      token: widget.user.token ?? '',
+      dateKey: dateKey,
+      reflectionAnswer: _reflectionAnswerCtrl.text,
+      reflectionFollowupAnswer: _reflectionFollowupAnswerCtrl.text,
+      nightReflectionAnswer: _nightReflectionAnswerCtrl.text,
+    );
   }
 
   void _checkExistingPage() async {
@@ -67,6 +104,7 @@ class _HomeTabState extends State<HomeTab> {
           _page = page;
           _checkingExisting = false;
         });
+        _syncAnswerControllers();
         widget.onCheckedToday();
         if (page != null) {
           widget.onSavePage(now.day, page);
@@ -134,11 +172,11 @@ class _HomeTabState extends State<HomeTab> {
           _fromFallback = result['from_fallback'] as bool? ?? false;
           _loading = false;
         });
+        _syncAnswerControllers();
         widget.onSavePage(DateTime.now().day, _page!);
       }
     } catch (e) {
       debugPrint('[CHAMOMILE API ERROR] $e');
-      // On backend error or network timeout, silently load from offline fallback database
       final phase =
           widget.user.phases.isNotEmpty ? widget.user.phases.first : 'baby';
       final page = getFallback(phase);
@@ -148,6 +186,7 @@ class _HomeTabState extends State<HomeTab> {
           _loading = false;
           _fromFallback = true;
         });
+        _syncAnswerControllers();
         widget.onSavePage(DateTime.now().day, page);
       }
     }
@@ -217,7 +256,15 @@ class _HomeTabState extends State<HomeTab> {
                     style: AppTypography.lato400(10, t.muted),
                   ),
                 ),
-              _DailyPageView(page: _page!, t: t, mood: _mood),
+              _DailyPageView(
+                page: _page!,
+                t: t,
+                mood: _mood,
+                reflectionAnswerCtrl: _reflectionAnswerCtrl,
+                reflectionFollowupAnswerCtrl: _reflectionFollowupAnswerCtrl,
+                nightReflectionAnswerCtrl: _nightReflectionAnswerCtrl,
+                onSaveAnswers: _saveAnswers,
+              ),
               const SizedBox(height: 8),
               DailyPageFeedback(
                 user: widget.user,
@@ -337,8 +384,20 @@ class _DailyPageView extends StatelessWidget {
   final DailyPageContent page;
   final AppTokens t;
   final String? mood;
+  final TextEditingController reflectionAnswerCtrl;
+  final TextEditingController reflectionFollowupAnswerCtrl;
+  final TextEditingController nightReflectionAnswerCtrl;
+  final VoidCallback onSaveAnswers;
 
-  const _DailyPageView({required this.page, required this.t, this.mood});
+  const _DailyPageView({
+    required this.page,
+    required this.t,
+    this.mood,
+    required this.reflectionAnswerCtrl,
+    required this.reflectionFollowupAnswerCtrl,
+    required this.nightReflectionAnswerCtrl,
+    required this.onSaveAnswers,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -360,13 +419,23 @@ class _DailyPageView extends StatelessWidget {
                 page.reflection,
                 style: AppTypography.cormorantItalic(17, t.text, height: 1.6),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
+              _answerField(
+                controller: _reflectionAnswerCtrl,
+                hint: 'Your reflection…',
+              ),
+              const SizedBox(height: 14),
               Text(
                 page.reflectionFollowup,
                 style: AppTypography.lato400(
                   12,
                   t.muted,
                 ).copyWith(fontStyle: FontStyle.italic),
+              ),
+              const SizedBox(height: 8),
+              _answerField(
+                controller: _reflectionFollowupAnswerCtrl,
+                hint: 'Your answer…',
               ),
             ],
           ),
@@ -530,7 +599,54 @@ class _DailyPageView extends StatelessWidget {
             ),
             textAlign: TextAlign.center,
           ),
+          const SizedBox(height: 14),
+          _answerField(
+            controller: _nightReflectionAnswerCtrl,
+            hint: 'Your evening thoughts…',
+            dark: true,
+          ),
         ],
+      ),
+    );
+  }
+
+  Widget _answerField({
+    required TextEditingController controller,
+    required String hint,
+    bool dark = false,
+  }) {
+    final textColor = dark ? const Color(0xFFD4C8BE) : t.text;
+    final hintColor = dark ? const Color(0xFF6E635A) : t.muted;
+    final borderColor = dark ? const Color(0xFF403830) : t.border;
+    final fillColor = dark ? const Color(0xFF252320) : t.bg.withValues(alpha: 0.5);
+
+    return TextField(
+      controller: controller,
+      onEditingComplete: onSaveAnswers,
+      onTapOutside: (_) {
+        FocusManager.instance.primaryFocus?.unfocus();
+        onSaveAnswers();
+      },
+      maxLines: null,
+      style: AppTypography.lato400(14, textColor, height: 1.6),
+      decoration: InputDecoration(
+        hintText: hint,
+        hintStyle: AppTypography.lato400(13, hintColor).copyWith(fontStyle: FontStyle.italic),
+        filled: true,
+        fillColor: fillColor,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: borderColor),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: borderColor),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: t.accent, width: 1.5),
+        ),
       ),
     );
   }

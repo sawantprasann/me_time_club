@@ -170,6 +170,10 @@ class DailyPageContent {
   final String gentleRead;
   final String funMoment;
   final String nightReflection;
+  // User-written answers (saved back to server via POST /api/v1/daily_pages)
+  final String reflectionAnswer;
+  final String reflectionFollowupAnswer;
+  final String nightReflectionAnswer;
 
   const DailyPageContent({
     this.id,
@@ -184,6 +188,9 @@ class DailyPageContent {
     required this.gentleRead,
     required this.funMoment,
     required this.nightReflection,
+    this.reflectionAnswer = '',
+    this.reflectionFollowupAnswer = '',
+    this.nightReflectionAnswer = '',
   });
 
   /// Create DailyPageContent from JSON map
@@ -238,6 +245,9 @@ class DailyPageContent {
       gentleRead: content['gentle_read'] as String? ?? '',
       funMoment: content['fun_moment'] as String? ?? '',
       nightReflection: content['night_reflection'] as String? ?? '',
+      reflectionAnswer: content['reflection_answer'] as String? ?? '',
+      reflectionFollowupAnswer: content['reflection_followup_answer'] as String? ?? '',
+      nightReflectionAnswer: content['night_reflection_answer'] as String? ?? '',
     );
   }
 
@@ -258,6 +268,9 @@ class DailyPageContent {
       'gentle_read': gentleRead,
       'fun_moment': funMoment,
       'night_reflection': nightReflection,
+      'reflection_answer': reflectionAnswer,
+      'reflection_followup_answer': reflectionFollowupAnswer,
+      'night_reflection_answer': nightReflectionAnswer,
     };
   }
 }
