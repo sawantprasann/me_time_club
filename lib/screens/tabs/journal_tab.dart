@@ -217,6 +217,7 @@ class _JournalTabState extends State<JournalTab> {
 
   void _saveJournalEntry() async {
     if (_journalText.trim().isEmpty) return;
+    FocusManager.instance.primaryFocus?.unfocus();
     setState(() {
       _saved = false;
     });
@@ -639,6 +640,7 @@ class _JournalTabState extends State<JournalTab> {
 
   void _addTask() async {
     if (_newTask.trim().isEmpty) return;
+    FocusManager.instance.primaryFocus?.unfocus();
     final taskText = _newTask.trim();
     setState(() {
       _newTask = '';
@@ -942,6 +944,7 @@ class _JournalTabState extends State<JournalTab> {
 
   void _addItem(String catName) async {
     if (_newItem.trim().isEmpty) return;
+    FocusManager.instance.primaryFocus?.unfocus();
     final itemText = _newItem.trim();
     setState(() {
       _newItem = '';

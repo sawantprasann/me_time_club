@@ -56,6 +56,7 @@ class _AppRootState extends State<AppRoot> {
   bool _showLogin = false;
   bool _showingTransitionLoader = false;
   UserProfile? _pendingUser;
+  bool _hasCheckedToday = false;
 
   AppTokens get t => _night ? AppTokens.night : AppTokens.day;
 
@@ -138,11 +139,18 @@ class _AppRootState extends State<AppRoot> {
       _showLogin = false;
       _tab = 'home';
       _dailyPages.clear();
+      _hasCheckedToday = false;
     });
   }
 
-  void _onSavePage(int dayNum, DailyPageContent page) {
-    setState(() => _dailyPages[dayNum] = page);
+  void _onSavePage(int dayNum, DailyPageContent? page) {
+    setState(() {
+      if (page == null) {
+        _dailyPages.remove(dayNum);
+      } else {
+        _dailyPages[dayNum] = page;
+      }
+    });
   }
 
   void _toggleNight() {
@@ -235,7 +243,9 @@ class _AppRootState extends State<AppRoot> {
             decoration: const BoxDecoration(shape: BoxShape.circle),
             child: ClipOval(
               child: Image.asset(
-                'assets/metimeclub_app_icon.png',
+                _night
+                    ? 'assets/metimeclub_logo_night_bg.png'
+                    : 'assets/metimeclub_logo_cream_bg.png',
                 fit: BoxFit.cover,
               ),
             ),
@@ -317,7 +327,14 @@ class _AppRootState extends State<AppRoot> {
   Widget _buildTabContent() {
     switch (_tab) {
       case 'home':
-        return HomeTab(user: _user!, t: t, onSavePage: _onSavePage);
+        return HomeTab(
+          user: _user!,
+          t: t,
+          onSavePage: _onSavePage,
+          initialPage: _dailyPages[DateTime.now().day],
+          hasCheckedToday: _hasCheckedToday,
+          onCheckedToday: () => setState(() => _hasCheckedToday = true),
+        );
       case 'calendar':
         return CalendarTab(user: _user!, t: t, dailyPages: _dailyPages);
       case 'memories':
@@ -334,7 +351,14 @@ class _AppRootState extends State<AppRoot> {
           onLogout: _onLogout,
         );
       default:
-        return HomeTab(user: _user!, t: t, onSavePage: _onSavePage);
+        return HomeTab(
+          user: _user!,
+          t: t,
+          onSavePage: _onSavePage,
+          initialPage: _dailyPages[DateTime.now().day],
+          hasCheckedToday: _hasCheckedToday,
+          onCheckedToday: () => setState(() => _hasCheckedToday = true),
+        );
     }
   }
 

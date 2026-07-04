@@ -59,7 +59,7 @@ class _MemoriesTabState extends State<MemoriesTab> {
       final loaded = list.map((item) {
         final id = item['id'].toString();
         final title = item['title']?.toString() ?? 'Memorable Moment';
-        final bodyVal = item['body']?.toString() ?? '';
+        final bodyVal = item['description']?.toString() ?? item['body']?.toString() ?? '';
         final createdAtStr = item['created_at']?.toString() ?? '';
 
         DateTime date = DateTime.now();
@@ -113,11 +113,11 @@ class _MemoriesTabState extends State<MemoriesTab> {
       final res = await ApiService.createMemory(
         token: widget.user.token ?? '',
         title: titleText,
-        body: bodyText,
+        description: bodyText,
       );
 
       final newId = res['id']?.toString() ?? '0';
-      final bodyVal = res['body']?.toString() ?? bodyText;
+      final bodyVal = res['description']?.toString() ?? res['body']?.toString() ?? bodyText;
 
       final newMemory = _Memory(
         id: newId,
@@ -167,7 +167,7 @@ class _MemoriesTabState extends State<MemoriesTab> {
         token: widget.user.token ?? '',
         memoryId: id,
         title: titleText,
-        body: bodyText,
+        description: bodyText,
       );
 
       if (mounted) {

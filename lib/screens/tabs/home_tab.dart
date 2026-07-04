@@ -10,13 +10,19 @@ import '../../services/api_service.dart';
 class HomeTab extends StatefulWidget {
   final UserProfile user;
   final AppTokens t;
-  final Function(int dayNum, DailyPageContent page) onSavePage;
+  final Function(int dayNum, DailyPageContent? page) onSavePage;
+  final DailyPageContent? initialPage;
+  final bool hasCheckedToday;
+  final VoidCallback onCheckedToday;
 
   const HomeTab({
     super.key,
     required this.user,
     required this.t,
     required this.onSavePage,
+    this.initialPage,
+    required this.hasCheckedToday,
+    required this.onCheckedToday,
   });
 
   @override
@@ -29,8 +35,53 @@ class _HomeTabState extends State<HomeTab> {
   DailyPageContent? _page;
   bool _loading = false;
   bool _fromFallback = false;
+  bool _checkingExisting = false;
 
   AppTokens get t => widget.t;
+
+  @override
+  void initState() {
+    super.initState();
+    _mood = null;
+    _freeText = '';
+    _page = widget.initialPage;
+    _checkingExisting = false;
+
+    if (!widget.hasCheckedToday && _page == null) {
+      _checkExistingPage();
+    }
+  }
+
+  void _checkExistingPage() async {
+    setState(() => _checkingExisting = true);
+    try {
+      final now = DateTime.now();
+      final dateKey =
+          '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+      final page = await ApiService.getDailyPageByDate(
+        token: widget.user.token ?? '',
+        dateKey: dateKey,
+      );
+      if (mounted) {
+        setState(() {
+          _page = page;
+          _checkingExisting = false;
+        });
+        widget.onCheckedToday();
+        if (page != null) {
+          widget.onSavePage(now.day, page);
+        }
+      }
+    } catch (e) {
+      debugPrint('[CHECK EXISTING PAGE ERROR] $e');
+      if (mounted) {
+        setState(() {
+          _checkingExisting = false;
+        });
+        widget.onCheckedToday();
+      }
+    }
+  }
 
   String get _greeting {
     final hour = DateTime.now().hour;
@@ -109,6 +160,7 @@ class _HomeTabState extends State<HomeTab> {
       _page = null;
       _fromFallback = false;
     });
+    widget.onSavePage(DateTime.now().day, null);
   }
 
   @override
@@ -121,76 +173,87 @@ class _HomeTabState extends State<HomeTab> {
           // Date header
           _buildDateHeader(),
           const SizedBox(height: 20),
-          if (_page == null) ...[
-            // Mood selector
-            _buildMoodSelector(),
-            const SizedBox(height: 16),
-            // Free text box
-            _buildFreeTextBox(),
-            const SizedBox(height: 4),
+          if (_checkingExisting)
             Center(
-              child: Text(
-                'Tap the mic — one hand is enough ✦',
-                style: AppTypography.lato400(11, t.muted),
+              child: Padding(
+                padding: const EdgeInsets.only(top: 60),
+                child: CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(t.accent),
+                ),
               ),
-            ),
-            // Open Daily Page button
-            CTAButton(
-              label: 'Open My Daily Page',
-              loading: _loading,
-              disabled: _loading,
-              onTap: _generate,
-              t: t,
-              icon: AppIcons.bloom(c: Colors.white, s: 20),
-            ),
-            const SizedBox(height: 24),
-          ],
-          // Daily page content
-          if (_page != null) ...[
-            if (_fromFallback)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
+            )
+          else ...[
+            if (_page == null) ...[
+              // Mood selector
+              _buildMoodSelector(),
+              const SizedBox(height: 16),
+              // Free text box
+              _buildFreeTextBox(),
+              const SizedBox(height: 4),
+              Center(
                 child: Text(
-                  '✦ From our library',
-                  style: AppTypography.lato400(10, t.muted),
+                  'Tap the mic — one hand is enough ✦',
+                  style: AppTypography.lato400(11, t.muted),
                 ),
               ),
-            _DailyPageView(page: _page!, t: t, mood: _mood),
-            const SizedBox(height: 8),
-            DailyPageFeedback(
-              user: widget.user,
-              page: _page!,
-              t: t,
-              mood: _mood,
-            ),
-            const SizedBox(height: 16),
-            // New check-in button
-            Center(
-              child: GestureDetector(
-                onTap: _newCheckIn,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 18,
-                    vertical: 10,
+              // Open Daily Page button
+              CTAButton(
+                label: 'Open My Daily Page',
+                loading: _loading,
+                disabled: _loading,
+                onTap: _generate,
+                t: t,
+                icon: AppIcons.bloom(c: Colors.white, s: 20),
+              ),
+              const SizedBox(height: 24),
+            ],
+            // Daily page content
+            if (_page != null) ...[
+              if (_fromFallback)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Text(
+                    '✦ From our library',
+                    style: AppTypography.lato400(10, t.muted),
                   ),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: t.border),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      AppIcons.refresh(c: t.muted, s: 14),
-                      const SizedBox(width: 8),
-                      Text(
-                        'New check-in',
-                        style: AppTypography.lato400(13, t.muted),
-                      ),
-                    ],
+                ),
+              _DailyPageView(page: _page!, t: t, mood: _mood),
+              const SizedBox(height: 8),
+              DailyPageFeedback(
+                user: widget.user,
+                page: _page!,
+                t: t,
+                mood: _mood,
+              ),
+              const SizedBox(height: 16),
+              // New check-in button
+              Center(
+                child: GestureDetector(
+                  onTap: _newCheckIn,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 18,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: t.border),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        AppIcons.refresh(c: t.muted, s: 14),
+                        const SizedBox(width: 8),
+                        Text(
+                          'New check-in',
+                          style: AppTypography.lato400(13, t.muted),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
+            ],
           ],
         ],
       ),

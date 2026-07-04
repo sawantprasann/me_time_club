@@ -1269,11 +1269,11 @@ class ApiService {
   static Future<Map<String, dynamic>> createMemory({
     required String token,
     required String title,
-    required String body,
+    required String description,
   }) async {
     const url = 'http://139.59.23.15/api/v1/memories';
     final requestBody = {
-      'memory': {'title': title, 'body': body},
+      'memory': {'title': title, 'description': description},
     };
 
     print('[API REQUEST] POST $url');
@@ -1317,13 +1317,13 @@ class ApiService {
     required String token,
     required String memoryId,
     String? title,
-    String? body,
+    String? description,
   }) async {
     final url = 'http://139.59.23.15/api/v1/memories/$memoryId';
     final requestBody = {
       'memory': {
         if (title != null) 'title': title,
-        if (body != null) 'body': body,
+        if (description != null) 'description': description,
       },
     };
 
