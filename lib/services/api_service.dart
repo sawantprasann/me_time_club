@@ -775,6 +775,60 @@ class ApiService {
     }
   }
 
+  /// Fetches all tasks for a specific month (YYYY-MM).
+  static Future<List<Map<String, dynamic>>> fetchMonthTasks({
+    required String token,
+    required String month,
+  }) async {
+    final url = 'http://139.59.23.15/api/v1/tasks?month=$month';
+    print('[API REQUEST] GET $url');
+    try {
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {
+          'accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+      print('[API RESPONSE] ${response.statusCode} GET $url');
+      if (response.statusCode == 200) {
+        return (jsonDecode(response.body) as List<dynamic>)
+            .cast<Map<String, dynamic>>();
+      }
+      return [];
+    } catch (e) {
+      print('[API ERROR] fetchMonthTasks: $e');
+      return [];
+    }
+  }
+
+  /// Fetches all daily pages for a specific month (YYYY-MM).
+  static Future<List<Map<String, dynamic>>> fetchMonthDailyPages({
+    required String token,
+    required String month,
+  }) async {
+    final url = 'http://139.59.23.15/api/v1/daily_pages?month=$month';
+    print('[API REQUEST] GET $url');
+    try {
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {
+          'accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+      print('[API RESPONSE] ${response.statusCode} GET $url');
+      if (response.statusCode == 200) {
+        return (jsonDecode(response.body) as List<dynamic>)
+            .cast<Map<String, dynamic>>();
+      }
+      return [];
+    } catch (e) {
+      print('[API ERROR] fetchMonthDailyPages: $e');
+      return [];
+    }
+  }
+
   /// Bulk-create/upsert cycle days — marks 3 consecutive days in one call.
   /// [dateKeys] = list of YYYY-MM-DD strings.
   static Future<List<Map<String, dynamic>>> bulkCreateCycleDays({

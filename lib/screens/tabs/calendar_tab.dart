@@ -60,15 +60,82 @@ class _CalendarTabState extends State<CalendarTab> {
     _viewYear = now.year;
     _viewMonth = now.month;
     _sel = now.day;
-    _fetchDailyPageForSelected();
-    _loadTasksForSelected();
-    _loadCycleDays();
+    _loadMonthData();
   }
 
   @override
   void dispose() {
     _taskController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadMonthData() async {
+    final token = widget.user.token ?? '';
+    final monthStr = _apiMonth;
+
+    // 1. Fetch cycle days
+    await _loadCycleDays();
+
+    // 2. Fetch monthly tasks
+    try {
+      final rawTasks = await ApiService.fetchMonthTasks(
+        token: token,
+        month: monthStr,
+      );
+      if (mounted) {
+        setState(() {
+          final days = _daysInMonth;
+          for (int i = 1; i <= days; i++) {
+            final localKey = '$_viewYear-$_viewMonth-$i';
+            _tasks[localKey] = [];
+          }
+          for (final t in rawTasks) {
+            final dk = t['date_key'] as String?;
+            if (dk != null) {
+              final parts = dk.split('-');
+              final year = int.parse(parts[0]);
+              final month = int.parse(parts[1]);
+              final day = int.parse(parts[2]);
+              final localKey = '$year-$month-$day';
+              
+              final item = _TaskItem(
+                id: t['id'].toString(),
+                text: t['title'] as String? ?? '',
+                done: t['completed'] as bool? ?? false,
+              );
+              _tasks.putIfAbsent(localKey, () => []).add(item);
+            }
+          }
+        });
+      }
+    } catch (e) {
+      debugPrint('[MONTH TASKS LOAD ERROR] $e');
+    }
+
+    // 3. Fetch monthly daily pages
+    try {
+      final rawPages = await ApiService.fetchMonthDailyPages(
+        token: token,
+        month: monthStr,
+      );
+      if (mounted) {
+        setState(() {
+          final days = _daysInMonth;
+          for (int i = 1; i <= days; i++) {
+            final dateKey = '$_viewYear-${_viewMonth.toString().padLeft(2, '0')}-${i.toString().padLeft(2, '0')}';
+            _fetchedPages[dateKey] = null;
+          }
+          for (final p in rawPages) {
+            final dk = p['date_key'] as String?;
+            if (dk != null) {
+              _fetchedPages[dk] = DailyPageContent.fromJson(p);
+            }
+          }
+        });
+      }
+    } catch (e) {
+      debugPrint('[MONTH PAGES LOAD ERROR] $e');
+    }
   }
 
   /// Load cycle days for the current view month from the server.
@@ -202,11 +269,10 @@ class _CalendarTabState extends State<CalendarTab> {
       _pageExpanded = false;
       _cycleDays.clear();
       _cycleDayIds.clear();
-      _tasks.clear(); // clear cache so new month re-fetches
+      _tasks.clear();
+      _fetchedPages.clear();
     });
-    _fetchDailyPageForSelected();
-    _loadTasksForSelected();
-    _loadCycleDays();
+    _loadMonthData();
   }
 
   void _nextMonth() {
@@ -221,11 +287,10 @@ class _CalendarTabState extends State<CalendarTab> {
       _pageExpanded = false;
       _cycleDays.clear();
       _cycleDayIds.clear();
-      _tasks.clear(); // clear cache so new month re-fetches
+      _tasks.clear();
+      _fetchedPages.clear();
     });
-    _fetchDailyPageForSelected();
-    _loadTasksForSelected();
-    _loadCycleDays();
+    _loadMonthData();
   }
 
   void _addTask() async {
@@ -448,10 +513,9 @@ class _CalendarTabState extends State<CalendarTab> {
                     _cycleDays.clear();
                     _cycleDayIds.clear();
                     _tasks.clear();
+                    _fetchedPages.clear();
                   });
-                  _fetchDailyPageForSelected();
-                  _loadTasksForSelected();
-                  _loadCycleDays();
+                  _loadMonthData();
                 },
                 child: Container(
                   padding: const EdgeInsets.symmetric(
