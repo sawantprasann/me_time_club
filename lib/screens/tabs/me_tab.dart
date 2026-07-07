@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -30,6 +31,8 @@ class _MeTabState extends State<MeTab> {
   bool _editing = false;
   String? _activeLetter; // null | 'pre' | 'future'
   final Map<String, String> _letters = {'pre': '', 'future': ''};
+  Timer? _letterSaveTimer;
+  bool _letterSaved = false; // briefly shows "Saved" indicator
 
   // Editable profile copy
   late String _name;
@@ -81,6 +84,44 @@ class _MeTabState extends State<MeTab> {
     _hardships = List.from(widget.user.hardships);
     _bio = widget.user.bio;
     _photo = widget.user.photo;
+    _letters['pre'] = widget.user.preBabyLetter;
+    _letters['future'] = widget.user.futureSelfLetter;
+  }
+
+  @override
+  void dispose() {
+    _letterSaveTimer?.cancel();
+    super.dispose();
+  }
+
+  void _scheduleSave() {
+    _letterSaveTimer?.cancel();
+    _letterSaveTimer = Timer(const Duration(milliseconds: 1500), _saveLetter);
+  }
+
+  void _saveLetter() {
+    _letterSaveTimer?.cancel();
+    final token = widget.user.token;
+    if (token == null || token.isEmpty || _activeLetter == null) return;
+    final key = _activeLetter!;
+    final text = _letters[key] ?? '';
+    ApiService.updateProfile(
+      token: token,
+      profileParams: {
+        if (key == 'pre') 'pre_baby_letter': text,
+        if (key == 'future') 'future_self_letter': text,
+      },
+    ).then((json) {
+      final updated = UserProfile.fromJson({...json, 'token': token});
+      if (mounted) {
+        widget.onUpdateUser(updated.copyWith(photo: _photo));
+        setState(() => _letterSaved = true);
+        Future.delayed(const Duration(seconds: 2),
+            () { if (mounted) setState(() => _letterSaved = false); });
+      }
+    }).catchError((e) {
+      debugPrint('[LETTER SAVE ERROR] $e');
+    });
   }
 
   void _save() async {
@@ -115,6 +156,8 @@ class _MeTabState extends State<MeTab> {
       'journey_tags': apiJourney,
       'journey_text': _bio.trim(),
       'free_text': widget.user.hardshipsText,
+      'pre_baby_letter': _letters['pre'] ?? '',
+      'future_self_letter': _letters['future'] ?? '',
     };
 
     try {
@@ -698,7 +741,10 @@ class _MeTabState extends State<MeTab> {
         children: [
           // Back button
           GestureDetector(
-            onTap: () => setState(() => _activeLetter = null),
+            onTap: () {
+              _saveLetter();
+              setState(() => _activeLetter = null);
+            },
             child: Row(
               children: [
                 Transform(
@@ -712,14 +758,41 @@ class _MeTabState extends State<MeTab> {
             ),
           ),
           const SizedBox(height: 20),
-          Text(title, style: AppTypography.playfair(20, t.text)),
-          const SizedBox(height: 4),
-          Text(subtitle, style: AppTypography.cormorantItalic(15, t.muted)),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: AppTypography.playfair(20, t.text)),
+                    const SizedBox(height: 4),
+                    Text(subtitle, style: AppTypography.cormorantItalic(15, t.muted)),
+                  ],
+                ),
+              ),
+              AnimatedOpacity(
+                opacity: _letterSaved ? 1.0 : 0.0,
+                duration: const Duration(milliseconds: 400),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.check_circle_outline, size: 12, color: t.green),
+                    const SizedBox(width: 4),
+                    Text('Saved', style: AppTypography.lato400(11, t.green)),
+                  ],
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 18),
           Expanded(
             child: VoiceTextArea(
               value: _letters[_activeLetter!]!,
-              onChange: (v) => setState(() => _letters[_activeLetter!] = v),
+              onChange: (v) {
+                setState(() => _letters[_activeLetter!] = v);
+                _scheduleSave();
+              },
               placeholder: 'Dear me…',
               t: t,
               rows: 14,

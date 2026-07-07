@@ -1,6 +1,5 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../theme/tokens.dart';
 import '../../icons/app_icons.dart';
 import '../../models/user_profile.dart';
@@ -536,12 +535,7 @@ class _MemoriesTabState extends State<MemoriesTab> {
                           // Body text
                           Text(
                             m.body,
-                            style: GoogleFonts.cormorantGaramond(
-                              fontSize: 16,
-                              fontStyle: FontStyle.italic,
-                              color: t.text,
-                              height: 1.5,
-                            ),
+                            style: AppTypography.cormorantItalic(16, t.text, height: 1.5),
                           ),
                         ],
                         const SizedBox(height: 12),

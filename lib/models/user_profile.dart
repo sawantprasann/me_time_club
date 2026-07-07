@@ -18,6 +18,8 @@ class UserProfile {
   List<String> hardships;
   String hardshipsText;
   Uint8List? photo;
+  String preBabyLetter;
+  String futureSelfLetter;
 
   UserProfile({
     this.id,
@@ -33,6 +35,8 @@ class UserProfile {
     this.hardships = const [],
     this.hardshipsText = '',
     this.photo,
+    this.preBabyLetter = '',
+    this.futureSelfLetter = '',
   });
 
   UserProfile copyWith({
@@ -49,6 +53,8 @@ class UserProfile {
     List<String>? hardships,
     String? hardshipsText,
     Uint8List? photo,
+    String? preBabyLetter,
+    String? futureSelfLetter,
   }) {
     return UserProfile(
       id: id ?? this.id,
@@ -64,6 +70,8 @@ class UserProfile {
       hardships: hardships ?? this.hardships,
       hardshipsText: hardshipsText ?? this.hardshipsText,
       photo: photo ?? this.photo,
+      preBabyLetter: preBabyLetter ?? this.preBabyLetter,
+      futureSelfLetter: futureSelfLetter ?? this.futureSelfLetter,
     );
   }
 
@@ -130,6 +138,8 @@ class UserProfile {
           '',
       photo:
           json['photo'] != null ? base64Decode(json['photo'] as String) : null,
+      preBabyLetter: json['pre_baby_letter'] as String? ?? '',
+      futureSelfLetter: json['future_self_letter'] as String? ?? '',
     );
   }
 
@@ -149,6 +159,8 @@ class UserProfile {
       'hardships': hardships,
       'hardshipsText': hardshipsText,
       'photo': photo != null ? base64Encode(photo!) : null,
+      'pre_baby_letter': preBabyLetter,
+      'future_self_letter': futureSelfLetter,
     };
   }
 

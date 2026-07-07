@@ -442,12 +442,9 @@ class _AppRootState extends State<AppRoot> {
               const SizedBox(height: 4),
               Text(
                 label,
-                style: TextStyle(
-                  fontFamily: 'Lato',
-                  fontSize: 9,
-                  fontWeight: active ? FontWeight.w700 : FontWeight.w400,
-                  color: active ? t.accent : t.muted,
-                ),
+                style: active
+                    ? AppTypography.lato700(9, t.accent)
+                    : AppTypography.lato400(9, t.muted),
               ),
             ],
           ),

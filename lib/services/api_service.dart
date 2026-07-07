@@ -175,9 +175,10 @@ class ApiService {
     required String token,
     required String? mood,
     required String freeText,
+    required String dateKey,
   }) async {
     final url = 'http://139.59.23.15/api/v1/daily_pages/generate';
-    final requestBody = {'mood': mood, 'free_text': freeText};
+    final requestBody = {'mood': mood, 'free_text': freeText, 'date_key': dateKey};
 
     print('[API REQUEST] POST $url');
     print('[API REQUEST BODY] ${jsonEncode(requestBody)}');
