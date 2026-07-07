@@ -217,8 +217,8 @@ class _AppRootState extends State<AppRoot> {
         children: [
           // Header
           _buildHeader(),
-          // Tab content
-          Expanded(child: _buildTabContent()),
+          // Tab content — IndexedStack keeps every tab's state alive across switches
+          Expanded(child: _buildTabStack()),
         ],
       ),
       bottomNavigationBar: _buildBottomNav(),
@@ -328,44 +328,39 @@ class _AppRootState extends State<AppRoot> {
     }
   }
 
-  // ─── Tab Content ─────────────────────────────────
-  Widget _buildTabContent() {
-    switch (_tab) {
-      case 'home':
-        return HomeTab(
+  // ─── Tab Stack (IndexedStack keeps all states alive) ─────────────────────
+  static const _tabOrder = ['home', 'calendar', 'memories', 'journal', 'circle', 'me'];
+
+  Widget _buildTabStack() {
+    return IndexedStack(
+      index: _tabOrder.indexOf(_tab).clamp(0, _tabOrder.length - 1),
+      children: [
+        HomeTab(
+          key: const ValueKey('home'),
           user: _user!,
           t: t,
           onSavePage: _onSavePage,
           initialPage: _dailyPages[DateTime.now().day],
           hasCheckedToday: _hasCheckedToday,
           onCheckedToday: () => setState(() => _hasCheckedToday = true),
-        );
-      case 'calendar':
-        return CalendarTab(user: _user!, t: t, dailyPages: _dailyPages);
-      case 'memories':
-        return MemoriesTab(user: _user!, t: t);
-      case 'journal':
-        return JournalTab(user: _user!, t: t);
-      case 'circle':
-        return CircleTab(user: _user!, t: t, userName: _user!.name);
-      case 'me':
-        return MeTab(
+        ),
+        CalendarTab(key: const ValueKey('calendar'), user: _user!, t: t, dailyPages: _dailyPages),
+        MemoriesTab(key: const ValueKey('memories'), user: _user!, t: t),
+        JournalTab(key: const ValueKey('journal'), user: _user!, t: t),
+        CircleTab(key: const ValueKey('circle'), user: _user!, t: t, userName: _user!.name),
+        MeTab(
+          key: const ValueKey('me'),
           user: _user!,
           t: t,
           onUpdateUser: _onUpdateUser,
           onLogout: _onLogout,
-        );
-      default:
-        return HomeTab(
-          user: _user!,
-          t: t,
-          onSavePage: _onSavePage,
-          initialPage: _dailyPages[DateTime.now().day],
-          hasCheckedToday: _hasCheckedToday,
-          onCheckedToday: () => setState(() => _hasCheckedToday = true),
-        );
-    }
+        ),
+      ],
+    );
   }
+
+  // ─── Tab Content (legacy — no longer used) ───────────────────────────────
+  Widget _buildTabContent() => _buildTabStack();
 
   // ─── Bottom Navigation ───────────────────────────
   Widget _buildBottomNav() {

@@ -80,13 +80,20 @@ class _HomeTabState extends State<HomeTab> {
     final now = DateTime.now();
     final dateKey =
         '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+
     ApiService.saveDailyPageAnswers(
       token: widget.user.token ?? '',
       dateKey: dateKey,
       reflectionAnswer: _reflectionAnswerCtrl.text,
       reflectionFollowupAnswer: _reflectionFollowupAnswerCtrl.text,
       nightReflectionAnswer: _nightReflectionAnswerCtrl.text,
-    );
+    ).then((json) {
+      if (json == null || !mounted) return;
+      // Use the server's response to keep _page + _dailyPages in sync
+      final updated = DailyPageContent.fromJson(json);
+      _page = updated;
+      widget.onSavePage(now.day, updated);
+    });
   }
 
   void _checkExistingPage() async {
