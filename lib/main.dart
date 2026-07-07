@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'services/api_service.dart';
 import 'theme/tokens.dart';
 import 'icons/app_icons.dart';
 import 'models/user_profile.dart';
@@ -133,6 +134,10 @@ class _AppRootState extends State<AppRoot> {
   }
 
   void _onLogout() async {
+    final token = _user?.token;
+    if (token != null && token.isNotEmpty) {
+      await ApiService.logout(token: token);
+    }
     await _clearSession();
     setState(() {
       _user = null;

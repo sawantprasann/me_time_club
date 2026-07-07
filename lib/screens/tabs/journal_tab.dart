@@ -1,4 +1,3 @@
-import 'dart:math';
 import 'package:flutter/material.dart';
 import '../../theme/tokens.dart';
 import '../../icons/app_icons.dart';
@@ -31,34 +30,26 @@ class _JournalTabState extends State<JournalTab> {
   String _newTask = '';
   bool _chamomileDone = false;
   // Shopping sub-tab
-  final List<_ShopCategory> _categories = [
-    _ShopCategory(name: 'Groceries', color: const Color(0xFF7A9E8E)),
-    _ShopCategory(name: 'Baby', color: const Color(0xFFB8906A)),
-    _ShopCategory(name: 'Self Care', color: const Color(0xFFB8706A)),
-    _ShopCategory(name: 'Household', color: const Color(0xFF8A7D76)),
-  ];
-  String? _openCat;
+  final List<_ShopCategory> _categories = [];
+  bool _loadingCategories = true;
+  int? _openCat; // category id
   String _newItem = '';
   bool _addingCat = false;
   String _newCatName = '';
-  final Map<String, List<_ShopItem>> _shopItems = {};
-
-  final _palette = [
-    const Color(0xFFB8706A),
-    const Color(0xFFC4945A),
-    const Color(0xFF7A9E8E),
-    const Color(0xFF9E9E7A),
-    const Color(0xFFA0887A),
-  ];
+  final Map<int, List<_ShopItem>> _shopItems = {};
+  // Inline rename state
+  int? _editingCatId;
+  String _editingCatName = '';
+  String? _editingItemId; // item id being renamed
+  String _editingItemText = '';
 
   AppTokens get t => widget.t;
 
   @override
   void initState() {
     super.initState();
-    _openCat = _categories.first.name;
     _fetchPastEntries();
-    _fetchShoppingItems();
+    _fetchShoppingCategories();
   }
 
   void _fetchPastEntries() async {
@@ -86,48 +77,66 @@ class _JournalTabState extends State<JournalTab> {
     }
   }
 
-  void _fetchShoppingItems() async {
+  Future<void> _fetchShoppingCategories() async {
+    setState(() => _loadingCategories = true);
+    try {
+      final raw = await ApiService.getShoppingCategories(
+        token: widget.user.token ?? '',
+      );
+      if (!mounted) return;
+      final cats = raw
+          .map((c) => _ShopCategory(
+                id: c['id'] as int,
+                name: c['name'] as String? ?? '',
+                isSystem: c['system'] as bool? ?? false,
+              ))
+          .toList();
+      setState(() {
+        _categories
+          ..clear()
+          ..addAll(cats);
+        _openCat = cats.isNotEmpty ? cats.first.id : null;
+        _loadingCategories = false;
+      });
+      _fetchShoppingItems();
+    } catch (e) {
+      debugPrint('[FETCH SHOPPING CATEGORIES ERROR] $e');
+      if (mounted) setState(() => _loadingCategories = false);
+    }
+  }
+
+  Future<void> _fetchShoppingItems() async {
     try {
       final items = await ApiService.getShoppingItems(
         token: widget.user.token ?? '',
       );
 
-      final Map<String, List<_ShopItem>> loadedItems = {};
+      final Map<int, List<_ShopItem>> loadedItems = {};
       for (final cat in _categories) {
-        loadedItems[cat.name] = [];
+        loadedItems[cat.id] = [];
       }
 
       for (final item in items) {
-        final id = item['id']?.toString();
+        final itemId = item['id']?.toString();
         final name = item['name']?.toString() ?? '';
         final done = item['checked'] as bool? ?? false;
+        final catId = item['category_id'] as int?;
 
-        if (name.contains('|')) {
-          final parts = name.split('|');
-          final catName = parts[0];
-          final itemName = parts.sublist(1).join('|');
-
-          if (!loadedItems.containsKey(catName)) {
-            loadedItems[catName] = [];
-          }
-          loadedItems[catName]!.add(
-            _ShopItem(id: id, text: itemName, done: done),
-          );
-        } else {
-          const defaultCat = 'Groceries';
-          if (!loadedItems.containsKey(defaultCat)) {
-            loadedItems[defaultCat] = [];
-          }
-          loadedItems[defaultCat]!.add(
-            _ShopItem(id: id, text: name, done: done),
-          );
+        if (catId != null) {
+          loadedItems.putIfAbsent(catId, () => []);
+          loadedItems[catId]!.add(_ShopItem(id: itemId, text: name, done: done));
+        } else if (_categories.isNotEmpty) {
+          final defaultId = _categories.first.id;
+          loadedItems.putIfAbsent(defaultId, () => []);
+          loadedItems[defaultId]!.add(_ShopItem(id: itemId, text: name, done: done));
         }
       }
 
       if (mounted) {
         setState(() {
-          _shopItems.clear();
-          _shopItems.addAll(loadedItems);
+          _shopItems
+            ..clear()
+            ..addAll(loadedItems);
         });
       }
     } catch (e) {
@@ -671,6 +680,9 @@ class _JournalTabState extends State<JournalTab> {
 
   // ─── Shopping Sub-Tab ────────────────────────────
   Widget _buildShopping() {
+    if (_loadingCategories) {
+      return const Center(child: CircularProgressIndicator());
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -680,49 +692,53 @@ class _JournalTabState extends State<JournalTab> {
           runSpacing: 6,
           children: [
             ..._categories.map((cat) {
-              final active = _openCat == cat.name;
-              final items = _shopItems[cat.name] ?? [];
+              final active = _openCat == cat.id;
+              final items = _shopItems[cat.id] ?? [];
               final remaining = items.where((i) => !i.done).length;
-              return GestureDetector(
-                onTap: () => setState(() => _openCat = cat.name),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 7,
+              // Inline rename for this pill
+              if (_editingCatId == cat.id) {
+                return SizedBox(
+                  width: 140,
+                  child: TextField(
+                    autofocus: true,
+                    controller: TextEditingController(text: _editingCatName)
+                      ..selection = TextSelection.collapsed(offset: _editingCatName.length),
+                    onChanged: (v) => _editingCatName = v,
+                    onSubmitted: (_) => _renameCategory(cat.id, _editingCatName),
+                    onTapOutside: (_) => _renameCategory(cat.id, _editingCatName),
+                    style: AppTypography.lato400(13, t.text),
+                    decoration: _inputDeco('Category name…'),
                   ),
+                );
+              }
+              return GestureDetector(
+                onTap: () => setState(() => _openCat = cat.id),
+                onLongPress: () => _showCategoryOptions(cat),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
                   decoration: BoxDecoration(
-                    color:
-                        active
-                            ? cat.color.withValues(alpha: 0.2)
-                            : Colors.transparent,
+                    color: active ? t.accent.withValues(alpha: 0.15) : Colors.transparent,
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: active ? cat.color : t.border),
+                    border: Border.all(color: active ? t.accent : t.border),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
                         cat.name,
-                        style:
-                            active
-                                ? AppTypography.lato700(12, cat.color)
-                                : AppTypography.lato400(12, t.muted),
+                        style: active
+                            ? AppTypography.lato700(12, t.accent)
+                            : AppTypography.lato400(12, t.muted),
                       ),
                       if (remaining > 0) ...[
                         const SizedBox(width: 6),
                         Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: cat.color,
+                            color: t.accent,
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: Text(
-                            '$remaining',
-                            style: AppTypography.lato700(10, Colors.white),
-                          ),
+                          child: Text('$remaining', style: AppTypography.lato700(10, Colors.white)),
                         ),
                       ],
                     ],
@@ -733,10 +749,9 @@ class _JournalTabState extends State<JournalTab> {
             // Add category button
             SolidButton(
               onTap: () => setState(() => _addingCat = !_addingCat),
-              icon:
-                  _addingCat
-                      ? AppIcons.close(c: Colors.white, s: 12)
-                      : AppIcons.plus(c: Colors.white, s: 14),
+              icon: _addingCat
+                  ? AppIcons.close(c: Colors.white, s: 12)
+                  : AppIcons.plus(c: Colors.white, s: 14),
               size: 30,
               color: t.accent,
             ),
@@ -757,34 +772,14 @@ class _JournalTabState extends State<JournalTab> {
               ),
               const SizedBox(width: 8),
               GestureDetector(
-                onTap: () {
-                  if (_newCatName.trim().isNotEmpty) {
-                    setState(() {
-                      _categories.add(
-                        _ShopCategory(
-                          name: _newCatName.trim(),
-                          color: _palette[Random().nextInt(_palette.length)],
-                        ),
-                      );
-                      _openCat = _newCatName.trim();
-                      _newCatName = '';
-                      _addingCat = false;
-                    });
-                  }
-                },
+                onTap: _addCategory,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 10,
-                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   decoration: BoxDecoration(
                     color: t.accent,
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Text(
-                    'Add',
-                    style: AppTypography.lato700(12, Colors.white),
-                  ),
+                  child: Text('Add', style: AppTypography.lato700(12, Colors.white)),
                 ),
               ),
             ],
@@ -792,14 +787,14 @@ class _JournalTabState extends State<JournalTab> {
         ],
         const SizedBox(height: 16),
         // Items for selected category
-        if (_openCat != null) ...[
+        if (_openCat != null && _categories.isNotEmpty) ...[
           Builder(
             builder: (_) {
               final cat = _categories.firstWhere(
-                (c) => c.name == _openCat,
+                (c) => c.id == _openCat,
                 orElse: () => _categories.first,
               );
-              final items = _shopItems[cat.name] ?? [];
+              final items = _shopItems[cat.id] ?? [];
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -808,10 +803,7 @@ class _JournalTabState extends State<JournalTab> {
                       Container(
                         width: 8,
                         height: 8,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: cat.color,
-                        ),
+                        decoration: BoxDecoration(shape: BoxShape.circle, color: t.accent),
                       ),
                       const SizedBox(width: 8),
                       Text(cat.name, style: AppTypography.lato700(12, t.text)),
@@ -829,7 +821,7 @@ class _JournalTabState extends State<JournalTab> {
                             onTap: () async {
                               final newDone = !item.done;
                               setState(() {
-                                _shopItems[cat.name]![i] = _ShopItem(
+                                _shopItems[cat.id]![i] = _ShopItem(
                                   id: item.id,
                                   text: item.text,
                                   done: newDone,
@@ -840,13 +832,11 @@ class _JournalTabState extends State<JournalTab> {
                                   await ApiService.updateShoppingItem(
                                     token: widget.user.token ?? '',
                                     itemId: item.id!,
-                                    name: '${cat.name}|${item.text}',
                                     checked: newDone,
+                                    categoryId: cat.id,
                                   );
                                 } catch (err) {
-                                  debugPrint(
-                                    '[UPDATE SHOPPING ITEM ERROR] $err',
-                                  );
+                                  debugPrint('[UPDATE SHOPPING ITEM ERROR] $err');
                                 }
                               }
                             },
@@ -856,37 +846,47 @@ class _JournalTabState extends State<JournalTab> {
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(4),
                                 border: Border.all(
-                                  color: item.done ? cat.color : t.border,
+                                  color: item.done ? t.accent : t.border,
                                   width: 2,
                                 ),
-                                color:
-                                    item.done ? cat.color : Colors.transparent,
+                                color: item.done ? t.accent : Colors.transparent,
                               ),
-                              child:
-                                  item.done
-                                      ? AppIcons.check(c: Colors.white, s: 12)
-                                      : null,
+                              child: item.done ? AppIcons.check(c: Colors.white, s: 12) : null,
                             ),
                           ),
                           const SizedBox(width: 10),
                           Expanded(
-                            child: Text(
-                              item.text,
-                              style: AppTypography.lato400(14, t.text).copyWith(
-                                decoration:
-                                    item.done
-                                        ? TextDecoration.lineThrough
+                            child: _editingItemId == item.id && item.id != null
+                                ? TextField(
+                                    autofocus: true,
+                                    controller: TextEditingController(text: _editingItemText)
+                                      ..selection = TextSelection.collapsed(offset: _editingItemText.length),
+                                    onChanged: (v) => _editingItemText = v,
+                                    onSubmitted: (_) => _renameItem(cat.id, i, _editingItemText),
+                                    onTapOutside: (_) => _renameItem(cat.id, i, _editingItemText),
+                                    style: AppTypography.lato400(14, t.text),
+                                    decoration: _inputDeco('Item name…'),
+                                  )
+                                : GestureDetector(
+                                    onLongPress: item.id != null
+                                        ? () => setState(() {
+                                              _editingItemId = item.id;
+                                              _editingItemText = item.text;
+                                            })
                                         : null,
-                                color: item.done ? t.muted : t.text,
-                              ),
-                            ),
+                                    child: Text(
+                                      item.text,
+                                      style: AppTypography.lato400(14, t.text).copyWith(
+                                        decoration: item.done ? TextDecoration.lineThrough : null,
+                                        color: item.done ? t.muted : t.text,
+                                      ),
+                                    ),
+                                  ),
                           ),
                           GestureDetector(
                             onTap: () async {
-                              final removedItem = _shopItems[cat.name]![i];
-                              setState(() {
-                                _shopItems[cat.name]!.removeAt(i);
-                              });
+                              final removedItem = _shopItems[cat.id]![i];
+                              setState(() => _shopItems[cat.id]!.removeAt(i));
                               if (removedItem.id != null) {
                                 try {
                                   await ApiService.deleteShoppingItem(
@@ -894,9 +894,7 @@ class _JournalTabState extends State<JournalTab> {
                                     itemId: removedItem.id!,
                                   );
                                 } catch (err) {
-                                  debugPrint(
-                                    '[DELETE SHOPPING ITEM ERROR] $err',
-                                  );
+                                  debugPrint('[DELETE SHOPPING ITEM ERROR] $err');
                                 }
                               }
                             },
@@ -912,7 +910,7 @@ class _JournalTabState extends State<JournalTab> {
                       Expanded(
                         child: TextField(
                           onChanged: (v) => _newItem = v,
-                          onSubmitted: (_) => _addItem(cat.name),
+                          onSubmitted: (_) => _addItem(cat.id),
                           controller: TextEditingController(text: _newItem),
                           style: AppTypography.lato400(14, t.text),
                           decoration: _inputDeco('Add an item…'),
@@ -926,7 +924,7 @@ class _JournalTabState extends State<JournalTab> {
                       ),
                       const SizedBox(width: 8),
                       SolidButton(
-                        onTap: () => _addItem(cat.name),
+                        onTap: () => _addItem(cat.id),
                         icon: AppIcons.plus(c: Colors.white, s: 14),
                         size: 36,
                         color: t.accent,
@@ -942,27 +940,159 @@ class _JournalTabState extends State<JournalTab> {
     );
   }
 
-  void _addItem(String catName) async {
+  Future<void> _addCategory() async {
+    if (_newCatName.trim().isEmpty) return;
+    final name = _newCatName.trim();
+    try {
+      final res = await ApiService.createShoppingCategory(
+        token: widget.user.token ?? '',
+        name: name,
+      );
+      if (res != null && mounted) {
+        final newCat = _ShopCategory(
+          id: res['id'] as int,
+          name: res['name'] as String? ?? name,
+          isSystem: false,
+        );
+        setState(() {
+          _categories.add(newCat);
+          _shopItems[newCat.id] = [];
+          _openCat = newCat.id;
+          _newCatName = '';
+          _addingCat = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('[CREATE CATEGORY ERROR] $e');
+    }
+  }
+
+  Future<void> _deleteCategory(int catId) async {
+    final cat = _categories.firstWhere((c) => c.id == catId);
+    if (cat.isSystem) return;
+    setState(() {
+      _categories.removeWhere((c) => c.id == catId);
+      _shopItems.remove(catId);
+      if (_openCat == catId) _openCat = _categories.isNotEmpty ? _categories.first.id : null;
+    });
+    try {
+      await ApiService.deleteShoppingCategory(
+        token: widget.user.token ?? '',
+        categoryId: catId,
+      );
+    } catch (e) {
+      debugPrint('[DELETE CATEGORY ERROR] $e');
+    }
+  }
+
+  Future<void> _renameCategory(int catId, String newName) async {
+    if (newName.trim().isEmpty) return;
+    final name = newName.trim();
+    setState(() {
+      final idx = _categories.indexWhere((c) => c.id == catId);
+      if (idx != -1) {
+        _categories[idx] = _ShopCategory(id: catId, name: name, isSystem: false);
+      }
+      _editingCatId = null;
+      _editingCatName = '';
+    });
+    try {
+      await ApiService.updateShoppingCategory(
+        token: widget.user.token ?? '',
+        categoryId: catId,
+        name: name,
+      );
+    } catch (e) {
+      debugPrint('[RENAME CATEGORY ERROR] $e');
+    }
+  }
+
+  Future<void> _renameItem(int catId, int itemIdx, String newName) async {
+    if (newName.trim().isEmpty) return;
+    final name = newName.trim();
+    final item = _shopItems[catId]![itemIdx];
+    setState(() {
+      _shopItems[catId]![itemIdx] = _ShopItem(id: item.id, text: name, done: item.done);
+      _editingItemId = null;
+      _editingItemText = '';
+    });
+    if (item.id != null) {
+      try {
+        await ApiService.updateShoppingItem(
+          token: widget.user.token ?? '',
+          itemId: item.id!,
+          name: name,
+          checked: item.done,
+          categoryId: catId,
+        );
+      } catch (e) {
+        debugPrint('[RENAME ITEM ERROR] $e');
+      }
+    }
+  }
+
+  void _showCategoryOptions(_ShopCategory cat) {
+    if (cat.isSystem) return;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: t.card,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: Text(cat.name, style: AppTypography.playfair(16, t.text)),
+            ),
+            const Divider(),
+            ListTile(
+              leading: AppIcons.pen(c: t.accent, s: 18),
+              title: Text('Rename', style: AppTypography.lato700(14, t.text)),
+              onTap: () {
+                Navigator.of(ctx).pop();
+                setState(() {
+                  _editingCatId = cat.id;
+                  _editingCatName = cat.name;
+                });
+              },
+            ),
+            ListTile(
+              leading: AppIcons.close(c: Colors.redAccent, s: 18),
+              title: Text('Delete', style: AppTypography.lato700(14, Colors.redAccent)),
+              onTap: () {
+                Navigator.of(ctx).pop();
+                _deleteCategory(cat.id);
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _addItem(int catId) async {
     if (_newItem.trim().isEmpty) return;
     FocusManager.instance.primaryFocus?.unfocus();
     final itemText = _newItem.trim();
-    setState(() {
-      _newItem = '';
-    });
+    setState(() => _newItem = '');
 
     try {
-      final nameWithCat = '$catName|$itemText';
       final res = await ApiService.createShoppingItem(
         token: widget.user.token ?? '',
-        name: nameWithCat,
+        name: itemText,
         checked: false,
+        categoryId: catId,
       );
       final createdId = res['id']?.toString();
 
       if (mounted) {
         setState(() {
-          _shopItems[catName] = [
-            ...(_shopItems[catName] ?? []),
+          _shopItems[catId] = [
+            ...(_shopItems[catId] ?? []),
             _ShopItem(id: createdId, text: itemText, done: false),
           ];
         });
@@ -971,8 +1101,8 @@ class _JournalTabState extends State<JournalTab> {
       debugPrint('[CREATE SHOPPING ITEM ERROR] $e');
       if (mounted) {
         setState(() {
-          _shopItems[catName] = [
-            ...(_shopItems[catName] ?? []),
+          _shopItems[catId] = [
+            ...(_shopItems[catId] ?? []),
             _ShopItem(text: itemText, done: false),
           ];
         });
@@ -1010,9 +1140,10 @@ class _TaskItem {
 }
 
 class _ShopCategory {
+  final int id;
   final String name;
-  final Color color;
-  _ShopCategory({required this.name, required this.color});
+  final bool isSystem;
+  _ShopCategory({required this.id, required this.name, required this.isSystem});
 }
 
 class _ShopItem {

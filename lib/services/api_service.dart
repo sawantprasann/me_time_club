@@ -151,6 +151,24 @@ class ApiService {
     }
   }
 
+  /// Revokes the JWT token on the server (logout).
+  static Future<void> logout({required String token}) async {
+    final url = '$baseUrl/logout';
+    print('[API REQUEST] DELETE $url');
+    try {
+      await http.delete(
+        Uri.parse(url),
+        headers: {
+          'accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+    } catch (e) {
+      print('[API ERROR] logout: $e');
+      // Swallow errors — local session is cleared regardless
+    }
+  }
+
   /// Generates the daily page content for the user.
   /// Throws ApiException if the request fails.
   static Future<Map<String, dynamic>> generateDailyPage({
@@ -916,15 +934,119 @@ class ApiService {
     }
   }
 
+  // ── Categories ───────────────────────────────────────────────────────────────
+
+  /// Fetches shopping categories (system + user-created).
+  static Future<List<Map<String, dynamic>>> getShoppingCategories({
+    required String token,
+  }) async {
+    const url = 'http://139.59.23.15/api/v1/categories';
+    print('[API REQUEST] GET $url');
+    try {
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {'accept': 'application/json', 'Authorization': 'Bearer $token'},
+      );
+      print('[API RESPONSE] ${response.statusCode} GET $url');
+      if (response.statusCode == 200) {
+        return (jsonDecode(response.body) as List<dynamic>)
+            .cast<Map<String, dynamic>>();
+      }
+      return [];
+    } on http.ClientException catch (e) {
+      print('[API ERROR] ClientException: ${e.message}');
+      return [];
+    } catch (e) {
+      print('[API ERROR] getShoppingCategories: $e');
+      return [];
+    }
+  }
+
+  /// Creates a user-owned shopping category.
+  static Future<Map<String, dynamic>?> createShoppingCategory({
+    required String token,
+    required String name,
+    String? icon,
+  }) async {
+    const url = 'http://139.59.23.15/api/v1/categories';
+    final requestBody = {
+      'category': {
+        'name': name,
+        if (icon != null) 'icon': icon,
+      },
+    };
+    print('[API REQUEST] POST $url');
+    print('[API REQUEST BODY] ${jsonEncode(requestBody)}');
+    try {
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {
+          'accept': 'application/json',
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(requestBody),
+      );
+      print('[API RESPONSE] ${response.statusCode} POST $url');
+      final decoded = jsonDecode(response.body);
+      if (response.statusCode == 201) {
+        return decoded as Map<String, dynamic>;
+      }
+      final errorMsg = decoded['errors'] != null
+          ? (decoded['errors'] as List).join(', ')
+          : decoded['error'] as String? ?? 'Failed to create category.';
+      throw ApiException(errorMsg);
+    } on http.ClientException catch (e) {
+      print('[API ERROR] ClientException: ${e.message}');
+      throw ApiException('Network error: Please check your internet connection.');
+    } catch (e) {
+      print('[API ERROR] createShoppingCategory: $e');
+      if (e is ApiException) rethrow;
+      throw ApiException('An unexpected error occurred: ${e.toString()}');
+    }
+  }
+
+  /// Deletes a user-owned shopping category.
+  static Future<void> deleteShoppingCategory({
+    required String token,
+    required int categoryId,
+  }) async {
+    final url = 'http://139.59.23.15/api/v1/categories/$categoryId';
+    print('[API REQUEST] DELETE $url');
+    try {
+      final response = await http.delete(
+        Uri.parse(url),
+        headers: {'accept': '*/*', 'Authorization': 'Bearer $token'},
+      );
+      print('[API RESPONSE] ${response.statusCode} DELETE $url');
+      if (response.statusCode != 200 && response.statusCode != 204) {
+        throw ApiException(
+            'Failed to delete category (status: ${response.statusCode}).');
+      }
+    } on http.ClientException catch (e) {
+      print('[API ERROR] ClientException: ${e.message}');
+      throw ApiException('Network error: Please check your internet connection.');
+    } catch (e) {
+      print('[API ERROR] deleteShoppingCategory: $e');
+      if (e is ApiException) rethrow;
+      throw ApiException('An unexpected error occurred: ${e.toString()}');
+    }
+  }
+
   /// Creates a new shopping item.
   static Future<Map<String, dynamic>> createShoppingItem({
     required String token,
     required String name,
     required bool checked,
+    int? categoryId,
   }) async {
     const url = 'http://139.59.23.15/api/v1/shopping_items';
     final requestBody = {
-      'shopping_item': {'name': name, 'checked': checked},
+      'shopping_item': {
+        'name': name,
+        'checked': checked,
+        if (categoryId != null) 'category_id': categoryId,
+      },
     };
 
     print('[API REQUEST] POST $url');
@@ -970,10 +1092,15 @@ class ApiService {
     required String itemId,
     String? name,
     required bool checked,
+    int? categoryId,
   }) async {
     final url = 'http://139.59.23.15/api/v1/shopping_items/$itemId';
     final requestBody = {
-      'shopping_item': {if (name != null) 'name': name, 'checked': checked},
+      'shopping_item': {
+        if (name != null) 'name': name,
+        'checked': checked,
+        if (categoryId != null) 'category_id': categoryId,
+      },
     };
 
     print('[API REQUEST] PATCH $url');
@@ -1145,8 +1272,9 @@ class ApiService {
     }
   }
 
-  /// Reacts to a circle post.
-  static Future<void> reactToCirclePost({
+  /// Toggles a reaction on a circle post.
+  /// Returns the updated post JSON (with new counts + my_reactions).
+  static Future<Map<String, dynamic>?> reactToCirclePost({
     required String token,
     required String postId,
     required String reactionType,
@@ -1161,7 +1289,7 @@ class ApiService {
       final response = await http.post(
         Uri.parse(url),
         headers: {
-          'accept': '*/*',
+          'accept': 'application/json',
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
         },
@@ -1171,18 +1299,15 @@ class ApiService {
       print('[API RESPONSE] ${response.statusCode} POST $url');
       print('[API RESPONSE BODY] ${response.body}');
 
-      if (response.statusCode != 200 &&
-          response.statusCode != 201 &&
-          response.statusCode != 204) {
-        throw ApiException(
-          'Failed to react to circle post (status code: ${response.statusCode}).',
-        );
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
       }
+      throw ApiException(
+        'Failed to react to circle post (status: ${response.statusCode}).',
+      );
     } on http.ClientException catch (e) {
       print('[API ERROR] ClientException: ${e.message}');
-      throw ApiException(
-        'Network error: Please check your internet connection.',
-      );
+      throw ApiException('Network error: Please check your internet connection.');
     } catch (e) {
       print('[API ERROR] Exception: ${e.toString()}');
       if (e is ApiException) rethrow;
@@ -1450,6 +1575,84 @@ class ApiService {
       );
     } catch (e) {
       print('[API ERROR] Exception: ${e.toString()}');
+      if (e is ApiException) rethrow;
+      throw ApiException('An unexpected error occurred: ${e.toString()}');
+    }
+  }
+
+  /// Saves user answers for a daily page (upserts by date_key).
+  static Future<void> saveDailyPageAnswers({
+    required String token,
+    required String dateKey,
+    String? reflectionAnswer,
+    String? reflectionFollowupAnswer,
+    String? nightReflectionAnswer,
+  }) async {
+    const url = 'http://139.59.23.15/api/v1/daily_pages';
+    final body = {
+      'daily_page': {
+        'date_key': dateKey,
+        if (reflectionAnswer != null) 'reflection_answer': reflectionAnswer,
+        if (reflectionFollowupAnswer != null) 'reflection_followup_answer': reflectionFollowupAnswer,
+        if (nightReflectionAnswer != null) 'night_reflection_answer': nightReflectionAnswer,
+      },
+    };
+    print('[API REQUEST] POST $url');
+    try {
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {
+          'accept': 'application/json',
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(body),
+      );
+      print('[API RESPONSE] ${response.statusCode} POST $url');
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        print('[API ERROR] saveDailyPageAnswers: ${response.body}');
+      }
+    } catch (e) {
+      print('[API ERROR] saveDailyPageAnswers: $e');
+    }
+  }
+
+  /// Updates a shopping category name/icon/position.
+  static Future<Map<String, dynamic>> updateShoppingCategory({
+    required String token,
+    required int categoryId,
+    String? name,
+    String? icon,
+    int? position,
+  }) async {
+    final url = 'http://139.59.23.15/api/v1/categories/$categoryId';
+    final body = {
+      'category': {
+        if (name != null) 'name': name,
+        if (icon != null) 'icon': icon,
+        if (position != null) 'position': position,
+      },
+    };
+    print('[API REQUEST] PATCH $url');
+    try {
+      final response = await http.patch(
+        Uri.parse(url),
+        headers: {
+          'accept': 'application/json',
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(body),
+      );
+      print('[API RESPONSE] ${response.statusCode} PATCH $url');
+      final decoded = jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        return decoded as Map<String, dynamic>;
+      }
+      throw ApiException(decoded['error'] as String? ?? 'Failed to update category.');
+    } on http.ClientException catch (e) {
+      throw ApiException('Network error: ${e.message}');
+    } catch (e) {
       if (e is ApiException) rethrow;
       throw ApiException('An unexpected error occurred: ${e.toString()}');
     }
