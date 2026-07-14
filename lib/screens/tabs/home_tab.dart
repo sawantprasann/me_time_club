@@ -80,13 +80,20 @@ class _HomeTabState extends State<HomeTab> {
     final now = DateTime.now();
     final dateKey =
         '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+
     ApiService.saveDailyPageAnswers(
       token: widget.user.token ?? '',
       dateKey: dateKey,
       reflectionAnswer: _reflectionAnswerCtrl.text,
       reflectionFollowupAnswer: _reflectionFollowupAnswerCtrl.text,
       nightReflectionAnswer: _nightReflectionAnswerCtrl.text,
-    );
+    ).then((json) {
+      if (json == null || !mounted) return;
+      // Use the server's response to keep _page + _dailyPages in sync
+      final updated = DailyPageContent.fromJson(json);
+      _page = updated;
+      widget.onSavePage(now.day, updated);
+    });
   }
 
   void _checkExistingPage() async {
@@ -160,10 +167,14 @@ class _HomeTabState extends State<HomeTab> {
     FocusManager.instance.primaryFocus?.unfocus();
     setState(() => _loading = true);
     try {
+      final now = DateTime.now();
+      final dateKey =
+          '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
       final result = await ApiService.generateDailyPage(
         token: widget.user.token ?? '',
         mood: _mood,
         freeText: _freeText,
+        dateKey: dateKey,
       );
 
       if (mounted) {
@@ -463,7 +474,7 @@ class _DailyPageView extends StatelessWidget {
               Divider(color: t.border, height: 24),
               Text(
                 page.emotionalResponse,
-                style: AppTypography.lato400(15, t.text, height: 1.6),
+                style: AppTypography.cormorant600(17, t.text, height: 1.6),
               ),
             ],
           ),
@@ -476,7 +487,7 @@ class _DailyPageView extends StatelessWidget {
           t: t,
           child: Text(
             page.insight,
-            style: AppTypography.lato400(15, t.text, height: 1.6),
+            style: AppTypography.cormorant600(17, t.text, height: 1.6),
           ),
         ),
         // 5. Micro Ritual — gradient card

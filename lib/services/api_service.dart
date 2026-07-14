@@ -169,15 +169,36 @@ class ApiService {
     }
   }
 
+  /// Permanently deletes the account and all user data from the server.
+  static Future<bool> deleteAccount({required String token}) async {
+    const url = 'http://139.59.23.15/api/v1/auth/account';
+    print('[API REQUEST] DELETE $url');
+    try {
+      final response = await http.delete(
+        Uri.parse(url),
+        headers: {
+          'accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+      print('[API RESPONSE] ${response.statusCode} DELETE $url');
+      return response.statusCode == 200;
+    } catch (e) {
+      print('[API ERROR] deleteAccount: $e');
+      return false;
+    }
+  }
+
   /// Generates the daily page content for the user.
   /// Throws ApiException if the request fails.
   static Future<Map<String, dynamic>> generateDailyPage({
     required String token,
     required String? mood,
     required String freeText,
+    required String dateKey,
   }) async {
     final url = 'http://139.59.23.15/api/v1/daily_pages/generate';
-    final requestBody = {'mood': mood, 'free_text': freeText};
+    final requestBody = {'mood': mood, 'free_text': freeText, 'date_key': dateKey};
 
     print('[API REQUEST] POST $url');
     print('[API REQUEST BODY] ${jsonEncode(requestBody)}');
@@ -1581,7 +1602,7 @@ class ApiService {
   }
 
   /// Saves user answers for a daily page (upserts by date_key).
-  static Future<void> saveDailyPageAnswers({
+  static Future<Map<String, dynamic>?> saveDailyPageAnswers({
     required String token,
     required String dateKey,
     String? reflectionAnswer,
@@ -1609,11 +1630,14 @@ class ApiService {
         body: jsonEncode(body),
       );
       print('[API RESPONSE] ${response.statusCode} POST $url');
-      if (response.statusCode != 200 && response.statusCode != 201) {
-        print('[API ERROR] saveDailyPageAnswers: ${response.body}');
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
       }
+      print('[API ERROR] saveDailyPageAnswers: ${response.body}');
+      return null;
     } catch (e) {
       print('[API ERROR] saveDailyPageAnswers: $e');
+      return null;
     }
   }
 

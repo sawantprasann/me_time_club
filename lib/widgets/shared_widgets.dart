@@ -49,12 +49,9 @@ class ChipButton extends StatelessWidget {
             Flexible(
               child: Text(
                 label,
-                style: TextStyle(
-                  fontFamily: 'Lato',
-                  fontSize: 13,
-                  fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
-                  color: selected ? color : t.muted,
-                ),
+                style: selected
+                    ? AppTypography.lato700(13, color)
+                    : AppTypography.lato400(13, t.muted),
               ),
             ),
           ],

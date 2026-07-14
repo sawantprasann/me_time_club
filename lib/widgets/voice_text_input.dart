@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../theme/tokens.dart';
 import 'speech_button.dart';
 
@@ -67,20 +66,10 @@ class _VoiceTextInputState extends State<VoiceTextInput> {
           onChanged: widget.onChange,
           textAlign: widget.textAlign,
           maxLength: widget.maxLength,
-          style:
-              widget.style ??
-              GoogleFonts.cormorantGaramond(
-                fontSize: 22,
-                fontStyle: FontStyle.italic,
-                color: t.text,
-              ),
+          style: widget.style ?? AppTypography.cormorantItalic(22, t.text),
           decoration: InputDecoration(
             hintText: widget.placeholder,
-            hintStyle: GoogleFonts.cormorantGaramond(
-              fontSize: 22,
-              fontStyle: FontStyle.italic,
-              color: t.muted,
-            ),
+            hintStyle: AppTypography.cormorantItalic(22, t.muted),
             contentPadding: const EdgeInsets.fromLTRB(16, 14, 52, 14),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
@@ -188,21 +177,10 @@ class _VoiceTextAreaState extends State<VoiceTextArea> {
           onChanged: widget.onChange,
           autofocus: widget.autoFocus,
           maxLines: widget.rows,
-          style:
-              widget.style ??
-              GoogleFonts.cormorantGaramond(
-                fontSize: 17,
-                fontStyle: FontStyle.italic,
-                color: t.text,
-                height: 1.65,
-              ),
+          style: widget.style ?? AppTypography.cormorantItalic(17, t.text, height: 1.65),
           decoration: InputDecoration(
             hintText: widget.placeholder,
-            hintStyle: GoogleFonts.cormorantGaramond(
-              fontSize: 15,
-              fontStyle: FontStyle.italic,
-              color: t.muted,
-            ),
+            hintStyle: AppTypography.cormorantItalic(15, t.muted),
             contentPadding: EdgeInsets.fromLTRB(16, 14, widget.micSize + 16, 14),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(18),

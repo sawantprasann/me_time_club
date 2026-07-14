@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -30,6 +31,8 @@ class _MeTabState extends State<MeTab> {
   bool _editing = false;
   String? _activeLetter; // null | 'pre' | 'future'
   final Map<String, String> _letters = {'pre': '', 'future': ''};
+  Timer? _letterSaveTimer;
+  bool _letterSaved = false; // briefly shows "Saved" indicator
 
   // Editable profile copy
   late String _name;
@@ -81,6 +84,90 @@ class _MeTabState extends State<MeTab> {
     _hardships = List.from(widget.user.hardships);
     _bio = widget.user.bio;
     _photo = widget.user.photo;
+    _letters['pre'] = widget.user.preBabyLetter;
+    _letters['future'] = widget.user.futureSelfLetter;
+  }
+
+  @override
+  void dispose() {
+    _letterSaveTimer?.cancel();
+    super.dispose();
+  }
+
+  void _scheduleSave() {
+    _letterSaveTimer?.cancel();
+    _letterSaveTimer = Timer(const Duration(milliseconds: 1500), _saveLetter);
+  }
+
+  void _confirmDeleteAccount() {
+    showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        backgroundColor: widget.t.card,
+        title: Text(
+          'Delete My Account',
+          style: AppTypography.playfair(18, const Color(0xFFD9534F)),
+        ),
+        content: Text(
+          'This will permanently delete your account and everything in it — your daily pages, journal, tasks, cycle data, circle posts, and letters.\n\nThis cannot be undone.',
+          style: AppTypography.lato400(14, widget.t.text, height: 1.6),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text('Cancel', style: AppTypography.lato700(14, widget.t.muted)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text(
+              'Delete Everything',
+              style: AppTypography.lato700(14, const Color(0xFFD9534F)),
+            ),
+          ),
+        ],
+      ),
+    ).then((confirmed) async {
+      if (confirmed != true || !mounted) return;
+      final token = widget.user.token ?? '';
+      final success = await ApiService.deleteAccount(token: token);
+      if (!mounted) return;
+      if (success) {
+        widget.onLogout();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not delete account. Please try again.'),
+            backgroundColor: Color(0xFFD9534F),
+          ),
+        );
+      }
+    });
+  }
+
+  void _saveLetter() {
+    _letterSaveTimer?.cancel();
+    final token = widget.user.token;
+    if (token == null || token.isEmpty || _activeLetter == null) return;
+    final key = _activeLetter!;
+    final text = _letters[key] ?? '';
+    ApiService.updateProfile(
+      token: token,
+      profileParams: {
+        if (key == 'pre') 'pre_baby_letter': text,
+        if (key == 'future') 'future_self_letter': text,
+      },
+    ).then((json) {
+      final updated = UserProfile.fromJson({...json, 'token': token});
+      if (mounted) {
+        widget.onUpdateUser(updated.copyWith(photo: _photo));
+        setState(() => _letterSaved = true);
+        Future.delayed(const Duration(seconds: 2),
+            () { if (mounted) setState(() => _letterSaved = false); });
+      }
+    }).catchError((e) {
+      debugPrint('[LETTER SAVE ERROR] $e');
+    });
   }
 
   void _save() async {
@@ -115,6 +202,8 @@ class _MeTabState extends State<MeTab> {
       'journey_tags': apiJourney,
       'journey_text': _bio.trim(),
       'free_text': widget.user.hardshipsText,
+      'pre_baby_letter': _letters['pre'] ?? '',
+      'future_self_letter': _letters['future'] ?? '',
     };
 
     try {
@@ -291,6 +380,7 @@ class _MeTabState extends State<MeTab> {
           ),
           if (!_editing) ...[
             const SizedBox(height: 32),
+            // Log out
             GestureDetector(
               onTap: widget.onLogout,
               child: Container(
@@ -314,6 +404,33 @@ class _MeTabState extends State<MeTab> {
                 ),
               ),
             ),
+            const SizedBox(height: 12),
+            // Delete account
+            GestureDetector(
+              onTap: _confirmDeleteAccount,
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFD9534F).withValues(alpha: 0.4)),
+                  color: const Color(0xFFD9534F).withValues(alpha: 0.05),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.delete_forever_rounded,
+                        color: const Color(0xFFD9534F), size: 16),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Delete My Account',
+                      style: AppTypography.lato700(13, const Color(0xFFD9534F)),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
           ],
         ],
       ),
@@ -698,7 +815,10 @@ class _MeTabState extends State<MeTab> {
         children: [
           // Back button
           GestureDetector(
-            onTap: () => setState(() => _activeLetter = null),
+            onTap: () {
+              _letterSaveTimer?.cancel();
+              setState(() => _activeLetter = null);
+            },
             child: Row(
               children: [
                 Transform(
@@ -712,14 +832,41 @@ class _MeTabState extends State<MeTab> {
             ),
           ),
           const SizedBox(height: 20),
-          Text(title, style: AppTypography.playfair(20, t.text)),
-          const SizedBox(height: 4),
-          Text(subtitle, style: AppTypography.cormorantItalic(15, t.muted)),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: AppTypography.playfair(20, t.text)),
+                    const SizedBox(height: 4),
+                    Text(subtitle, style: AppTypography.cormorantItalic(15, t.muted)),
+                  ],
+                ),
+              ),
+              AnimatedOpacity(
+                opacity: _letterSaved ? 1.0 : 0.0,
+                duration: const Duration(milliseconds: 400),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.check_circle_outline, size: 12, color: t.green),
+                    const SizedBox(width: 4),
+                    Text('Saved', style: AppTypography.lato400(11, t.green)),
+                  ],
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 18),
           Expanded(
             child: VoiceTextArea(
               value: _letters[_activeLetter!]!,
-              onChange: (v) => setState(() => _letters[_activeLetter!] = v),
+              onChange: (v) {
+                setState(() => _letters[_activeLetter!] = v);
+                _scheduleSave();
+              },
               placeholder: 'Dear me…',
               t: t,
               rows: 14,
