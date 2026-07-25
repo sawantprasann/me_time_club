@@ -36,6 +36,11 @@ class MeTimeClubApp extends StatelessWidget {
         useMaterial3: true,
         scaffoldBackgroundColor: AppTokens.day.bg,
       ),
+      builder: (context, child) => GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+        child: child!,
+      ),
       home: const AppRoot(),
     );
   }
