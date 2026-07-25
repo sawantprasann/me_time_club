@@ -790,6 +790,30 @@ class ApiService {
 
   // ── Cycle days ──────────────────────────────────────────────────────────────
 
+  /// Fetch ALL cycle days across all months (no filter).
+  /// Called once on init; cycle data is never cleared on month navigation.
+  static Future<List<Map<String, dynamic>>> fetchAllCycleDays({
+    required String token,
+  }) async {
+    const url = 'http://139.59.23.15/api/v1/cycle_days';
+    print('[API REQUEST] GET $url');
+    try {
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {'accept': 'application/json', 'Authorization': 'Bearer $token'},
+      );
+      print('[API RESPONSE] ${response.statusCode} GET $url');
+      if (response.statusCode == 200) {
+        return (jsonDecode(response.body) as List<dynamic>)
+            .cast<Map<String, dynamic>>();
+      }
+      return [];
+    } catch (e) {
+      print('[API ERROR] fetchAllCycleDays: $e');
+      return [];
+    }
+  }
+
   /// Fetch all cycle days for a given month (YYYY-MM).
   static Future<List<Map<String, dynamic>>> fetchMonthCycleDays({
     required String token,
@@ -1428,6 +1452,40 @@ class ApiService {
     }
   }
 
+  /// Uploads a profile picture to the server.
+  /// Returns the URL string stored on the server.
+  static Future<String> uploadProfilePicture({
+    required String token,
+    required String imagePath,
+  }) async {
+    const url = 'http://139.59.23.15/api/v1/uploads/profile_picture';
+    print('[API REQUEST] POST $url');
+    try {
+      final request = http.MultipartRequest('POST', Uri.parse(url));
+      request.headers['Authorization'] = 'Bearer $token';
+      request.headers['accept'] = 'application/json';
+      request.files.add(await http.MultipartFile.fromPath('image', imagePath));
+
+      final streamed = await request.send();
+      final response = await http.Response.fromStream(streamed);
+
+      print('[API RESPONSE] ${response.statusCode} POST $url');
+      print('[API RESPONSE BODY] ${response.body}');
+
+      final decoded = jsonDecode(response.body);
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return decoded['url'] as String;
+      } else {
+        throw ApiException(decoded['error'] as String? ?? 'Upload failed.');
+      }
+    } on http.ClientException catch (e) {
+      throw ApiException('Network error: ${e.message}');
+    } catch (e) {
+      if (e is ApiException) rethrow;
+      throw ApiException('An unexpected error occurred: ${e.toString()}');
+    }
+  }
+
   /// Gets all memories.
   static Future<List<dynamic>> getMemories({required String token}) async {
     const url = 'http://139.59.23.15/api/v1/memories';
@@ -1466,29 +1524,29 @@ class ApiService {
   }
 
   /// Creates a new memory.
+  /// Creates a new memory. Sends multipart when [imagePath] is provided.
   static Future<Map<String, dynamic>> createMemory({
     required String token,
     required String title,
-    required String description,
+    String? description,
+    String? imagePath,
   }) async {
     const url = 'http://139.59.23.15/api/v1/memories';
-    final requestBody = {
-      'memory': {'title': title, 'description': description},
-    };
 
     print('[API REQUEST] POST $url');
-    print('[API REQUEST BODY] ${jsonEncode(requestBody)}');
 
     try {
-      final response = await http.post(
-        Uri.parse(url),
-        headers: {
-          'accept': 'application/json',
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-        body: jsonEncode(requestBody),
-      );
+      final request = http.MultipartRequest('POST', Uri.parse(url));
+      request.headers['Authorization'] = 'Bearer $token';
+      request.headers['accept'] = 'application/json';
+      request.fields['title'] = title;
+      if (description != null) request.fields['description'] = description;
+      if (imagePath != null) {
+        request.files.add(await http.MultipartFile.fromPath('image', imagePath));
+      }
+
+      final streamed = await request.send();
+      final response = await http.Response.fromStream(streamed);
 
       print('[API RESPONSE] ${response.statusCode} POST $url');
       print('[API RESPONSE BODY] ${response.body}');
@@ -1502,9 +1560,7 @@ class ApiService {
       }
     } on http.ClientException catch (e) {
       print('[API ERROR] ClientException: ${e.message}');
-      throw ApiException(
-        'Network error: Please check your internet connection.',
-      );
+      throw ApiException('Network error: Please check your internet connection.');
     } catch (e) {
       print('[API ERROR] Exception: ${e.toString()}');
       if (e is ApiException) rethrow;
@@ -1512,34 +1568,32 @@ class ApiService {
     }
   }
 
-  /// Updates a specific memory.
+  /// Updates a specific memory. Sends multipart when [imagePath] is provided.
   static Future<Map<String, dynamic>> updateMemory({
     required String token,
     required String memoryId,
     String? title,
     String? description,
+    String? imagePath,
   }) async {
     final url = 'http://139.59.23.15/api/v1/memories/$memoryId';
-    final requestBody = {
-      'memory': {
-        if (title != null) 'title': title,
-        if (description != null) 'description': description,
-      },
-    };
 
     print('[API REQUEST] PATCH $url');
-    print('[API REQUEST BODY] ${jsonEncode(requestBody)}');
 
     try {
-      final response = await http.patch(
-        Uri.parse(url),
-        headers: {
-          'accept': 'application/json',
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-        body: jsonEncode(requestBody),
-      );
+      // PATCH doesn't support multipart in some servers; use POST with _method override
+      final request = http.MultipartRequest('POST', Uri.parse(url));
+      request.headers['Authorization'] = 'Bearer $token';
+      request.headers['accept'] = 'application/json';
+      request.fields['_method'] = 'PATCH';
+      if (title != null) request.fields['title'] = title;
+      if (description != null) request.fields['description'] = description;
+      if (imagePath != null) {
+        request.files.add(await http.MultipartFile.fromPath('image', imagePath));
+      }
+
+      final streamed = await request.send();
+      final response = await http.Response.fromStream(streamed);
 
       print('[API RESPONSE] ${response.statusCode} PATCH $url');
       print('[API RESPONSE BODY] ${response.body}');
@@ -1553,9 +1607,7 @@ class ApiService {
       }
     } on http.ClientException catch (e) {
       print('[API ERROR] ClientException: ${e.message}');
-      throw ApiException(
-        'Network error: Please check your internet connection.',
-      );
+      throw ApiException('Network error: Please check your internet connection.');
     } catch (e) {
       print('[API ERROR] Exception: ${e.toString()}');
       if (e is ApiException) rethrow;

@@ -60,10 +60,14 @@ class _MeTabState extends State<MeTab> {
     try {
       final json = await ApiService.getProfile(token: token);
       final profile = UserProfile.fromJson({...json, 'token': token});
-      // Preserve local photo
+      // Preserve local photo bytes (session-only) but take server photoUrl
       final completed = profile.copyWith(photo: widget.user.photo);
       if (mounted) {
         widget.onUpdateUser(completed);
+        // Sync photoUrl into local state so avatar updates immediately
+        if (completed.photoUrl != null) {
+          setState(() {}); // triggers rebuild with new photoUrl from widget.user
+        }
       }
     } catch (e) {
       debugPrint('[ME TAB FETCH ERROR] $e');
@@ -244,13 +248,29 @@ class _MeTabState extends State<MeTab> {
 
   Future<void> _pickPhoto() async {
     final picker = ImagePicker();
-    final file = await picker.pickImage(
-      source: ImageSource.gallery,
-      maxWidth: 400,
-    );
-    if (file != null) {
-      final bytes = await file.readAsBytes();
-      setState(() => _photo = bytes);
+    final file = await picker.pickImage(source: ImageSource.gallery, maxWidth: 800, imageQuality: 85);
+    if (file == null) return;
+
+    // Show local preview immediately
+    final bytes = await file.readAsBytes();
+    setState(() => _photo = bytes);
+
+    // Upload to server in the background
+    final token = widget.user.token;
+    if (token == null || token.isEmpty) return;
+    try {
+      final url = await ApiService.uploadProfilePicture(token: token, imagePath: file.path);
+      if (mounted) {
+        // Persist the server URL into the user profile so it survives restarts
+        widget.onUpdateUser(widget.user.copyWith(photoUrl: url, photo: bytes));
+      }
+    } catch (e) {
+      debugPrint('[PROFILE PHOTO UPLOAD ERROR] $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Photo saved locally but failed to upload. Try again.')),
+        );
+      }
     }
   }
 
@@ -438,6 +458,27 @@ class _MeTabState extends State<MeTab> {
   }
 
   Widget _buildAvatar() {
+    // Priority: local bytes (just picked) → server URL → placeholder
+    final hasLocal = _photo != null;
+    final serverUrl = widget.user.photoUrl;
+    final hasServer = serverUrl != null && serverUrl.isNotEmpty;
+    final showPhoto = hasLocal || hasServer;
+
+    Widget photoWidget;
+    if (hasLocal) {
+      photoWidget = Image.memory(_photo!, fit: BoxFit.cover, width: 96, height: 96);
+    } else if (hasServer) {
+      photoWidget = Image.network(
+        'http://139.59.23.15$serverUrl',
+        fit: BoxFit.cover,
+        width: 96,
+        height: 96,
+        errorBuilder: (_, __, ___) => Center(child: AppIcons.me(c: t.accent, s: 42)),
+      );
+    } else {
+      photoWidget = Center(child: AppIcons.me(c: t.accent, s: 42));
+    }
+
     return GestureDetector(
       onTap: _editing ? _pickPhoto : null,
       child: Stack(
@@ -448,27 +489,16 @@ class _MeTabState extends State<MeTab> {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(color: t.border, width: 3),
-              gradient:
-                  _photo == null
-                      ? LinearGradient(
-                        colors: [
-                          t.accent.withValues(alpha: 0.4),
-                          t.gold.withValues(alpha: 0.4),
-                        ],
-                      )
-                      : null,
+              gradient: showPhoto
+                  ? null
+                  : LinearGradient(
+                      colors: [
+                        t.accent.withValues(alpha: 0.4),
+                        t.gold.withValues(alpha: 0.4),
+                      ],
+                    ),
             ),
-            child: ClipOval(
-              child:
-                  _photo != null
-                      ? Image.memory(
-                        _photo!,
-                        fit: BoxFit.cover,
-                        width: 96,
-                        height: 96,
-                      )
-                      : Center(child: AppIcons.me(c: t.accent, s: 42)),
-            ),
+            child: ClipOval(child: photoWidget),
           ),
           if (_editing)
             Positioned(
@@ -477,10 +507,7 @@ class _MeTabState extends State<MeTab> {
               child: Container(
                 width: 28,
                 height: 28,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: t.accent,
-                ),
+                decoration: BoxDecoration(shape: BoxShape.circle, color: t.accent),
                 child: Center(child: AppIcons.camera(c: Colors.white, s: 14)),
               ),
             ),
