@@ -115,6 +115,7 @@ class _MemoriesTabState extends State<MemoriesTab> {
         id: res['id']?.toString() ?? '0',
         caption: res['description']?.toString() ?? res['title']?.toString() ?? _caption.trim(),
         photoUrl: res['photo_url']?.toString(),
+        localPath: _pickedImage?.path,
         color: _palette[Random().nextInt(_palette.length)],
         date: DateTime.now(),
       );
@@ -200,6 +201,20 @@ class _MemoriesTabState extends State<MemoriesTab> {
       if (mounted) _showError('Failed to delete moment: $e');
     }
   }
+
+  Widget _photoErrorBox() => Container(
+        width: double.infinity,
+        height: 100,
+        color: t.muted.withValues(alpha: 0.08),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.broken_image_outlined, color: t.muted, size: 28),
+            const SizedBox(height: 4),
+            Text('Image unavailable', style: AppTypography.lato400(11, t.muted)),
+          ],
+        ),
+      );
 
   void _showError(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -502,14 +517,33 @@ class _MemoriesTabState extends State<MemoriesTab> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Photo
-              if (m.photoUrl != null && m.photoUrl!.isNotEmpty)
+              // Photo — prefer local file (newly created), fallback to network URL
+              if (m.localPath != null)
+                Image.file(
+                  File(m.localPath!),
+                  width: double.infinity,
+                  height: 180,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => _photoErrorBox(),
+                )
+              else if (m.photoUrl != null && m.photoUrl!.isNotEmpty)
                 Image.network(
                   'http://139.59.23.15${m.photoUrl}',
                   width: double.infinity,
                   height: 180,
                   fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                  loadingBuilder: (_, child, progress) => progress == null
+                      ? child
+                      : SizedBox(
+                          height: 180,
+                          child: Center(
+                            child: CircularProgressIndicator(
+                              color: t.accent,
+                              strokeWidth: 2,
+                            ),
+                          ),
+                        ),
+                  errorBuilder: (_, __, ___) => _photoErrorBox(),
                 ),
 
               // Caption with left accent bar
@@ -597,16 +631,24 @@ class _MemoriesTabState extends State<MemoriesTab> {
                         ),
                       ],
                     )
-                  : m.photoUrl != null && m.photoUrl!.isNotEmpty
+                  : (m.localPath != null || (m.photoUrl != null && m.photoUrl!.isNotEmpty))
                       ? Stack(
                           children: [
-                            Image.network(
-                              'http://139.59.23.15${m.photoUrl}',
-                              width: double.infinity,
-                              height: 180,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => _emptyPhotoBox(),
-                            ),
+                            m.localPath != null
+                                ? Image.file(
+                                    File(m.localPath!),
+                                    width: double.infinity,
+                                    height: 180,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => _emptyPhotoBox(),
+                                  )
+                                : Image.network(
+                                    'http://139.59.23.15${m.photoUrl}',
+                                    width: double.infinity,
+                                    height: 180,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => _emptyPhotoBox(),
+                                  ),
                             Positioned(
                               bottom: 8,
                               right: 8,
@@ -726,6 +768,7 @@ class _Memory {
   final String id;
   String caption;
   String? photoUrl;
+  String? localPath; // local file path for immediate display before server URL loads
   final Color color;
   final DateTime date;
 
@@ -733,6 +776,7 @@ class _Memory {
     required this.id,
     required this.caption,
     this.photoUrl,
+    this.localPath,
     required this.color,
     required this.date,
   });
