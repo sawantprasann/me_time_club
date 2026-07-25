@@ -2,7 +2,24 @@
 
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 import '../models/user_profile.dart';
+
+/// Returns the MIME MediaType for an image path based on its extension.
+/// Defaults to image/jpeg when unknown — ensures Rails ALLOWED_TYPES passes.
+MediaType _imageMediaType(String path) {
+  final ext = path.split('.').last.toLowerCase();
+  switch (ext) {
+    case 'png':
+      return MediaType('image', 'png');
+    case 'webp':
+      return MediaType('image', 'webp');
+    case 'gif':
+      return MediaType('image', 'gif');
+    default:
+      return MediaType('image', 'jpeg'); // jpg, jpeg, heic (converted by picker)
+  }
+}
 
 class ApiException implements Exception {
   final String message;
@@ -1464,7 +1481,8 @@ class ApiService {
       final request = http.MultipartRequest('POST', Uri.parse(url));
       request.headers['Authorization'] = 'Bearer $token';
       request.headers['accept'] = 'application/json';
-      request.files.add(await http.MultipartFile.fromPath('image', imagePath));
+      request.files.add(await http.MultipartFile.fromPath(
+        'image', imagePath, contentType: _imageMediaType(imagePath)));
 
       final streamed = await request.send();
       final response = await http.Response.fromStream(streamed);
@@ -1542,7 +1560,8 @@ class ApiService {
       request.fields['title'] = title;
       if (description != null) request.fields['description'] = description;
       if (imagePath != null) {
-        request.files.add(await http.MultipartFile.fromPath('image', imagePath));
+        request.files.add(await http.MultipartFile.fromPath(
+        'image', imagePath, contentType: _imageMediaType(imagePath)));
       }
 
       final streamed = await request.send();
@@ -1589,7 +1608,8 @@ class ApiService {
       if (title != null) request.fields['title'] = title;
       if (description != null) request.fields['description'] = description;
       if (imagePath != null) {
-        request.files.add(await http.MultipartFile.fromPath('image', imagePath));
+        request.files.add(await http.MultipartFile.fromPath(
+        'image', imagePath, contentType: _imageMediaType(imagePath)));
       }
 
       final streamed = await request.send();
