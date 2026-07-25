@@ -375,13 +375,28 @@ class _MemoriesTabState extends State<MemoriesTab> {
                   : Container(
                       width: double.infinity,
                       height: 160,
-                      color: t.bg,
+                      decoration: BoxDecoration(
+                        color: t.muted.withValues(alpha: 0.06),
+                        border: Border(
+                          bottom: BorderSide(
+                            color: t.border.withValues(alpha: 0.4),
+                          ),
+                        ),
+                      ),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.camera_alt_outlined, size: 36, color: t.muted),
-                          const SizedBox(height: 8),
-                          Text('Add a photo', style: AppTypography.lato400(13, t.muted)),
+                          Container(
+                            width: 56,
+                            height: 56,
+                            decoration: BoxDecoration(
+                              color: t.muted.withValues(alpha: 0.12),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(Icons.camera_alt_outlined, size: 28, color: t.muted),
+                          ),
+                          const SizedBox(height: 10),
+                          Text('Tap to add a photo', style: AppTypography.lato400(13, t.muted)),
                         ],
                       ),
                     ),
