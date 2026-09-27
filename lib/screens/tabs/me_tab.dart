@@ -282,7 +282,7 @@ class _MeTabState extends State<MeTab> {
   Widget build(BuildContext context) {
     if (_activeLetter != null) return _buildLetterEditor();
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(18, 10, 18, 90),
+      padding: const EdgeInsets.fromLTRB(18, 10, 18, 18),
       child: Column(
         children: [
           _buildAvatar(),
@@ -840,7 +840,7 @@ class _MeTabState extends State<MeTab> {
             : 'What do you want to remember when this season passes?';
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(18, 10, 18, 90),
+      padding: const EdgeInsets.fromLTRB(18, 10, 18, 18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
