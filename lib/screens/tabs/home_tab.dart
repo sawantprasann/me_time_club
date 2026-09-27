@@ -39,6 +39,8 @@ class _HomeTabState extends State<HomeTab> {
   bool _checkingExisting = false;
   GentleRead? _gentleRead;
   bool _gentleReadLoading = false;
+  bool _gentleReadExpanded = false;
+  static const int _gentleReadPreviewLines = 6;
   final List<int> _seenGentleReadIds = [];
 
   // Answer fields — loaded from page, saved on change
@@ -144,6 +146,7 @@ class _HomeTabState extends State<HomeTab> {
       if (!mounted) return;
       setState(() {
         _gentleRead = read;
+        _gentleReadExpanded = false;
         _gentleReadLoading = false;
         if (read == null) return;
         if (_seenGentleReadIds.contains(read.id)) {
@@ -393,10 +396,7 @@ class _HomeTabState extends State<HomeTab> {
                 AnimatedOpacity(
                   opacity: _gentleReadLoading ? 0.45 : 1,
                   duration: const Duration(milliseconds: 180),
-                  child: Text(
-                    read.body,
-                    style: AppTypography.lato400(14, t.text, height: 1.6),
-                  ),
+                  child: _gentleReadBody(read.body),
                 ),
                 if (canBrowse) ...[
                   const SizedBox(height: 16),
@@ -411,6 +411,49 @@ class _HomeTabState extends State<HomeTab> {
               ],
             ),
     );
+  }
+
+  Widget _gentleReadBody(String body) {
+    final style = AppTypography.lato400(14, t.text, height: 1.6);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final overflows = _gentleReadOverflows(body, style, constraints.maxWidth);
+        final expanded = _gentleReadExpanded || !overflows;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              body,
+              style: style,
+              maxLines: expanded ? null : _gentleReadPreviewLines,
+              overflow: expanded ? TextOverflow.visible : TextOverflow.ellipsis,
+            ),
+            if (overflows) ...[
+              const SizedBox(height: 8),
+              GestureDetector(
+                onTap: () => setState(() => _gentleReadExpanded = !_gentleReadExpanded),
+                child: Text(
+                  _gentleReadExpanded ? 'Read less' : 'Read more',
+                  style: AppTypography.lato700(13, t.accent),
+                ),
+              ),
+            ],
+          ],
+        );
+      },
+    );
+  }
+
+  bool _gentleReadOverflows(String body, TextStyle style, double maxWidth) {
+    if (!maxWidth.isFinite) return body.length > 280;
+    final painter = TextPainter(
+      text: TextSpan(text: body, style: style),
+      maxLines: _gentleReadPreviewLines,
+      textDirection: TextDirection.ltr,
+    )..layout(maxWidth: maxWidth);
+    final overflows = painter.didExceedMaxLines;
+    painter.dispose();
+    return overflows;
   }
 
   Widget _gentleReadNav({required String label, required bool forward}) {
