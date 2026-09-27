@@ -35,9 +35,14 @@ class _CalendarTabState extends State<CalendarTab> {
   String _newTask = '';
 
   // Cycle days — local display keys (non-padded, matches _dateKey output)
+  // Loaded once for ALL months; never cleared on navigation.
   final Set<String> _cycleDays = {};
   // API ids keyed by zero-padded date (YYYY-MM-DD) for delete calls
   final Map<String, String> _cycleDayIds = {};
+  // Whether the initial all-months cycle load has completed
+  bool _cycleDaysLoaded = false;
+  // Predicted next period start — computed after any cycle change
+  DateTime? _nextPredictedDate;
 
   // Cache fetched daily pages by date key YYYY-MM-DD
   final Map<String, DailyPageContent?> _fetchedPages = {};
@@ -138,32 +143,61 @@ class _CalendarTabState extends State<CalendarTab> {
     }
   }
 
-  /// Load cycle days for the current view month from the server.
+  /// Load ALL cycle days once from the server (no month filter).
+  /// Re-entrant safe: skips if already loaded.
   Future<void> _loadCycleDays() async {
+    if (_cycleDaysLoaded) return;
     try {
-      final raw = await ApiService.fetchMonthCycleDays(
-        token: widget.user.token ?? '',
-        month: _apiMonth,
-      );
+      final raw = await ApiService.fetchAllCycleDays(token: widget.user.token ?? '');
       if (!mounted) return;
       setState(() {
         for (final r in raw) {
           final dk = r['date_key'] as String; // "2026-07-02"
-          final id = r['id'].toString();
-          _cycleDayIds[dk] = id;
-          // Convert to non-padded local key matching _dateKey()
+          _cycleDayIds[dk] = r['id'].toString();
           final parts = dk.split('-');
-          final d = DateTime(
-            int.parse(parts[0]),
-            int.parse(parts[1]),
-            int.parse(parts[2]),
-          );
+          final d = DateTime(int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
           _cycleDays.add(_dateKey(d));
         }
+        _cycleDaysLoaded = true;
+        _computePredicted();
       });
     } catch (e) {
       debugPrint('[CYCLE DAYS LOAD ERROR] $e');
     }
+  }
+
+  /// Finds all period start days (cycle days whose previous day is not a cycle day)
+  /// and sets [_nextPredictedDate] to the most recent start + 30 days.
+  void _computePredicted() {
+    if (_cycleDays.isEmpty) {
+      _nextPredictedDate = null;
+      return;
+    }
+    // Parse all cycle days to DateTime
+    final dates = _cycleDays.map((k) {
+      final p = k.split('-');
+      return DateTime(int.parse(p[0]), int.parse(p[1]), int.parse(p[2]));
+    }).toList()
+      ..sort();
+
+    // A start day is one where the day before is NOT a cycle day
+    final daySet = dates.map((d) => _dateKey(d)).toSet();
+    DateTime? latestStart;
+    for (final d in dates) {
+      final prev = d.subtract(const Duration(days: 1));
+      if (!daySet.contains(_dateKey(prev))) {
+        if (latestStart == null || d.isAfter(latestStart)) latestStart = d;
+      }
+    }
+    _nextPredictedDate = latestStart?.add(const Duration(days: 30));
+  }
+
+  /// Returns true if the given month (year+month) already has an actual cycle day.
+  bool _monthHasCycleEntry(int year, int month) {
+    return _cycleDays.any((k) {
+      final p = k.split('-');
+      return int.parse(p[0]) == year && int.parse(p[1]) == month;
+    });
   }
 
   /// Fetch tasks for the currently selected day from the server.
@@ -267,8 +301,7 @@ class _CalendarTabState extends State<CalendarTab> {
       }
       _sel = 1;
       _pageExpanded = false;
-      _cycleDays.clear();
-      _cycleDayIds.clear();
+      // Do NOT clear cycle days — they are loaded once for all months.
       _tasks.clear();
       _fetchedPages.clear();
     });
@@ -285,8 +318,7 @@ class _CalendarTabState extends State<CalendarTab> {
       }
       _sel = 1;
       _pageExpanded = false;
-      _cycleDays.clear();
-      _cycleDayIds.clear();
+      // Do NOT clear cycle days — they are loaded once for all months.
       _tasks.clear();
       _fetchedPages.clear();
     });
@@ -332,25 +364,56 @@ class _CalendarTabState extends State<CalendarTab> {
 
   Future<void> _markCycleDay() async {
     final base = DateTime(_viewYear, _viewMonth, _sel);
-    final localKey = _dateKey(base); // non-padded, for grid display
-    final paddedKey = _apiDateKey;   // zero-padded, for API
+    final localKey = _dateKey(base);
+    final paddedKey = _apiDateKey;
 
     if (_cycleDays.contains(localKey)) {
-      // Unmark — remove from local set immediately, then delete from server
-      setState(() => _cycleDays.remove(localKey));
-      final id = _cycleDayIds.remove(paddedKey);
-      if (id != null) {
+      // Unmark this day AND remove all 3 days of the period that started here.
+      // Find the start of the period this day belongs to.
+      DateTime start = base;
+      while (_cycleDays.contains(_dateKey(start.subtract(const Duration(days: 1))))) {
+        start = start.subtract(const Duration(days: 1));
+      }
+      // Collect up to 3 days from start
+      final toRemove = <String>[];
+      final idsToDelete = <String>[];
+      for (int i = 0; i < 3; i++) {
+        final d = start.add(Duration(days: i));
+        final lk = _dateKey(d);
+        if (_cycleDays.contains(lk)) {
+          toRemove.add(lk);
+          final pk = '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+          final id = _cycleDayIds[pk];
+          if (id != null) idsToDelete.add(id);
+        }
+      }
+      setState(() {
+        for (final k in toRemove) _cycleDays.remove(k);
+        _computePredicted();
+      });
+      for (final id in idsToDelete) {
         try {
-          await ApiService.deleteCycleDay(
-            token: widget.user.token ?? '',
-            cycleDayId: id,
-          );
+          await ApiService.deleteCycleDay(token: widget.user.token ?? '', cycleDayId: id);
         } catch (e) {
           debugPrint('[CYCLE DELETE ERROR] $e');
         }
       }
     } else {
-      // Mark 3 consecutive days — update UI first, then persist to API
+      // Guard: only one period start per calendar month
+      if (_monthHasCycleEntry(_viewYear, _viewMonth)) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('You\'ve already logged a period this month.'),
+              backgroundColor: t.cycleRose,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+        return;
+      }
+
+      // Mark 3 consecutive days from the selected day
       final localKeys = <String>[];
       final paddedKeys = <String>[];
       for (int i = 0; i < 3; i++) {
@@ -360,7 +423,10 @@ class _CalendarTabState extends State<CalendarTab> {
           '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}',
         );
       }
-      setState(() => _cycleDays.addAll(localKeys));
+      setState(() {
+        _cycleDays.addAll(localKeys);
+        _computePredicted();
+      });
 
       try {
         final results = await ApiService.bulkCreateCycleDays(
@@ -510,8 +576,7 @@ class _CalendarTabState extends State<CalendarTab> {
                     _viewYear = y;
                     _showYearPicker = false;
                     _sel = 1;
-                    _cycleDays.clear();
-                    _cycleDayIds.clear();
+                    // Do NOT clear cycle days — loaded once for all months.
                     _tasks.clear();
                     _fetchedPages.clear();
                   });
@@ -594,6 +659,10 @@ class _CalendarTabState extends State<CalendarTab> {
                         widget.dailyPages.containsKey(dayNum)) ||
                     (_fetchedPages[dotDateKey] != null);
                 final hasCycle = _cycleDays.contains(dayKey);
+                final isPredicted = _nextPredictedDate != null &&
+                    _nextPredictedDate!.year == _viewYear &&
+                    _nextPredictedDate!.month == _viewMonth &&
+                    _nextPredictedDate!.day == dayNum;
 
                 return Expanded(
                   child: GestureDetector(
@@ -606,11 +675,14 @@ class _CalendarTabState extends State<CalendarTab> {
                         color:
                             selected
                                 ? t.accent
+                                : hasCycle
+                                ? t.cycleRose.withValues(alpha: 0.18)
                                 : today
                                 ? t.accent.withValues(alpha: 0.22)
                                 : Colors.transparent,
-                        border:
-                            today && !selected
+                        border: isPredicted && !selected
+                            ? Border.all(color: t.cycleRose, width: 1.5, strokeAlign: BorderSide.strokeAlignOutside)
+                            : today && !selected
                                 ? Border.all(color: t.accent, width: 2)
                                 : null,
                         boxShadow:
@@ -632,6 +704,8 @@ class _CalendarTabState extends State<CalendarTab> {
                               13,
                               selected
                                   ? Colors.white
+                                  : hasCycle
+                                  ? t.cycleRose
                                   : today
                                   ? t.accent
                                   : t.text,
@@ -645,6 +719,7 @@ class _CalendarTabState extends State<CalendarTab> {
                                 if (hasTask) _dot(t.gold),
                                 if (hasPage) _dot(t.accent),
                                 if (hasCycle) _dot(t.cycleRose),
+                                if (isPredicted && !hasCycle) _predictedDot(),
                               ],
                             ),
                           ],
@@ -666,6 +741,17 @@ class _CalendarTabState extends State<CalendarTab> {
     height: 3,
     margin: const EdgeInsets.symmetric(horizontal: 1),
     decoration: BoxDecoration(shape: BoxShape.circle, color: c),
+  );
+
+  // Hollow dot for predicted period date
+  Widget _predictedDot() => Container(
+    width: 4,
+    height: 4,
+    margin: const EdgeInsets.symmetric(horizontal: 1),
+    decoration: BoxDecoration(
+      shape: BoxShape.circle,
+      border: Border.all(color: t.cycleRose, width: 1),
+    ),
   );
 
   Widget _buildDotLegend() {
@@ -979,9 +1065,13 @@ class _CalendarTabState extends State<CalendarTab> {
   Widget _buildCycleSection() {
     final selKey = _dateKey(DateTime(_viewYear, _viewMonth, _sel));
     final isMarked = _cycleDays.contains(selKey);
+    final alreadyThisMonth = _monthHasCycleEntry(_viewYear, _viewMonth);
 
-    // Get cycle days for display
-    final sortedDays = _cycleDays.toList()..sort();
+    // Only show actual cycle days for the current view month in the chips
+    final viewMonthDays = _cycleDays.where((k) {
+      final p = k.split('-');
+      return int.parse(p[0]) == _viewYear && int.parse(p[1]) == _viewMonth;
+    }).toList()..sort();
 
     return AppCard(
       t: t,
@@ -996,49 +1086,68 @@ class _CalendarTabState extends State<CalendarTab> {
               const Spacer(),
               SolidButton(
                 onTap: _markCycleDay,
-                icon:
-                    isMarked
-                        ? AppIcons.check(c: Colors.white, s: 14)
-                        : AppIcons.plus(c: Colors.white, s: 14),
+                icon: isMarked
+                    ? AppIcons.check(c: Colors.white, s: 14)
+                    : AppIcons.plus(c: Colors.white, s: 14),
                 size: 30,
-                color: isMarked ? t.cycleRose : t.accent,
+                color: isMarked
+                    ? t.cycleRose
+                    : alreadyThisMonth
+                    ? t.border
+                    : t.accent,
               ),
             ],
           ),
-          if (sortedDays.isNotEmpty) ...[
+
+          // Actual cycle day chips for this month
+          if (viewMonthDays.isNotEmpty) ...[
             const SizedBox(height: 10),
             Wrap(
               spacing: 6,
               runSpacing: 6,
-              children:
-                  sortedDays.map((key) {
-                    final parts = key.split('-');
-                    final d = DateTime(
-                      int.parse(parts[0]),
-                      int.parse(parts[1]),
-                      int.parse(parts[2]),
-                    );
-                    return Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: t.cycleRose.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: t.cycleRose.withValues(alpha: 0.35),
-                        ),
-                      ),
-                      child: Text(
-                        '${d.day} ${_shortMonths[d.month - 1]}',
-                        style: AppTypography.lato400(11, t.cycleRose),
-                      ),
-                    );
-                  }).toList(),
+              children: viewMonthDays.map((key) {
+                final parts = key.split('-');
+                final d = DateTime(int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: t.cycleRose.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: t.cycleRose.withValues(alpha: 0.35)),
+                  ),
+                  child: Text(
+                    '${d.day} ${_shortMonths[d.month - 1]}',
+                    style: AppTypography.lato400(11, t.cycleRose),
+                  ),
+                );
+              }).toList(),
             ),
           ] else
             const SizedBox(height: 4),
+
+          // Predicted next period
+          if (_nextPredictedDate != null) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: t.cycleRose.withValues(alpha: 0.07),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: t.cycleRose.withValues(alpha: 0.25), style: BorderStyle.solid),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.calendar_today_outlined, color: t.cycleRose, size: 13),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Next predicted: ${_nextPredictedDate!.day} ${_shortMonths[_nextPredictedDate!.month - 1]} ${_nextPredictedDate!.year}',
+                    style: AppTypography.lato400(12, t.cycleRose),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );

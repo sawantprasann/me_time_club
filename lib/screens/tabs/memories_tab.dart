@@ -1,5 +1,7 @@
+import 'dart:io';
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../theme/tokens.dart';
 import '../../icons/app_icons.dart';
 import '../../models/user_profile.dart';
@@ -10,11 +12,7 @@ import '../../widgets/voice_text_input.dart';
 class MemoriesTab extends StatefulWidget {
   final UserProfile user;
   final AppTokens t;
-  const MemoriesTab({
-    super.key,
-    required this.user,
-    required this.t,
-  });
+  const MemoriesTab({super.key, required this.user, required this.t});
 
   @override
   State<MemoriesTab> createState() => _MemoriesTabState();
@@ -25,12 +23,17 @@ class _MemoriesTabState extends State<MemoriesTab> {
   bool _loading = false;
   bool _adding = false;
   bool _saving = false;
-  String _newTitle = '';
-  String _newBody = '';
 
+  // Composer state
+  String _caption = '';
+  XFile? _pickedImage;
+
+  // Edit state
   String? _editingId;
-  String _editTitle = '';
-  String _editBody = '';
+  String _editCaption = '';
+  XFile? _editPickedImage;
+
+  final _picker = ImagePicker();
 
   final _palette = [
     const Color(0xFFB8706A),
@@ -49,151 +52,121 @@ class _MemoriesTabState extends State<MemoriesTab> {
   }
 
   void _loadMemories() async {
-    setState(() {
-      _loading = true;
-    });
-
+    setState(() => _loading = true);
     try {
       final list = await ApiService.getMemories(token: widget.user.token ?? '');
       final loaded = list.map((item) {
-        final id = item['id'].toString();
-        final title = item['title']?.toString() ?? 'Memorable Moment';
-        final bodyVal = item['description']?.toString() ?? item['body']?.toString() ?? '';
-        final createdAtStr = item['created_at']?.toString() ?? '';
-
         DateTime date = DateTime.now();
         try {
-          date = DateTime.parse(createdAtStr);
+          date = DateTime.parse(item['created_at']?.toString() ?? '');
         } catch (_) {}
-
         return _Memory(
-          id: id,
-          title: title,
-          body: bodyVal,
+          id: item['id'].toString(),
+          caption: item['description']?.toString() ?? item['title']?.toString() ?? '',
+          photoUrl: item['photo_url']?.toString(),
           color: _palette[Random().nextInt(_palette.length)],
           date: date,
         );
       }).toList();
-
       if (mounted) {
         setState(() {
-          _memories.clear();
-          _memories.addAll(loaded);
+          _memories
+            ..clear()
+            ..addAll(loaded);
           _loading = false;
         });
       }
     } catch (e) {
       debugPrint('[LOAD MEMORIES ERROR] $e');
       if (mounted) {
-        setState(() {
-          _loading = false;
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to load moments: $e'),
-            backgroundColor: Colors.redAccent,
-          ),
-        );
+        setState(() => _loading = false);
+        _showError('Failed to load moments: $e');
       }
     }
   }
 
+  Future<void> _pickImage({bool forEdit = false}) async {
+    final picked = await _picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 85,
+    );
+    if (picked != null && mounted) {
+      setState(() {
+        if (forEdit) {
+          _editPickedImage = picked;
+        } else {
+          _pickedImage = picked;
+        }
+      });
+    }
+  }
+
   void _saveMemory() async {
-    if (_newTitle.trim().isEmpty || _newBody.trim().isEmpty) return;
-
-    final titleText = _newTitle.trim();
-    final bodyText = _newBody.trim();
-
-    setState(() {
-      _saving = true;
-    });
-
+    if (_caption.trim().isEmpty) return;
+    setState(() => _saving = true);
     try {
       final res = await ApiService.createMemory(
         token: widget.user.token ?? '',
-        title: titleText,
-        description: bodyText,
+        title: _caption.trim(),
+        description: _caption.trim(),
+        imagePath: _pickedImage?.path,
       );
-
-      final newId = res['id']?.toString() ?? '0';
-      final bodyVal = res['description']?.toString() ?? res['body']?.toString() ?? bodyText;
-
       final newMemory = _Memory(
-        id: newId,
-        title: titleText,
-        body: bodyVal,
+        id: res['id']?.toString() ?? '0',
+        caption: res['description']?.toString() ?? res['title']?.toString() ?? _caption.trim(),
+        photoUrl: res['photo_url']?.toString(),
+        localPath: _pickedImage?.path,
         color: _palette[Random().nextInt(_palette.length)],
         date: DateTime.now(),
       );
-
       if (mounted) {
         setState(() {
           _memories.insert(0, newMemory);
           _adding = false;
-          _newTitle = '';
-          _newBody = '';
+          _caption = '';
+          _pickedImage = null;
           _saving = false;
         });
       }
     } catch (e) {
       debugPrint('[CREATE MEMORY ERROR] $e');
       if (mounted) {
-        setState(() {
-          _saving = false;
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to save moment: $e'),
-            backgroundColor: Colors.redAccent,
-          ),
-        );
+        setState(() => _saving = false);
+        _showError('Failed to save moment: $e');
       }
     }
   }
 
   void _updateMemory(String id) async {
-    if (_editTitle.trim().isEmpty || _editBody.trim().isEmpty) return;
-
-    final titleText = _editTitle.trim();
-    final bodyText = _editBody.trim();
-
-    setState(() {
-      _saving = true;
-    });
-
+    if (_editCaption.trim().isEmpty) return;
+    setState(() => _saving = true);
     try {
-      await ApiService.updateMemory(
+      final res = await ApiService.updateMemory(
         token: widget.user.token ?? '',
         memoryId: id,
-        title: titleText,
-        description: bodyText,
+        title: _editCaption.trim(),
+        description: _editCaption.trim(),
+        imagePath: _editPickedImage?.path,
       );
-
       if (mounted) {
         setState(() {
           final idx = _memories.indexWhere((m) => m.id == id);
           if (idx != -1) {
-            _memories[idx].title = titleText;
-            _memories[idx].body = bodyText;
+            _memories[idx].caption = _editCaption.trim();
+            final newUrl = res['photo_url']?.toString();
+            if (newUrl != null) _memories[idx].photoUrl = newUrl;
           }
           _editingId = null;
-          _editTitle = '';
-          _editBody = '';
+          _editCaption = '';
+          _editPickedImage = null;
           _saving = false;
         });
       }
     } catch (e) {
       debugPrint('[UPDATE MEMORY ERROR] $e');
       if (mounted) {
-        setState(() {
-          _saving = false;
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to update moment: $e'),
-            backgroundColor: Colors.redAccent,
-          ),
-        );
+        setState(() => _saving = false);
+        _showError('Failed to update moment: $e');
       }
     }
   }
@@ -215,39 +188,86 @@ class _MemoriesTabState extends State<MemoriesTab> {
           ),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: Text(
-              'Delete',
-              style: AppTypography.lato700(13, Colors.redAccent),
-            ),
+            child: Text('Delete', style: AppTypography.lato700(13, Colors.redAccent)),
           ),
         ],
       ),
     );
-
     if (confirmed != true) return;
-
     try {
-      await ApiService.deleteMemory(
-        token: widget.user.token ?? '',
-        memoryId: id,
+      await ApiService.deleteMemory(token: widget.user.token ?? '', memoryId: id);
+      if (mounted) setState(() => _memories.removeWhere((m) => m.id == id));
+    } catch (e) {
+      if (mounted) _showError('Failed to delete moment: $e');
+    }
+  }
+
+  Widget _photoErrorBox() => Container(
+        width: double.infinity,
+        height: 100,
+        color: t.muted.withValues(alpha: 0.08),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.broken_image_outlined, color: t.muted, size: 28),
+            const SizedBox(height: 4),
+            Text('Image unavailable', style: AppTypography.lato400(11, t.muted)),
+          ],
+        ),
       );
 
-      if (mounted) {
-        setState(() {
-          _memories.removeWhere((m) => m.id == id);
-        });
-      }
-    } catch (e) {
-      debugPrint('[DELETE MEMORY ERROR] $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to delete moment: $e'),
-            backgroundColor: Colors.redAccent,
-          ),
-        );
-      }
-    }
+  void _showError(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg), backgroundColor: Colors.redAccent),
+    );
+  }
+
+  void _showActionsMenu(_Memory m) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: t.card,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            Container(
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: t.border,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 16),
+            ListTile(
+              leading: AppIcons.pen(c: t.accent, s: 18),
+              title: Text('Edit Moment', style: AppTypography.lato700(14, t.text)),
+              onTap: () {
+                Navigator.of(ctx).pop();
+                setState(() {
+                  _editingId = m.id;
+                  _editCaption = m.caption;
+                  _editPickedImage = null;
+                });
+              },
+            ),
+            ListTile(
+              leading: AppIcons.close(c: Colors.redAccent, s: 18),
+              title: Text('Delete Moment', style: AppTypography.lato700(14, Colors.redAccent)),
+              onTap: () {
+                Navigator.of(ctx).pop();
+                _deleteMemory(m.id);
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -262,26 +282,27 @@ class _MemoriesTabState extends State<MemoriesTab> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text('Your Moments', style: AppTypography.playfair(22, t.text)),
-              SolidButton(
-                onTap: () => setState(() {
-                  _adding = !_adding;
-                  if (!_adding) {
-                    _newTitle = '';
-                    _newBody = '';
-                  }
-                }),
-                icon: _adding
-                    ? AppIcons.close(c: Colors.white, s: 14)
-                    : AppIcons.plus(c: Colors.white, s: 16),
-                size: 36,
-                color: _adding ? t.border : t.accent,
-              ),
+              if (!_adding)
+                GestureDetector(
+                  onTap: () => setState(() => _adding = true),
+                  child: Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: t.accent,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Center(child: AppIcons.plus(c: Colors.white, s: 16)),
+                  ),
+                ),
             ],
           ),
           const SizedBox(height: 16),
+
           // Composer
           if (_adding) _buildComposer(),
-          // Spinner
+
+          // Spinner or list
           if (_loading)
             const Center(
               child: Padding(
@@ -297,7 +318,6 @@ class _MemoriesTabState extends State<MemoriesTab> {
               ),
             )
           else ...[
-            // Memory cards
             ..._memories.map((m) => _buildMemoryCard(m)),
             if (_memories.isEmpty && !_adding)
               Center(
@@ -321,60 +341,154 @@ class _MemoriesTabState extends State<MemoriesTab> {
     );
   }
 
+  // ─── Composer card ──────────────────────────────────────────────────────────
+
   Widget _buildComposer() {
-    final canSave = _newTitle.trim().isNotEmpty && _newBody.trim().isNotEmpty;
-    return AppCard(
-      t: t,
+    final canSave = _caption.trim().isNotEmpty;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      decoration: BoxDecoration(
+        color: t.card,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: t.border.withValues(alpha: 0.5)),
+        boxShadow: t.cardShadow,
+      ),
       child: Column(
         children: [
-          // Title Input
-          VoiceTextInput(
-            value: _newTitle,
-            onChange: (v) => setState(() => _newTitle = v),
-            placeholder: 'Give this moment a title…',
-            t: t,
-            style: AppTypography.playfair(18, t.text),
-            textAlign: TextAlign.left,
-          ),
-          const SizedBox(height: 12),
-          // Caption/Body Input
-          VoiceTextArea(
-            value: _newBody,
-            onChange: (v) => setState(() => _newBody = v),
-            placeholder: 'What happened? Write details…',
-            t: t,
-            rows: 3,
-            micSize: 32,
-          ),
-          const SizedBox(height: 12),
-          // Save button
+          // Photo picker area
           GestureDetector(
-            onTap: canSave && !_saving ? _saveMemory : null,
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              decoration: BoxDecoration(
-                color: canSave && !_saving ? t.accent : t.border,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Center(
-                child: _saving
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+            onTap: () => _pickImage(),
+            child: ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              child: _pickedImage != null
+                  ? Stack(
+                      children: [
+                        Image.file(
+                          File(_pickedImage!.path),
+                          width: double.infinity,
+                          height: 200,
+                          fit: BoxFit.cover,
                         ),
-                      )
-                    : Text(
-                        'Save Moment',
-                        style: AppTypography.lato700(
-                          14,
-                          canSave ? Colors.white : t.muted,
+                        Positioned(
+                          top: 8,
+                          right: 8,
+                          child: GestureDetector(
+                            onTap: () => setState(() => _pickedImage = null),
+                            child: Container(
+                              width: 28,
+                              height: 28,
+                              decoration: BoxDecoration(
+                                color: Colors.black54,
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              child: const Icon(Icons.close, color: Colors.white, size: 16),
+                            ),
+                          ),
+                        ),
+                      ],
+                    )
+                  : Container(
+                      width: double.infinity,
+                      height: 160,
+                      decoration: BoxDecoration(
+                        color: t.muted.withValues(alpha: 0.06),
+                        border: Border(
+                          bottom: BorderSide(
+                            color: t.border.withValues(alpha: 0.4),
+                          ),
                         ),
                       ),
-              ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            width: 56,
+                            height: 56,
+                            decoration: BoxDecoration(
+                              color: t.muted.withValues(alpha: 0.12),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(Icons.camera_alt_outlined, size: 28, color: t.muted),
+                          ),
+                          const SizedBox(height: 10),
+                          Text('Tap to add a photo', style: AppTypography.lato400(13, t.muted)),
+                        ],
+                      ),
+                    ),
+            ),
+          ),
+
+          // Caption input + action buttons
+          Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              children: [
+                VoiceTextArea(
+                  value: _caption,
+                  onChange: (v) => setState(() => _caption = v),
+                  placeholder: 'Write a caption…',
+                  t: t,
+                  rows: 3,
+                  micSize: 32,
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: canSave && !_saving ? _saveMemory : null,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          decoration: BoxDecoration(
+                            color: canSave && !_saving
+                                ? t.accent.withValues(alpha: 0.85)
+                                : t.border,
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: Center(
+                            child: _saving
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                    ),
+                                  )
+                                : Text(
+                                    'Save Moment',
+                                    style: AppTypography.lato700(
+                                      14,
+                                      canSave ? Colors.white : t.muted,
+                                    ),
+                                  ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    GestureDetector(
+                      onTap: _saving
+                          ? null
+                          : () => setState(() {
+                                _adding = false;
+                                _caption = '';
+                                _pickedImage = null;
+                              }),
+                      child: Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: t.bg,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: t.border),
+                        ),
+                        child: Icon(Icons.close, color: t.muted, size: 20),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
         ],
@@ -382,121 +496,13 @@ class _MemoriesTabState extends State<MemoriesTab> {
     );
   }
 
-  void _showActionsMenu(_Memory m) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: t.card,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              child: Text(
-                m.title,
-                style: AppTypography.playfair(16, t.text),
-              ),
-            ),
-            const Divider(),
-            ListTile(
-              leading: AppIcons.pen(c: t.accent, s: 18),
-              title: Text('Edit Moment', style: AppTypography.lato700(14, t.text)),
-              onTap: () {
-                Navigator.of(ctx).pop();
-                setState(() {
-                  _editingId = m.id;
-                  _editTitle = m.title;
-                  _editBody = m.body;
-                });
-              },
-            ),
-            ListTile(
-              leading: AppIcons.close(c: Colors.redAccent, s: 18),
-              title: Text('Delete Moment', style: AppTypography.lato700(14, Colors.redAccent)),
-              onTap: () {
-                Navigator.of(ctx).pop();
-                _deleteMemory(m.id);
-              },
-            ),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
-    );
-  }
+  // ─── Memory card ────────────────────────────────────────────────────────────
 
   Widget _buildMemoryCard(_Memory m) {
-    if (_editingId == m.id) {
-      final canUpdate = _editTitle.trim().isNotEmpty && _editBody.trim().isNotEmpty;
-      return AppCard(
-        t: t,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Edit Moment',
-              style: AppTypography.playfair(16, t.accent),
-            ),
-            const SizedBox(height: 12),
-            VoiceTextInput(
-              value: _editTitle,
-              onChange: (v) => setState(() => _editTitle = v),
-              placeholder: 'Give this moment a title…',
-              t: t,
-              style: AppTypography.playfair(18, t.text),
-              textAlign: TextAlign.left,
-            ),
-            const SizedBox(height: 12),
-            VoiceTextArea(
-              value: _editBody,
-              onChange: (v) => setState(() => _editBody = v),
-              placeholder: 'What happened? Write details…',
-              t: t,
-              rows: 3,
-              micSize: 32,
-            ),
-            const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton(
-                  onPressed: _saving ? null : () => setState(() => _editingId = null),
-                  child: Text('Cancel', style: AppTypography.lato700(12, t.muted)),
-                ),
-                const SizedBox(width: 8),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: canUpdate && !_saving ? t.accent : t.border,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                  ),
-                  onPressed: canUpdate && !_saving ? () => _updateMemory(m.id) : null,
-                  child: _saving
-                      ? const SizedBox(
-                          width: 14,
-                          height: 14,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                          ),
-                        )
-                      : Text('Save', style: AppTypography.lato700(12, Colors.white)),
-                ),
-              ],
-            ),
-          ],
-        ),
-      );
-    }
+    if (_editingId == m.id) return _buildEditCard(m);
 
-    final Color accentColor = m.color;
-
+    final accentColor = m.color;
     return GestureDetector(
-      onLongPress: () => _showActionsMenu(m),
       onTap: () => _showActionsMenu(m),
       child: Container(
         margin: const EdgeInsets.only(bottom: 16),
@@ -508,69 +514,269 @@ class _MemoriesTabState extends State<MemoriesTab> {
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(18),
-          child: IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Left accent bar
-                Container(
-                  width: 5,
-                  color: accentColor,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Photo — prefer local file (newly created), fallback to network URL
+              if (m.localPath != null)
+                Image.file(
+                  File(m.localPath!),
+                  width: double.infinity,
+                  height: 180,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => _photoErrorBox(),
+                )
+              else if (m.photoUrl != null && m.photoUrl!.isNotEmpty)
+                Image.network(
+                  'http://139.59.23.15${m.photoUrl}',
+                  width: double.infinity,
+                  height: 180,
+                  fit: BoxFit.cover,
+                  loadingBuilder: (_, child, progress) => progress == null
+                      ? child
+                      : SizedBox(
+                          height: 180,
+                          child: Center(
+                            child: CircularProgressIndicator(
+                              color: t.accent,
+                              strokeWidth: 2,
+                            ),
+                          ),
+                        ),
+                  errorBuilder: (_, __, ___) => _photoErrorBox(),
                 ),
-                // Text content
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 22),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        // Title
-                        Text(
-                          m.title,
-                          style: AppTypography.playfair(18, t.text),
+
+              // Caption with left accent bar
+              IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Container(width: 5, color: accentColor),
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 20,
                         ),
-                        if (m.body.isNotEmpty && m.body != m.title) ...[
-                          const SizedBox(height: 6),
-                          // Body text
-                          Text(
-                            m.body,
-                            style: AppTypography.cormorantItalic(16, t.text, height: 1.5),
-                          ),
-                        ],
-                        const SizedBox(height: 12),
-                        // Small horizontal divider matching accent color
-                        Container(
-                          width: 25,
-                          height: 2.5,
-                          decoration: BoxDecoration(
-                            color: accentColor.withValues(alpha: 0.8),
-                            borderRadius: BorderRadius.circular(2),
-                          ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              m.caption,
+                              style: AppTypography.cormorantItalic(17, t.text, height: 1.5),
+                            ),
+                            const SizedBox(height: 10),
+                            Container(
+                              width: 25,
+                              height: 2.5,
+                              decoration: BoxDecoration(
+                                color: accentColor.withValues(alpha: 0.8),
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
-                  ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
+
+  Widget _buildEditCard(_Memory m) {
+    final canUpdate = _editCaption.trim().isNotEmpty;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: t.card,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: t.border.withValues(alpha: 0.5)),
+        boxShadow: t.cardShadow,
+      ),
+      child: Column(
+        children: [
+          GestureDetector(
+            onTap: () => _pickImage(forEdit: true),
+            child: ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              child: _editPickedImage != null
+                  ? Stack(
+                      children: [
+                        Image.file(
+                          File(_editPickedImage!.path),
+                          width: double.infinity,
+                          height: 180,
+                          fit: BoxFit.cover,
+                        ),
+                        Positioned(
+                          top: 8,
+                          right: 8,
+                          child: GestureDetector(
+                            onTap: () => setState(() => _editPickedImage = null),
+                            child: Container(
+                              width: 28,
+                              height: 28,
+                              decoration: BoxDecoration(
+                                color: Colors.black54,
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              child: const Icon(Icons.close, color: Colors.white, size: 16),
+                            ),
+                          ),
+                        ),
+                      ],
+                    )
+                  : (m.localPath != null || (m.photoUrl != null && m.photoUrl!.isNotEmpty))
+                      ? Stack(
+                          children: [
+                            m.localPath != null
+                                ? Image.file(
+                                    File(m.localPath!),
+                                    width: double.infinity,
+                                    height: 180,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => _emptyPhotoBox(),
+                                  )
+                                : Image.network(
+                                    'http://139.59.23.15${m.photoUrl}',
+                                    width: double.infinity,
+                                    height: 180,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => _emptyPhotoBox(),
+                                  ),
+                            Positioned(
+                              bottom: 8,
+                              right: 8,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 6,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.black54,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  'Change photo',
+                                  style: AppTypography.lato400(11, Colors.white),
+                                ),
+                              ),
+                            ),
+                          ],
+                        )
+                      : _emptyPhotoBox(),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              children: [
+                VoiceTextArea(
+                  value: _editCaption,
+                  onChange: (v) => setState(() => _editCaption = v),
+                  placeholder: 'Write a caption…',
+                  t: t,
+                  rows: 3,
+                  micSize: 32,
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: canUpdate && !_saving ? () => _updateMemory(m.id) : null,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          decoration: BoxDecoration(
+                            color: canUpdate && !_saving
+                                ? t.accent.withValues(alpha: 0.85)
+                                : t.border,
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: Center(
+                            child: _saving
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor:
+                                          AlwaysStoppedAnimation<Color>(Colors.white),
+                                    ),
+                                  )
+                                : Text(
+                                    'Save Moment',
+                                    style: AppTypography.lato700(14, Colors.white),
+                                  ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    GestureDetector(
+                      onTap: () => setState(() {
+                        _editingId = null;
+                        _editCaption = '';
+                        _editPickedImage = null;
+                      }),
+                      child: Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: t.bg,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: t.border),
+                        ),
+                        child: Icon(Icons.close, color: t.muted, size: 20),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _emptyPhotoBox() {
+    return Container(
+      width: double.infinity,
+      height: 130,
+      color: t.bg,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.camera_alt_outlined, size: 30, color: t.muted),
+          const SizedBox(height: 6),
+          Text('Add a photo', style: AppTypography.lato400(12, t.muted)),
+        ],
+      ),
+    );
+  }
 }
+
+// ─── Data class ──────────────────────────────────────────────────────────────
 
 class _Memory {
   final String id;
-  String title;
-  String body;
+  String caption;
+  String? photoUrl;
+  String? localPath; // local file path for immediate display before server URL loads
   final Color color;
   final DateTime date;
+
   _Memory({
     required this.id,
-    required this.title,
-    required this.body,
+    required this.caption,
+    this.photoUrl,
+    this.localPath,
     required this.color,
     required this.date,
   });

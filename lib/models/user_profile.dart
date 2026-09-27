@@ -18,6 +18,7 @@ class UserProfile {
   List<String> hardships;
   String hardshipsText;
   Uint8List? photo;
+  String? photoUrl; // URL on server (persists across sessions)
   String preBabyLetter;
   String futureSelfLetter;
 
@@ -35,6 +36,7 @@ class UserProfile {
     this.hardships = const [],
     this.hardshipsText = '',
     this.photo,
+    this.photoUrl,
     this.preBabyLetter = '',
     this.futureSelfLetter = '',
   });
@@ -53,6 +55,7 @@ class UserProfile {
     List<String>? hardships,
     String? hardshipsText,
     Uint8List? photo,
+    String? photoUrl,
     String? preBabyLetter,
     String? futureSelfLetter,
   }) {
@@ -70,6 +73,7 @@ class UserProfile {
       hardships: hardships ?? this.hardships,
       hardshipsText: hardshipsText ?? this.hardshipsText,
       photo: photo ?? this.photo,
+      photoUrl: photoUrl ?? this.photoUrl,
       preBabyLetter: preBabyLetter ?? this.preBabyLetter,
       futureSelfLetter: futureSelfLetter ?? this.futureSelfLetter,
     );
@@ -138,6 +142,7 @@ class UserProfile {
           '',
       photo:
           json['photo'] != null ? base64Decode(json['photo'] as String) : null,
+      photoUrl: json['photo_url'] as String?,
       preBabyLetter: json['pre_baby_letter'] as String? ?? '',
       futureSelfLetter: json['future_self_letter'] as String? ?? '',
     );
