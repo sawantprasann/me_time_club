@@ -594,7 +594,6 @@ class _DailyPageView extends StatelessWidget {
         const SizedBox(height: 14),
         // 6. Fun Moment
         _buildFunMoment(),
-        const SizedBox(height: 14),
         // 7. Night Reflection — dark card
         _buildNightReflection(),
       ],
@@ -631,6 +630,7 @@ class _DailyPageView extends StatelessWidget {
               label: 'FEELING',
               subtitle: 'You are carrying this',
               body: page.emotionalFeeling,
+              background: _alignmentFill(const Color(0xFFF4F4EC), const Color(0xFF34312C)),
             ),
           ],
           if (page.emotionalNeed.trim().isNotEmpty) ...[
@@ -640,6 +640,7 @@ class _DailyPageView extends StatelessWidget {
               label: 'NEED',
               subtitle: 'What you need right now',
               body: page.emotionalNeed,
+              background: _alignmentFill(const Color(0xFFF0F0E8), const Color(0xFF2E2E28)),
             ),
           ],
           if (page.emotionalResponse.trim().isNotEmpty) ...[
@@ -649,6 +650,7 @@ class _DailyPageView extends StatelessWidget {
               label: 'RESPONSE',
               subtitle: 'A gentle step toward yourself',
               body: page.emotionalResponse,
+              background: _alignmentFill(const Color(0xFFECF0E8), const Color(0xFF2A332E)),
             ),
           ],
         ],
@@ -656,17 +658,22 @@ class _DailyPageView extends StatelessWidget {
     );
   }
 
+  /// Day fills match the daily-page artwork: cream, deeper beige, then sage.
+  Color _alignmentFill(Color day, Color night) =>
+      t == AppTokens.day ? day : night;
+
   Widget _alignmentCard({
     required Widget icon,
     required String label,
     required String subtitle,
     required String body,
+    required Color background,
   }) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
       decoration: BoxDecoration(
-        color: Color.alphaBlend(t.green.withValues(alpha: 0.08), t.bg),
+        color: background,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
@@ -777,28 +784,14 @@ class _DailyPageView extends StatelessWidget {
   Widget _buildFunMoment() {
     if (page.funMoment.trim().isEmpty) return const SizedBox.shrink();
 
-    return AppCard(
+    return SectionCard(
+      title: 'Fun Moment',
+      accentColor: t.gold,
+      icon: AppIcons.star(c: t.gold, s: 16),
       t: t,
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              AppIcons.bloom(c: t.accent, s: 16),
-              const SizedBox(width: 8),
-              Text(
-                'Fun Moment',
-                style: AppTypography.playfair(16, t.text),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            page.funMoment,
-            style: AppTypography.cormorantItalic(17, t.text, height: 1.6),
-            textAlign: TextAlign.center,
-          ),
-        ],
+      child: Text(
+        page.funMoment,
+        style: AppTypography.cormorant600(17, t.text, height: 1.6),
       ),
     );
   }
