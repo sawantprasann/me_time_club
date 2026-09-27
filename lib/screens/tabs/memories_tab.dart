@@ -78,10 +78,9 @@ class _MemoriesTabState extends State<MemoriesTab> {
       }
     } catch (e) {
       debugPrint('[LOAD MEMORIES ERROR] $e');
-      if (mounted) {
-        setState(() => _loading = false);
-        _showError('Failed to load moments: $e');
-      }
+      if (e is UnauthorizedException || !mounted) return;
+      setState(() => _loading = false);
+      _showError('Failed to load moments: $e');
     }
   }
 
@@ -130,10 +129,9 @@ class _MemoriesTabState extends State<MemoriesTab> {
       }
     } catch (e) {
       debugPrint('[CREATE MEMORY ERROR] $e');
-      if (mounted) {
-        setState(() => _saving = false);
-        _showError('Failed to save moment: $e');
-      }
+      if (e is UnauthorizedException || !mounted) return;
+      setState(() => _saving = false);
+      _showError('Failed to save moment: $e');
     }
   }
 
@@ -164,10 +162,9 @@ class _MemoriesTabState extends State<MemoriesTab> {
       }
     } catch (e) {
       debugPrint('[UPDATE MEMORY ERROR] $e');
-      if (mounted) {
-        setState(() => _saving = false);
-        _showError('Failed to update moment: $e');
-      }
+      if (e is UnauthorizedException || !mounted) return;
+      setState(() => _saving = false);
+      _showError('Failed to update moment: $e');
     }
   }
 
@@ -198,7 +195,8 @@ class _MemoriesTabState extends State<MemoriesTab> {
       await ApiService.deleteMemory(token: widget.user.token ?? '', memoryId: id);
       if (mounted) setState(() => _memories.removeWhere((m) => m.id == id));
     } catch (e) {
-      if (mounted) _showError('Failed to delete moment: $e');
+      if (e is UnauthorizedException || !mounted) return;
+      _showError('Failed to delete moment: $e');
     }
   }
 
@@ -273,7 +271,7 @@ class _MemoriesTabState extends State<MemoriesTab> {
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(18, 10, 18, 90),
+      padding: const EdgeInsets.fromLTRB(18, 10, 18, 18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -528,7 +526,7 @@ class _MemoriesTabState extends State<MemoriesTab> {
                 )
               else if (m.photoUrl != null && m.photoUrl!.isNotEmpty)
                 Image.network(
-                  'http://139.59.23.15${m.photoUrl}',
+                  '${ApiService.serverHost}${m.photoUrl}',
                   width: double.infinity,
                   height: 180,
                   fit: BoxFit.cover,
@@ -643,7 +641,7 @@ class _MemoriesTabState extends State<MemoriesTab> {
                                     errorBuilder: (_, __, ___) => _emptyPhotoBox(),
                                   )
                                 : Image.network(
-                                    'http://139.59.23.15${m.photoUrl}',
+                                    '${ApiService.serverHost}${m.photoUrl}',
                                     width: double.infinity,
                                     height: 180,
                                     fit: BoxFit.cover,

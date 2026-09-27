@@ -61,6 +61,8 @@ class _AppRootState extends State<AppRoot> {
   bool _loadingSession = true;
   bool _showLogin = false;
   bool _showingTransitionLoader = false;
+  bool _loggingOut = false;
+  String? _authNotice;
   UserProfile? _pendingUser;
   bool _hasCheckedToday = false;
 
@@ -69,7 +71,31 @@ class _AppRootState extends State<AppRoot> {
   @override
   void initState() {
     super.initState();
+    ApiService.onUnauthorized = _onSessionExpired;
     _loadSession();
+  }
+
+  @override
+  void dispose() {
+    if (ApiService.onUnauthorized == _onSessionExpired) {
+      ApiService.onUnauthorized = null;
+    }
+    super.dispose();
+  }
+
+  void _onSessionExpired() {
+    if (!mounted || _user == null || _loggingOut) return;
+    _clearSession();
+    setState(() {
+      _user = null;
+      _showLogin = true;
+      _authNotice = 'Your session expired. Please sign in again.';
+      _tab = 'home';
+      _dailyPages.clear();
+      _hasCheckedToday = false;
+      _showingTransitionLoader = false;
+      _pendingUser = null;
+    });
   }
 
   Future<void> _loadSession() async {
@@ -111,9 +137,11 @@ class _AppRootState extends State<AppRoot> {
   }
 
   void _startTransitionLoader(UserProfile user) {
+    ApiService.resetUnauthorizedLatch();
     setState(() {
       _showingTransitionLoader = true;
       _pendingUser = user;
+      _authNotice = null;
     });
     Future.delayed(const Duration(milliseconds: 1500), () {
       if (mounted) {
@@ -139,18 +167,22 @@ class _AppRootState extends State<AppRoot> {
   }
 
   void _onLogout() async {
+    _loggingOut = true;
     final token = _user?.token;
     if (token != null && token.isNotEmpty) {
       await ApiService.logout(token: token);
     }
     await _clearSession();
+    if (!mounted) return;
     setState(() {
       _user = null;
       _showLogin = false;
+      _authNotice = null;
       _tab = 'home';
       _dailyPages.clear();
       _hasCheckedToday = false;
     });
+    _loggingOut = false;
   }
 
   void _onSavePage(int dayNum, DailyPageContent? page) {
@@ -195,6 +227,7 @@ class _AppRootState extends State<AppRoot> {
     if (_user == null) {
       if (_showLogin) {
         return LoginScreen(
+          initialMessage: _authNotice,
           onLoginSuccess: (profile) {
             _startTransitionLoader(profile as UserProfile);
           },
