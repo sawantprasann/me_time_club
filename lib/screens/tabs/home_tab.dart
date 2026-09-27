@@ -37,11 +37,18 @@ class _HomeTabState extends State<HomeTab> {
   bool _loading = false;
   bool _fromFallback = false;
   bool _checkingExisting = false;
-  GentleRead? _gentleRead;
+  final List<GentleRead> _gentleReadHistory = [];
+  int _gentleReadIndex = 0;
   bool _gentleReadLoading = false;
   bool _gentleReadExpanded = false;
   static const int _gentleReadPreviewLines = 6;
-  final List<int> _seenGentleReadIds = [];
+  static const double _gentleReadActionHeight = 34;
+
+  GentleRead? get _currentGentleRead {
+    if (_gentleReadHistory.isEmpty) return null;
+    final index = _gentleReadIndex.clamp(0, _gentleReadHistory.length - 1);
+    return _gentleReadHistory[index];
+  }
 
   // Answer fields — loaded from page, saved on change
   final _reflectionAnswerCtrl = TextEditingController();
@@ -141,20 +148,26 @@ class _HomeTabState extends State<HomeTab> {
     try {
       final read = await ApiService.randomGentleRead(
         token: widget.user.token ?? '',
-        excludeIds: another ? List<int>.from(_seenGentleReadIds) : const [],
+        excludeIds: another ? _gentleReadHistory.map((item) => item.id).toList() : const [],
       );
       if (!mounted) return;
       setState(() {
-        _gentleRead = read;
-        _gentleReadExpanded = false;
         _gentleReadLoading = false;
+        _gentleReadExpanded = false;
         if (read == null) return;
-        if (_seenGentleReadIds.contains(read.id)) {
-          _seenGentleReadIds
+        if (!another) {
+          _gentleReadHistory
             ..clear()
-            ..add(read.id);
+            ..add(read);
+          _gentleReadIndex = 0;
+          return;
+        }
+        final existing = _gentleReadHistory.indexWhere((item) => item.id == read.id);
+        if (existing >= 0) {
+          _gentleReadIndex = existing;
         } else {
-          _seenGentleReadIds.add(read.id);
+          _gentleReadHistory.add(read);
+          _gentleReadIndex = _gentleReadHistory.length - 1;
         }
       });
     } catch (e) {
@@ -162,6 +175,30 @@ class _HomeTabState extends State<HomeTab> {
       debugPrint('[GENTLE READ ERROR] $e');
       if (mounted) setState(() => _gentleReadLoading = false);
     }
+  }
+
+  void _goPrevGentleRead() {
+    if (_gentleReadLoading || _gentleReadIndex == 0) return;
+    setState(() {
+      _gentleReadIndex--;
+      _gentleReadExpanded = false;
+    });
+  }
+
+  Future<void> _goNextGentleRead() async {
+    if (_gentleReadLoading) return;
+    if (_gentleReadIndex < _gentleReadHistory.length - 1) {
+      setState(() {
+        _gentleReadIndex++;
+        _gentleReadExpanded = false;
+      });
+      return;
+    }
+    await _loadGentleRead(another: true);
+  }
+
+  void _toggleGentleReadExpanded() {
+    setState(() => _gentleReadExpanded = !_gentleReadExpanded);
   }
 
   String get _greeting {
@@ -356,11 +393,11 @@ class _HomeTabState extends State<HomeTab> {
   }
 
   Widget _buildGentleRead() {
-    if (_gentleRead == null && !_gentleReadLoading) {
+    final read = _currentGentleRead;
+    if (read == null && !_gentleReadLoading) {
       return const SizedBox.shrink();
     }
 
-    final read = _gentleRead;
     final canBrowse = (read?.total ?? 0) > 1;
 
     return SectionCard(
@@ -383,72 +420,110 @@ class _HomeTabState extends State<HomeTab> {
                 ),
               ),
             )
-          : Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (read.title.trim().isNotEmpty) ...[
-                  Text(
-                    read.title,
-                    style: AppTypography.cormorant600(17, t.text, height: 1.4),
-                  ),
-                  const SizedBox(height: 8),
-                ],
-                AnimatedOpacity(
-                  opacity: _gentleReadLoading ? 0.45 : 1,
-                  duration: const Duration(milliseconds: 180),
-                  child: _gentleReadBody(read.body),
-                ),
-                if (canBrowse) ...[
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      _gentleReadNav(label: 'Prev', forward: false),
-                      const Spacer(),
-                      _gentleReadNav(label: 'Next', forward: true),
+          : LayoutBuilder(
+              builder: (context, constraints) {
+                final style = AppTypography.lato400(14, t.text, height: 1.6);
+                const strut = StrutStyle(
+                  fontSize: 14,
+                  height: 1.6,
+                  forceStrutHeight: true,
+                );
+                final width = constraints.maxWidth;
+                final overflows = _gentleReadOverflows(
+                  read.body,
+                  style,
+                  width,
+                  textScaler: MediaQuery.textScalerOf(context),
+                  strutStyle: strut,
+                );
+                final expanded = _gentleReadExpanded && overflows;
+                final showPrev = _gentleReadIndex > 0;
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (read.title.trim().isNotEmpty) ...[
+                      Text(
+                        read.title,
+                        style: AppTypography.cormorant600(17, t.text, height: 1.4),
+                      ),
+                      const SizedBox(height: 8),
                     ],
-                  ),
-                ],
-              ],
+                    AnimatedOpacity(
+                      opacity: _gentleReadLoading ? 0.45 : 1,
+                      duration: const Duration(milliseconds: 180),
+                      child: Text(
+                        read.body,
+                        style: style,
+                        strutStyle: strut,
+                        maxLines: expanded ? null : _gentleReadPreviewLines,
+                        overflow: expanded ? TextOverflow.visible : TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (canBrowse || overflows) ...[
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: showPrev
+                                  ? _gentleReadNav(
+                                      label: 'Prev',
+                                      forward: false,
+                                      onTap: _goPrevGentleRead,
+                                    )
+                                  : const SizedBox(height: _gentleReadActionHeight),
+                            ),
+                          ),
+                          SizedBox(
+                            height: _gentleReadActionHeight,
+                            child: overflows
+                                ? GestureDetector(
+                                    onTap: _gentleReadLoading ? null : _toggleGentleReadExpanded,
+                                    child: Center(
+                                      child: Text(
+                                        expanded ? 'Read less' : 'Read more',
+                                        style: AppTypography.lato700(13, t.accent),
+                                      ),
+                                    ),
+                                  )
+                                : const SizedBox.shrink(),
+                          ),
+                          Expanded(
+                            child: Align(
+                              alignment: Alignment.centerRight,
+                              child: canBrowse
+                                  ? _gentleReadNav(
+                                      label: 'Next',
+                                      forward: true,
+                                      onTap: _goNextGentleRead,
+                                    )
+                                  : const SizedBox(height: _gentleReadActionHeight),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
+                );
+              },
             ),
     );
   }
 
-  Widget _gentleReadBody(String body) {
-    final style = AppTypography.lato400(14, t.text, height: 1.6);
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final overflows = _gentleReadOverflows(body, style, constraints.maxWidth);
-        final expanded = _gentleReadExpanded || !overflows;
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              body,
-              style: style,
-              maxLines: expanded ? null : _gentleReadPreviewLines,
-              overflow: expanded ? TextOverflow.visible : TextOverflow.ellipsis,
-            ),
-            if (overflows) ...[
-              const SizedBox(height: 8),
-              GestureDetector(
-                onTap: () => setState(() => _gentleReadExpanded = !_gentleReadExpanded),
-                child: Text(
-                  _gentleReadExpanded ? 'Read less' : 'Read more',
-                  style: AppTypography.lato700(13, t.accent),
-                ),
-              ),
-            ],
-          ],
-        );
-      },
-    );
-  }
-
-  bool _gentleReadOverflows(String body, TextStyle style, double maxWidth) {
-    if (!maxWidth.isFinite) return body.length > 280;
+  bool _gentleReadOverflows(
+    String body,
+    TextStyle style,
+    double maxWidth, {
+    required TextScaler textScaler,
+    required StrutStyle strutStyle,
+  }) {
+    if (!maxWidth.isFinite || maxWidth <= 0) return body.length > 280;
     final painter = TextPainter(
       text: TextSpan(text: body, style: style),
       maxLines: _gentleReadPreviewLines,
+      strutStyle: strutStyle,
+      textScaler: textScaler,
       textDirection: TextDirection.ltr,
     )..layout(maxWidth: maxWidth);
     final overflows = painter.didExceedMaxLines;
@@ -456,11 +531,15 @@ class _HomeTabState extends State<HomeTab> {
     return overflows;
   }
 
-  Widget _gentleReadNav({required String label, required bool forward}) {
+  Widget _gentleReadNav({
+    required String label,
+    required bool forward,
+    required VoidCallback onTap,
+  }) {
     final enabled = !_gentleReadLoading;
     final color = enabled ? t.accent : t.muted;
     return GestureDetector(
-      onTap: enabled ? () => _loadGentleRead(another: true) : null,
+      onTap: enabled ? onTap : null,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
