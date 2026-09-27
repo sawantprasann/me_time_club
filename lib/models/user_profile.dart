@@ -173,7 +173,7 @@ class UserProfile {
   String get phaseLabel => phases.isEmpty ? '' : phases.join(' · ');
 }
 
-/// Chamomile daily page content — all 9 fields.
+/// Chamomile daily page content.
 class DailyPageContent {
   final String? id;
   final String openingThought;
@@ -184,7 +184,6 @@ class DailyPageContent {
   final String emotionalResponse;
   final String insight;
   final String microSkill;
-  final String gentleRead;
   final String funMoment;
   final String nightReflection;
   // User-written answers (saved back to server via POST /api/v1/daily_pages)
@@ -202,7 +201,6 @@ class DailyPageContent {
     required this.emotionalResponse,
     required this.insight,
     required this.microSkill,
-    required this.gentleRead,
     required this.funMoment,
     required this.nightReflection,
     this.reflectionAnswer = '',
@@ -259,7 +257,6 @@ class DailyPageContent {
       emotionalResponse: responseVal,
       insight: content['insight'] as String? ?? '',
       microSkill: content['micro_skill'] as String? ?? '',
-      gentleRead: content['gentle_read'] as String? ?? '',
       funMoment: content['fun_moment'] as String? ?? '',
       nightReflection: content['night_reflection'] as String? ?? '',
       reflectionAnswer: content['reflection_answer'] as String? ?? '',
@@ -282,7 +279,6 @@ class DailyPageContent {
       },
       'insight': insight,
       'micro_skill': microSkill,
-      'gentle_read': gentleRead,
       'fun_moment': funMoment,
       'night_reflection': nightReflection,
       'reflection_answer': reflectionAnswer,

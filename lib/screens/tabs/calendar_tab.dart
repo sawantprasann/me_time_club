@@ -858,6 +858,8 @@ class _CalendarTabState extends State<CalendarTab> {
                   style: AppTypography.cormorantItalic(14, t.text, height: 1.5),
                 ),
               ),
+              if (page.funMoment.trim().isNotEmpty)
+                _expandedSection('FUN MOMENT', page.funMoment),
               // Night Reflection
               Container(
                 margin: const EdgeInsets.only(top: 8),

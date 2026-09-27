@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../theme/tokens.dart';
 import '../../icons/app_icons.dart';
+import '../../models/gentle_read.dart';
 import '../../models/user_profile.dart';
 import '../../data/fallback_database.dart';
 import '../../widgets/shared_widgets.dart';
@@ -36,6 +37,9 @@ class _HomeTabState extends State<HomeTab> {
   bool _loading = false;
   bool _fromFallback = false;
   bool _checkingExisting = false;
+  GentleRead? _gentleRead;
+  bool _gentleReadLoading = false;
+  final List<int> _seenGentleReadIds = [];
 
   // Answer fields — loaded from page, saved on change
   final _reflectionAnswerCtrl = TextEditingController();
@@ -56,6 +60,7 @@ class _HomeTabState extends State<HomeTab> {
     if (!widget.hasCheckedToday && _page == null) {
       _checkExistingPage();
     }
+    _loadGentleRead();
   }
 
   @override
@@ -118,6 +123,7 @@ class _HomeTabState extends State<HomeTab> {
         }
       }
     } catch (e) {
+      if (e is UnauthorizedException) return;
       debugPrint('[CHECK EXISTING PAGE ERROR] $e');
       if (mounted) {
         setState(() {
@@ -125,6 +131,33 @@ class _HomeTabState extends State<HomeTab> {
         });
         widget.onCheckedToday();
       }
+    }
+  }
+
+  Future<void> _loadGentleRead({bool another = false}) async {
+    setState(() => _gentleReadLoading = true);
+    try {
+      final read = await ApiService.randomGentleRead(
+        token: widget.user.token ?? '',
+        excludeIds: another ? List<int>.from(_seenGentleReadIds) : const [],
+      );
+      if (!mounted) return;
+      setState(() {
+        _gentleRead = read;
+        _gentleReadLoading = false;
+        if (read == null) return;
+        if (_seenGentleReadIds.contains(read.id)) {
+          _seenGentleReadIds
+            ..clear()
+            ..add(read.id);
+        } else {
+          _seenGentleReadIds.add(read.id);
+        }
+      });
+    } catch (e) {
+      if (e is UnauthorizedException) return;
+      debugPrint('[GENTLE READ ERROR] $e');
+      if (mounted) setState(() => _gentleReadLoading = false);
     }
   }
 
@@ -187,6 +220,7 @@ class _HomeTabState extends State<HomeTab> {
         widget.onSavePage(DateTime.now().day, _page!);
       }
     } catch (e) {
+      if (e is UnauthorizedException) return;
       debugPrint('[CHAMOMILE API ERROR] $e');
       final phase =
           widget.user.phases.isNotEmpty ? widget.user.phases.first : 'baby';
@@ -312,8 +346,99 @@ class _HomeTabState extends State<HomeTab> {
                 ),
               ),
             ],
+            const SizedBox(height: 8),
+            _buildGentleRead(),
           ],
         ],
+      ),
+    );
+  }
+
+  Widget _buildGentleRead() {
+    if (_gentleRead == null && !_gentleReadLoading) {
+      return const SizedBox.shrink();
+    }
+
+    final read = _gentleRead;
+    final canBrowse = (read?.total ?? 0) > 1;
+
+    return SectionCard(
+      title: 'Gentle Read',
+      accentColor: t.muted,
+      icon: AppIcons.book(c: t.muted, s: 16),
+      t: t,
+      child: read == null
+          ? Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Center(
+                child: SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(t.accent),
+                  ),
+                ),
+              ),
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (read.title.trim().isNotEmpty) ...[
+                  Text(
+                    read.title,
+                    style: AppTypography.cormorant600(17, t.text, height: 1.4),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+                AnimatedOpacity(
+                  opacity: _gentleReadLoading ? 0.45 : 1,
+                  duration: const Duration(milliseconds: 180),
+                  child: Text(
+                    read.body,
+                    style: AppTypography.lato400(14, t.text, height: 1.6),
+                  ),
+                ),
+                if (canBrowse) ...[
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      _gentleReadNav(label: 'Prev', forward: false),
+                      const Spacer(),
+                      _gentleReadNav(label: 'Next', forward: true),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+    );
+  }
+
+  Widget _gentleReadNav({required String label, required bool forward}) {
+    final enabled = !_gentleReadLoading;
+    final color = enabled ? t.accent : t.muted;
+    return GestureDetector(
+      onTap: enabled ? () => _loadGentleRead(another: true) : null,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: t.border),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (!forward) ...[
+              Icon(Icons.chevron_left, size: 16, color: color),
+              const SizedBox(width: 2),
+            ],
+            Text(label, style: AppTypography.lato400(13, color)),
+            if (forward) ...[
+              const SizedBox(width: 2),
+              Icon(Icons.chevron_right, size: 16, color: color),
+            ],
+          ],
+        ),
       ),
     );
   }
@@ -390,7 +515,7 @@ class _HomeTabState extends State<HomeTab> {
   }
 }
 
-/// Renders all 9 sections of a Chamomile daily page
+/// Renders the Chamomile daily page. Gentle Read lives below this, on Home.
 class _DailyPageView extends StatelessWidget {
   final DailyPageContent page;
   final AppTokens t;
@@ -452,33 +577,7 @@ class _DailyPageView extends StatelessWidget {
           ),
         ),
         // 3. Emotional Alignment
-        SectionCard(
-          title: 'Emotional Alignment',
-          accentColor: t.green,
-          icon: AppIcons.heart(c: t.green, s: 16),
-          t: t,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _label('FEELING', t.green),
-              Text(
-                page.emotionalFeeling,
-                style: AppTypography.lato400(14, t.text, height: 1.5),
-              ),
-              const SizedBox(height: 10),
-              _label('NEED', t.green),
-              Text(
-                page.emotionalNeed,
-                style: AppTypography.lato400(14, t.text, height: 1.5),
-              ),
-              Divider(color: t.border, height: 24),
-              Text(
-                page.emotionalResponse,
-                style: AppTypography.cormorant600(17, t.text, height: 1.6),
-              ),
-            ],
-          ),
-        ),
+        _buildEmotionalAlignment(),
         // 4. Insight
         SectionCard(
           title: 'Insight',
@@ -493,23 +592,134 @@ class _DailyPageView extends StatelessWidget {
         // 5. Micro Ritual — gradient card
         _buildMicroRitual(),
         const SizedBox(height: 14),
-        // 6. Gentle Read
-        SectionCard(
-          title: 'Gentle Read',
-          accentColor: t.muted,
-          icon: AppIcons.book(c: t.muted, s: 16),
-          t: t,
-          child: Text(
-            page.gentleRead,
-            style: AppTypography.lato400(14, t.text, height: 1.6),
-          ),
-        ),
-        // 7. Fun Moment
+        // 6. Fun Moment
         _buildFunMoment(),
         const SizedBox(height: 14),
-        // 8. Night Reflection — dark card
+        // 7. Night Reflection — dark card
         _buildNightReflection(),
       ],
+    );
+  }
+
+  Widget _buildEmotionalAlignment() {
+    return AppCard(
+      t: t,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              AppIcons.heart(c: t.green, s: 16),
+              const SizedBox(width: 8),
+              Text(
+                'Emotional Alignment',
+                style: AppTypography.playfair(16, t.text),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Text(
+            'When your thoughts, body, and actions feel in sync, you feel lighter.',
+            textAlign: TextAlign.center,
+            style: AppTypography.cormorant600(16, t.muted, height: 1.4)
+                .copyWith(fontWeight: FontWeight.w400),
+          ),
+          if (page.emotionalFeeling.trim().isNotEmpty) ...[
+            const SizedBox(height: 16),
+            _alignmentCard(
+              icon: AppIcons.heart(c: t.green, s: 14),
+              label: 'FEELING',
+              subtitle: 'You are carrying this',
+              body: page.emotionalFeeling,
+            ),
+          ],
+          if (page.emotionalNeed.trim().isNotEmpty) ...[
+            const SizedBox(height: 10),
+            _alignmentCard(
+              icon: _alignmentCircle(),
+              label: 'NEED',
+              subtitle: 'What you need right now',
+              body: page.emotionalNeed,
+            ),
+          ],
+          if (page.emotionalResponse.trim().isNotEmpty) ...[
+            const SizedBox(height: 10),
+            _alignmentCard(
+              icon: _alignmentDiamond(),
+              label: 'RESPONSE',
+              subtitle: 'A gentle step toward yourself',
+              body: page.emotionalResponse,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _alignmentCard({
+    required Widget icon,
+    required String label,
+    required String subtitle,
+    required String body,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(t.green.withValues(alpha: 0.08), t.bg),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 6,
+            runSpacing: 4,
+            children: [
+              icon,
+              Text(
+                label,
+                style: AppTypography.lato700(11, t.green, letterSpacing: 1.1),
+              ),
+              Text('—', style: AppTypography.lato400(12, t.muted)),
+              Text(subtitle, style: AppTypography.lato400(13, t.muted)),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            body,
+            style: AppTypography.cormorantItalic(18, t.text, height: 1.35),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _alignmentCircle() {
+    return Container(
+      width: 13,
+      height: 13,
+      margin: const EdgeInsets.only(right: 1),
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: t.green, width: 1.4),
+      ),
+    );
+  }
+
+  Widget _alignmentDiamond() {
+    return Transform.rotate(
+      angle: 0.785,
+      child: Container(
+        width: 8,
+        height: 8,
+        margin: const EdgeInsets.symmetric(horizontal: 3, vertical: 3),
+        decoration: BoxDecoration(
+          color: t.green,
+          borderRadius: BorderRadius.circular(1),
+        ),
+      ),
     );
   }
 
@@ -565,11 +775,23 @@ class _DailyPageView extends StatelessWidget {
   }
 
   Widget _buildFunMoment() {
+    if (page.funMoment.trim().isEmpty) return const SizedBox.shrink();
+
     return AppCard(
       t: t,
       child: Column(
         children: [
-          AppIcons.bloom(c: t.accent, s: 28),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              AppIcons.bloom(c: t.accent, s: 16),
+              const SizedBox(width: 8),
+              Text(
+                'Fun Moment',
+                style: AppTypography.playfair(16, t.text),
+              ),
+            ],
+          ),
           const SizedBox(height: 12),
           Text(
             page.funMoment,
@@ -662,15 +884,6 @@ class _DailyPageView extends StatelessWidget {
     );
   }
 
-  Widget _label(String text, Color color) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Text(
-        text,
-        style: AppTypography.lato700(10, color, letterSpacing: 1.2),
-      ),
-    );
-  }
 }
 
 class DailyPageFeedback extends StatefulWidget {

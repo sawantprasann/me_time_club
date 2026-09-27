@@ -131,17 +131,16 @@ class _CircleTabState extends State<CircleTab> {
       }
     } catch (e) {
       debugPrint('[CREATE CIRCLE POST ERROR] $e');
-      if (mounted) {
-        setState(() {
-          _newPost = bodyText;
-          _isAnon = anon;
-        });
-        String errMsg = e.toString();
-        if (errMsg.startsWith('Exception: ')) errMsg = errMsg.substring(11);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(errMsg), backgroundColor: Colors.redAccent),
-        );
-      }
+      if (e is UnauthorizedException || !mounted) return;
+      setState(() {
+        _newPost = bodyText;
+        _isAnon = anon;
+      });
+      String errMsg = e.toString();
+      if (errMsg.startsWith('Exception: ')) errMsg = errMsg.substring(11);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(errMsg), backgroundColor: Colors.redAccent),
+      );
     }
   }
 
