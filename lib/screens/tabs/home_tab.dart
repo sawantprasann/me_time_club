@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import '../../theme/tokens.dart';
 import '../../icons/app_icons.dart';
@@ -42,7 +43,14 @@ class _HomeTabState extends State<HomeTab> {
   bool _gentleReadLoading = false;
   bool _gentleReadExpanded = false;
   static const int _gentleReadPreviewLines = 6;
-  static const double _gentleReadActionHeight = 34;
+  static const String _gentleReadMoreLabel = '… Read more ↓';
+  static const String _gentleReadLessLabel = ' Read less ↑';
+  TapGestureRecognizer? _gentleReadLinkRecognizer;
+
+  TapGestureRecognizer get _gentleReadLink {
+    return _gentleReadLinkRecognizer ??= TapGestureRecognizer()
+      ..onTap = _toggleGentleReadExpanded;
+  }
 
   GentleRead? get _currentGentleRead {
     if (_gentleReadHistory.isEmpty) return null;
@@ -74,6 +82,7 @@ class _HomeTabState extends State<HomeTab> {
 
   @override
   void dispose() {
+    _gentleReadLinkRecognizer?.dispose();
     _reflectionAnswerCtrl.dispose();
     _reflectionFollowupAnswerCtrl.dispose();
     _nightReflectionAnswerCtrl.dispose();
@@ -198,6 +207,7 @@ class _HomeTabState extends State<HomeTab> {
   }
 
   void _toggleGentleReadExpanded() {
+    if (_gentleReadLoading) return;
     setState(() => _gentleReadExpanded = !_gentleReadExpanded);
   }
 
@@ -438,6 +448,17 @@ class _HomeTabState extends State<HomeTab> {
                 );
                 final expanded = _gentleReadExpanded && overflows;
                 final showPrev = _gentleReadIndex > 0;
+                final linkStyle = AppTypography.lato700(14, t.accent, height: 1.6);
+                final preview = overflows && !expanded
+                    ? _gentleReadClippedPreview(
+                        read.body,
+                        style,
+                        linkStyle,
+                        width,
+                        textScaler: MediaQuery.textScalerOf(context),
+                        strutStyle: strut,
+                      )
+                    : read.body;
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -451,55 +472,37 @@ class _HomeTabState extends State<HomeTab> {
                     AnimatedOpacity(
                       opacity: _gentleReadLoading ? 0.45 : 1,
                       duration: const Duration(milliseconds: 180),
-                      child: Text(
-                        read.body,
-                        style: style,
+                      child: Text.rich(
+                        TextSpan(
+                          style: style,
+                          children: [
+                            TextSpan(text: expanded ? read.body : preview),
+                            if (overflows)
+                              TextSpan(
+                                text: expanded ? _gentleReadLessLabel : _gentleReadMoreLabel,
+                                style: linkStyle,
+                                recognizer: _gentleReadLink,
+                              ),
+                          ],
+                        ),
                         strutStyle: strut,
-                        maxLines: expanded ? null : _gentleReadPreviewLines,
-                        overflow: expanded ? TextOverflow.visible : TextOverflow.ellipsis,
                       ),
                     ),
-                    if (canBrowse || overflows) ...[
+                    if (canBrowse) ...[
                       const SizedBox(height: 16),
                       Row(
                         children: [
-                          Expanded(
-                            child: Align(
-                              alignment: Alignment.centerLeft,
-                              child: showPrev
-                                  ? _gentleReadNav(
-                                      label: 'Prev',
-                                      forward: false,
-                                      onTap: _goPrevGentleRead,
-                                    )
-                                  : const SizedBox(height: _gentleReadActionHeight),
+                          if (showPrev)
+                            _gentleReadNav(
+                              label: 'Prev',
+                              forward: false,
+                              onTap: _goPrevGentleRead,
                             ),
-                          ),
-                          SizedBox(
-                            height: _gentleReadActionHeight,
-                            child: overflows
-                                ? GestureDetector(
-                                    onTap: _gentleReadLoading ? null : _toggleGentleReadExpanded,
-                                    child: Center(
-                                      child: Text(
-                                        expanded ? 'Read less' : 'Read more',
-                                        style: AppTypography.lato700(13, t.accent),
-                                      ),
-                                    ),
-                                  )
-                                : const SizedBox.shrink(),
-                          ),
-                          Expanded(
-                            child: Align(
-                              alignment: Alignment.centerRight,
-                              child: canBrowse
-                                  ? _gentleReadNav(
-                                      label: 'Next',
-                                      forward: true,
-                                      onTap: _goNextGentleRead,
-                                    )
-                                  : const SizedBox(height: _gentleReadActionHeight),
-                            ),
+                          const Spacer(),
+                          _gentleReadNav(
+                            label: 'Next',
+                            forward: true,
+                            onTap: _goNextGentleRead,
                           ),
                         ],
                       ),
@@ -519,16 +522,86 @@ class _HomeTabState extends State<HomeTab> {
     required StrutStyle strutStyle,
   }) {
     if (!maxWidth.isFinite || maxWidth <= 0) return body.length > 280;
+    return !_gentleReadFits(
+      body,
+      style,
+      maxWidth,
+      textScaler: textScaler,
+      strutStyle: strutStyle,
+    );
+  }
+
+  /// Shortens [body] so the Read more label stays on the last visible line.
+  String _gentleReadClippedPreview(
+    String body,
+    TextStyle style,
+    TextStyle linkStyle,
+    double maxWidth, {
+    required TextScaler textScaler,
+    required StrutStyle strutStyle,
+  }) {
+    if (!maxWidth.isFinite || maxWidth <= 0) {
+      return body.length > 280 ? body.substring(0, 280).trimRight() : body;
+    }
+
+    bool fits(String text) {
+      return _gentleReadFits(
+        text,
+        style,
+        maxWidth,
+        textScaler: textScaler,
+        strutStyle: strutStyle,
+        link: _gentleReadMoreLabel,
+        linkStyle: linkStyle,
+      );
+    }
+
+    var low = 0;
+    var high = body.length;
+    var best = 0;
+    while (low <= high) {
+      final mid = (low + high) >> 1;
+      if (fits(body.substring(0, mid).trimRight())) {
+        best = mid;
+        low = mid + 1;
+      } else {
+        high = mid - 1;
+      }
+    }
+
+    final trimmed = body.substring(0, best).trimRight();
+    final breakAt = trimmed.lastIndexOf(RegExp(r'\s'));
+    if (breakAt > 0 && breakAt >= trimmed.length * 0.6 && fits(trimmed.substring(0, breakAt).trimRight())) {
+      return trimmed.substring(0, breakAt).trimRight();
+    }
+    return trimmed;
+  }
+
+  bool _gentleReadFits(
+    String text,
+    TextStyle style,
+    double maxWidth, {
+    required TextScaler textScaler,
+    required StrutStyle strutStyle,
+    String? link,
+    TextStyle? linkStyle,
+  }) {
     final painter = TextPainter(
-      text: TextSpan(text: body, style: style),
+      text: TextSpan(
+        style: style,
+        children: [
+          TextSpan(text: text),
+          if (link != null) TextSpan(text: link, style: linkStyle),
+        ],
+      ),
       maxLines: _gentleReadPreviewLines,
       strutStyle: strutStyle,
       textScaler: textScaler,
       textDirection: TextDirection.ltr,
     )..layout(maxWidth: maxWidth);
-    final overflows = painter.didExceedMaxLines;
+    final fits = !painter.didExceedMaxLines;
     painter.dispose();
-    return overflows;
+    return fits;
   }
 
   Widget _gentleReadNav({
