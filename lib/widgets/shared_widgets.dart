@@ -104,6 +104,7 @@ class SectionCard extends StatelessWidget {
   final AppTokens t;
   final Widget child;
   final int delayMs;
+  final EdgeInsetsGeometry? margin;
 
   const SectionCard({
     super.key,
@@ -113,12 +114,14 @@ class SectionCard extends StatelessWidget {
     required this.t,
     required this.child,
     this.delayMs = 0,
+    this.margin,
   });
 
   @override
   Widget build(BuildContext context) {
     return AppCard(
       t: t,
+      margin: margin,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

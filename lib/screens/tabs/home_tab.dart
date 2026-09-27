@@ -250,7 +250,7 @@ class _HomeTabState extends State<HomeTab> {
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(18, 10, 18, 18),
+      padding: const EdgeInsets.fromLTRB(18, 10, 18, 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -310,14 +310,13 @@ class _HomeTabState extends State<HomeTab> {
                 nightReflectionAnswerCtrl: _nightReflectionAnswerCtrl,
                 onSaveAnswers: _saveAnswers,
               ),
-              const SizedBox(height: 8),
               DailyPageFeedback(
                 user: widget.user,
                 page: _page!,
                 t: t,
                 mood: _mood,
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
               // New check-in button
               Center(
                 child: GestureDetector(
@@ -346,7 +345,6 @@ class _HomeTabState extends State<HomeTab> {
                 ),
               ),
             ],
-            const SizedBox(height: 8),
             _buildGentleRead(),
           ],
         ],
@@ -367,6 +365,7 @@ class _HomeTabState extends State<HomeTab> {
       accentColor: t.muted,
       icon: AppIcons.book(c: t.muted, s: 16),
       t: t,
+      margin: const EdgeInsets.only(top: 14),
       child: read == null
           ? Padding(
               padding: const EdgeInsets.symmetric(vertical: 8),
@@ -934,9 +933,9 @@ class _DailyPageFeedbackState extends State<DailyPageFeedback> {
     final t = widget.t;
 
     if (_submitted) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 20),
+      return Padding(
+        padding: const EdgeInsets.only(top: 14),
+        child: Center(
           child: Text(
             'Thank you for helping Chamomile learn. ✦',
             style: AppTypography.cormorantItalic(14, t.muted),
@@ -947,7 +946,7 @@ class _DailyPageFeedbackState extends State<DailyPageFeedback> {
 
     if (_vote == 'down') {
       return Container(
-        margin: const EdgeInsets.symmetric(vertical: 14),
+        margin: const EdgeInsets.only(top: 14),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: t.card,
@@ -1024,7 +1023,7 @@ class _DailyPageFeedbackState extends State<DailyPageFeedback> {
     }
 
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: 14),
+      margin: const EdgeInsets.only(top: 14),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
       decoration: BoxDecoration(
         color: t.card,
