@@ -60,6 +60,12 @@ class _HomeTabState extends State<HomeTab> {
     _mood = null;
     _freeText = '';
     _page = widget.initialPage;
+    if (_page?.mood != null && _page!.mood!.isNotEmpty) {
+      _mood = _page!.mood;
+    }
+    if (_page?.freeText != null && _page!.freeText!.isNotEmpty) {
+      _freeText = _page!.freeText!;
+    }
     _checkingExisting = false;
     _syncAnswerControllers();
 
@@ -283,6 +289,12 @@ class _HomeTabState extends State<HomeTab> {
     }
   }
 
+  void _backToCheckIn() {
+    setState(() {
+      _page = null;
+    });
+  }
+
   void _newCheckIn() {
     setState(() {
       _mood = null;
@@ -290,6 +302,30 @@ class _HomeTabState extends State<HomeTab> {
       _page = null;
     });
     widget.onSavePage(DateTime.now().day, null);
+  }
+
+  Widget _buildBackBar() {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: GestureDetector(
+        onTap: _backToCheckIn,
+        behavior: HitTestBehavior.opaque,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.arrow_back_rounded, size: 16, color: t.accent),
+              const SizedBox(width: 6),
+              Text(
+                'Back to check-in',
+                style: AppTypography.lato700(13, t.accent),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -338,6 +374,7 @@ class _HomeTabState extends State<HomeTab> {
             ],
             // Daily page content
             if (_page != null) ...[
+              _buildBackBar(),
               _buildChamomileWelcome(),
               _DailyPageView(
                 page: _page!,
@@ -355,33 +392,66 @@ class _HomeTabState extends State<HomeTab> {
                 t: t,
                 mood: _mood,
               ),
-              const SizedBox(height: 14),
-              // New check-in button
-              Center(
-                child: GestureDetector(
-                  onTap: _newCheckIn,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 18,
-                      vertical: 10,
-                    ),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: t.border),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        AppIcons.refresh(c: t.muted, s: 14),
-                        const SizedBox(width: 8),
-                        Text(
-                          'New check-in',
-                          style: AppTypography.lato400(13, t.muted),
-                        ),
-                      ],
+              const SizedBox(height: 18),
+              // Action buttons: Back to check-in & New check-in
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  GestureDetector(
+                    onTap: _backToCheckIn,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: t.border),
+                        color: t.card,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.arrow_back_rounded,
+                            size: 14,
+                            color: t.accent,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Back to check-in',
+                            style: AppTypography.lato700(13, t.accent),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
+                  const SizedBox(width: 12),
+                  GestureDetector(
+                    onTap: _newCheckIn,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: t.border),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          AppIcons.refresh(c: t.muted, s: 14),
+                          const SizedBox(width: 8),
+                          Text(
+                            'New check-in',
+                            style: AppTypography.lato400(13, t.muted),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
             if (_page == null) _buildGentleRead(),
@@ -434,6 +504,9 @@ class _HomeTabState extends State<HomeTab> {
   }
 
   Widget _buildDateHeader() {
+    final name = widget.user.name.trim();
+    final greetingText = name.isEmpty ? '$_greeting.' : '$_greeting, $name.';
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.only(bottom: 14),
@@ -445,13 +518,17 @@ class _HomeTabState extends State<HomeTab> {
         children: [
           Text(
             _dateString,
-            style: AppTypography.lato700(10, t.muted, letterSpacing: 2.2),
+            style: AppTypography.lato700(11, t.muted, letterSpacing: 2.2),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 6),
           Text(
-            '$_greeting, ${widget.user.name}.',
-            style: AppTypography.cormorantItalic(19, t.accent),
+            greetingText,
+            style: AppTypography.cormorantItalic(
+              22,
+              t.accent,
+              fontWeight: FontWeight.w700,
+            ),
             textAlign: TextAlign.center,
           ),
         ],
@@ -467,7 +544,11 @@ class _HomeTabState extends State<HomeTab> {
         children: [
           Text(
             'How are you arriving today?',
-            style: AppTypography.cormorantItalic(16, t.muted),
+            style: AppTypography.cormorantItalic(
+              17,
+              t.text,
+              fontWeight: FontWeight.w600,
+            ),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 12),
@@ -510,26 +591,25 @@ class _HomeTabState extends State<HomeTab> {
 
     return AppCard(
       t: t,
-      child: Row(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const ClipOval(child: AppLogo(size: 36)),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('CHAMOMILE', style: AppTypography.sectionLabel(t.accent)),
-                const SizedBox(height: 10),
-                Text(
-                  textToShow,
-                  style: AppTypography.cormorantItalic(
-                    18,
-                    t.text,
-                    height: 1.65,
-                  ),
-                ),
-              ],
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              const ClipOval(child: AppLogo(size: 32)),
+              const SizedBox(width: 10),
+              Text('CHAMOMILE', style: AppTypography.sectionLabel(t.accent)),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            textToShow,
+            style: AppTypography.cormorantItalic(
+              18,
+              t.text,
+              fontWeight: FontWeight.w600,
+              height: 1.65,
             ),
           ),
         ],
@@ -618,12 +698,12 @@ class _DailyPageView extends StatelessWidget {
         _buildInsight(),
         // 5. Micro Ritual — gradient card
         _buildMicroRitual(),
-        gentleRead,
         const SizedBox(height: 14),
         // 6. Fun Moment
         _buildFunMoment(),
         // 7. Night Reflection — dark card
         _buildNightReflection(),
+        gentleRead,
       ],
     );
   }
@@ -649,7 +729,7 @@ class _DailyPageView extends StatelessWidget {
           const SizedBox(height: 16),
           Text(
             'When your thoughts, body, and actions feel in sync, you feel lighter.',
-            textAlign: TextAlign.center,
+            textAlign: TextAlign.start,
             style: AppTypography.cormorantItalic(16, t.muted, height: 1.5),
           ),
           if (page.emotionalFeeling.trim().isNotEmpty) ...[
@@ -680,6 +760,7 @@ class _DailyPageView extends StatelessWidget {
               subtitle: 'A gentle step toward yourself',
               body: page.emotionalResponse,
               accent: t.gold,
+              isBright: true,
             ),
           ],
         ],
@@ -693,8 +774,20 @@ class _DailyPageView extends StatelessWidget {
     required String subtitle,
     required String body,
     required Color accent,
+    bool isBright = false,
   }) {
     final night = t == AppTokens.night;
+    final alphaStart = isBright
+        ? (night ? 0.22 : 0.16)
+        : (night ? 0.14 : 0.07);
+    final alphaEnd = isBright
+        ? (night ? 0.12 : 0.08)
+        : (night ? 0.06 : 0.025);
+    final borderAlpha = isBright
+        ? (night ? 0.45 : 0.38)
+        : (night ? 0.28 : 0.24);
+    final barAlpha = isBright ? 0.70 : 0.46;
+
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
@@ -702,12 +795,12 @@ class _DailyPageView extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            accent.withValues(alpha: night ? 0.14 : 0.07),
-            accent.withValues(alpha: night ? 0.06 : 0.025),
+            accent.withValues(alpha: alphaStart),
+            accent.withValues(alpha: alphaEnd),
           ],
         ),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: accent.withValues(alpha: 0.24)),
+        border: Border.all(color: accent.withValues(alpha: borderAlpha)),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(14),
@@ -769,7 +862,7 @@ class _DailyPageView extends StatelessWidget {
               bottom: 0,
               left: 0,
               width: 3,
-              child: ColoredBox(color: accent.withValues(alpha: 0.46)),
+              child: ColoredBox(color: accent.withValues(alpha: barAlpha)),
             ),
           ],
         ),

@@ -160,6 +160,8 @@ class CTAButton extends StatelessWidget {
   final Widget? icon;
   final bool loading;
   final String loadingLabel;
+  final Color? disabledColor;
+  final Color? disabledTextColor;
 
   const CTAButton({
     super.key,
@@ -170,11 +172,18 @@ class CTAButton extends StatelessWidget {
     this.icon,
     this.loading = false,
     this.loadingLabel = 'Chamomile is thinking…',
+    this.disabledColor,
+    this.disabledTextColor,
   });
 
   @override
   Widget build(BuildContext context) {
     final isDisabled = disabled || loading;
+    final Color effectiveDisabledColor =
+        disabledColor ?? t.accent.withValues(alpha: 0.15);
+    final Color effectiveDisabledTextColor =
+        disabledTextColor ?? t.accent.withValues(alpha: 0.65);
+
     return GestureDetector(
       onTap: isDisabled ? null : onTap,
       child: Container(
@@ -182,8 +191,15 @@ class CTAButton extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
         margin: const EdgeInsets.only(top: 24),
         decoration: BoxDecoration(
-          color: isDisabled ? t.border : t.accent,
+          color: isDisabled ? effectiveDisabledColor : t.accent,
           borderRadius: BorderRadius.circular(14),
+          border:
+              isDisabled
+                  ? Border.all(
+                    color: t.accent.withValues(alpha: 0.32),
+                    width: 1.2,
+                  )
+                  : null,
           boxShadow:
               isDisabled
                   ? null
@@ -203,7 +219,7 @@ class CTAButton extends StatelessWidget {
               loading ? loadingLabel : label,
               style: AppTypography.playfair(
                 17,
-                isDisabled ? t.muted : Colors.white,
+                isDisabled ? effectiveDisabledTextColor : Colors.white,
               ),
             ),
           ],
