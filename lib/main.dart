@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -6,6 +7,7 @@ import 'services/api_service.dart';
 import 'theme/tokens.dart';
 import 'icons/app_icons.dart';
 import 'models/user_profile.dart';
+import 'widgets/app_logo.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/onboarding/onboarding_screen.dart';
 import 'screens/tabs/home_tab.dart';
@@ -36,11 +38,12 @@ class MeTimeClubApp extends StatelessWidget {
         useMaterial3: true,
         scaffoldBackgroundColor: AppTokens.day.bg,
       ),
-      builder: (context, child) => GestureDetector(
-        behavior: HitTestBehavior.translucent,
-        onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-        child: child!,
-      ),
+      builder:
+          (context, child) => GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+            child: child!,
+          ),
       home: const AppRoot(),
     );
   }
@@ -65,36 +68,42 @@ class _AppRootState extends State<AppRoot> {
   String? _authNotice;
   UserProfile? _pendingUser;
   bool _hasCheckedToday = false;
+  late final StreamSubscription<String> _sessionExpiredSubscription;
 
   AppTokens get t => _night ? AppTokens.night : AppTokens.day;
 
   @override
   void initState() {
     super.initState();
-    ApiService.onUnauthorized = _onSessionExpired;
+    _sessionExpiredSubscription = ApiService.sessionExpired.listen(
+      _onSessionExpired,
+    );
     _loadSession();
   }
 
   @override
   void dispose() {
-    if (ApiService.onUnauthorized == _onSessionExpired) {
-      ApiService.onUnauthorized = null;
-    }
+    _sessionExpiredSubscription.cancel();
     super.dispose();
   }
 
-  void _onSessionExpired() {
-    if (!mounted || _user == null || _loggingOut) return;
-    _clearSession();
+  void _onSessionExpired(String token) {
+    if (!mounted || _loggingOut || _user?.token != token) return;
+    _resetSession(showLogin: true);
+    unawaited(_clearSession());
+  }
+
+  void _resetSession({required bool showLogin}) {
     setState(() {
       _user = null;
-      _showLogin = true;
-      _authNotice = 'Your session expired. Please sign in again.';
+      _pendingUser = null;
+      _showingTransitionLoader = false;
+      _showLogin = showLogin;
+      _authNotice =
+          showLogin ? 'Your session expired. Please sign in again.' : null;
       _tab = 'home';
       _dailyPages.clear();
       _hasCheckedToday = false;
-      _showingTransitionLoader = false;
-      _pendingUser = null;
     });
   }
 
@@ -105,16 +114,17 @@ class _AppRootState extends State<AppRoot> {
       if (userStr != null) {
         final decoded = jsonDecode(userStr);
         final profile = UserProfile.fromJson(decoded);
-        setState(() {
-          _user = profile;
-        });
+        if (profile.token == null || profile.token!.trim().isEmpty) {
+          await prefs.remove('user_profile');
+          if (mounted) setState(() => _showLogin = true);
+        } else if (mounted) {
+          setState(() => _user = profile);
+        }
       }
     } catch (e) {
       debugPrint('Failed to load session: $e');
     } finally {
-      setState(() {
-        _loadingSession = false;
-      });
+      if (mounted) setState(() => _loadingSession = false);
     }
   }
 
@@ -144,7 +154,7 @@ class _AppRootState extends State<AppRoot> {
       _authNotice = null;
     });
     Future.delayed(const Duration(milliseconds: 1500), () {
-      if (mounted) {
+      if (mounted && identical(_pendingUser, user)) {
         setState(() {
           _user = _pendingUser;
           _showingTransitionLoader = false;
@@ -173,15 +183,7 @@ class _AppRootState extends State<AppRoot> {
       await ApiService.logout(token: token);
     }
     await _clearSession();
-    if (!mounted) return;
-    setState(() {
-      _user = null;
-      _showLogin = false;
-      _authNotice = null;
-      _tab = 'home';
-      _dailyPages.clear();
-      _hasCheckedToday = false;
-    });
+    if (mounted) _resetSession(showLogin: false);
     _loggingOut = false;
   }
 
@@ -213,8 +215,15 @@ class _AppRootState extends State<AppRoot> {
       return const Scaffold(
         backgroundColor: Color(0xFF1E1C1A),
         body: Center(
-          child: CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFB8706A)),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AppLogo(),
+              SizedBox(height: 24),
+              CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFB8706A)),
+              ),
+            ],
           ),
         ),
       );
@@ -280,19 +289,7 @@ class _AppRootState extends State<AppRoot> {
       child: Row(
         children: [
           // Logo mark
-          Container(
-            width: 30,
-            height: 30,
-            decoration: const BoxDecoration(shape: BoxShape.circle),
-            child: ClipOval(
-              child: Image.asset(
-                _night
-                    ? 'assets/metimeclub_logo_night_bg.png'
-                    : 'assets/metimeclub_logo_cream_bg.png',
-                fit: BoxFit.cover,
-              ),
-            ),
-          ),
+          const AppLogo(size: 30),
           const SizedBox(width: 10),
           // Brand + subtitle
           Column(
@@ -367,7 +364,14 @@ class _AppRootState extends State<AppRoot> {
   }
 
   // ─── Tab Stack (IndexedStack keeps all states alive) ─────────────────────
-  static const _tabOrder = ['home', 'calendar', 'memories', 'journal', 'circle', 'me'];
+  static const _tabOrder = [
+    'home',
+    'calendar',
+    'memories',
+    'journal',
+    'circle',
+    'me',
+  ];
 
   Widget _buildTabStack() {
     return IndexedStack(
@@ -382,10 +386,20 @@ class _AppRootState extends State<AppRoot> {
           hasCheckedToday: _hasCheckedToday,
           onCheckedToday: () => setState(() => _hasCheckedToday = true),
         ),
-        CalendarTab(key: const ValueKey('calendar'), user: _user!, t: t, dailyPages: _dailyPages),
+        CalendarTab(
+          key: const ValueKey('calendar'),
+          user: _user!,
+          t: t,
+          dailyPages: _dailyPages,
+        ),
         MemoriesTab(key: const ValueKey('memories'), user: _user!, t: t),
         JournalTab(key: const ValueKey('journal'), user: _user!, t: t),
-        CircleTab(key: const ValueKey('circle'), user: _user!, t: t, userName: _user!.name),
+        CircleTab(
+          key: const ValueKey('circle'),
+          user: _user!,
+          t: t,
+          userName: _user!.name,
+        ),
         MeTab(
           key: const ValueKey('me'),
           user: _user!,
@@ -396,9 +410,6 @@ class _AppRootState extends State<AppRoot> {
       ],
     );
   }
-
-  // ─── Tab Content (legacy — no longer used) ───────────────────────────────
-  Widget _buildTabContent() => _buildTabStack();
 
   // ─── Bottom Navigation ───────────────────────────
   Widget _buildBottomNav() {
@@ -475,9 +486,10 @@ class _AppRootState extends State<AppRoot> {
               const SizedBox(height: 4),
               Text(
                 label,
-                style: active
-                    ? AppTypography.lato700(9, t.accent)
-                    : AppTypography.lato400(9, t.muted),
+                style:
+                    active
+                        ? AppTypography.lato700(9, t.accent)
+                        : AppTypography.lato400(9, t.muted),
               ),
             ],
           ),
@@ -501,11 +513,7 @@ class _AppRootState extends State<AppRoot> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Image.asset(
-                  'assets/metimeclub_logo_transparent.png',
-                  height: 120,
-                  fit: BoxFit.contain,
-                ),
+                const AppLogo(size: 120),
                 const SizedBox(height: 32),
                 const SizedBox(
                   width: 24,

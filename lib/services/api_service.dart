@@ -1,5 +1,6 @@
 // ignore_for_file: avoid_print
 
+import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
@@ -18,7 +19,10 @@ MediaType _imageMediaType(String path) {
     case 'gif':
       return MediaType('image', 'gif');
     default:
-      return MediaType('image', 'jpeg'); // jpg, jpeg, heic (converted by picker)
+      return MediaType(
+        'image',
+        'jpeg',
+      ); // jpg, jpeg, heic (converted by picker)
   }
 }
 
@@ -30,26 +34,58 @@ class ApiException implements Exception {
   String toString() => message;
 }
 
-/// Thrown when an authenticated request is rejected because the JWT is missing or expired.
-class UnauthorizedException extends ApiException {
-  UnauthorizedException()
-      : super('Your session expired. Please sign in again.');
+class SessionExpiredException extends ApiException {
+  SessionExpiredException()
+    : super('Your session has expired. Please sign in again.');
 }
 
-/// HTTP client that signs the user out locally when the server rejects the token.
-class _SessionClient extends http.BaseClient {
-  final http.Client _inner = http.Client();
+/// Keeps the server's authorization error distinct from ordinary API failures.
+class UnauthorizedException extends SessionExpiredException {}
 
+/// Covers both JSON requests and multipart uploads with the same session check.
+class _SessionClient extends http.BaseClient {
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
-    final streamed = await _inner.send(request);
-    if (streamed.statusCode != 401) return streamed;
-
+    final client = http.Client();
     try {
-      await streamed.stream.drain<void>();
-    } catch (_) {}
-    ApiService.notifyUnauthorized();
-    throw UnauthorizedException();
+      final response = await client.send(request);
+      if (response.statusCode == 401) {
+        try {
+          await response.stream.drain<void>();
+        } catch (_) {}
+        final authorization = request.headers['Authorization'] ?? '';
+        final token =
+            authorization.startsWith('Bearer ')
+                ? authorization.substring(7)
+                : '';
+        ApiService.notifyUnauthorized(token);
+        throw UnauthorizedException();
+      }
+      return http.StreamedResponse(
+        _closeAfterReading(response.stream, client),
+        response.statusCode,
+        contentLength: response.contentLength,
+        request: response.request,
+        headers: response.headers,
+        isRedirect: response.isRedirect,
+        persistentConnection: response.persistentConnection,
+        reasonPhrase: response.reasonPhrase,
+      );
+    } catch (_) {
+      client.close();
+      rethrow;
+    }
+  }
+
+  Stream<List<int>> _closeAfterReading(
+    Stream<List<int>> stream,
+    http.Client client,
+  ) async* {
+    try {
+      yield* stream;
+    } finally {
+      client.close();
+    }
   }
 }
 
@@ -70,7 +106,13 @@ class ApiService {
   static void Function()? onUnauthorized;
   static bool _unauthorizedNotified = false;
 
-  static void notifyUnauthorized() {
+  static final _sessionExpired = StreamController<String>.broadcast();
+
+  /// Include the token so a late response cannot sign out a newer session.
+  static Stream<String> get sessionExpired => _sessionExpired.stream;
+
+  static void notifyUnauthorized(String token) {
+    _sessionExpired.add(token);
     if (_unauthorizedNotified) return;
     _unauthorizedNotified = true;
     final callback = onUnauthorized;
@@ -266,7 +308,11 @@ class ApiService {
     required String dateKey,
   }) async {
     final url = '$apiBase/daily_pages/generate';
-    final requestBody = {'mood': mood, 'free_text': freeText, 'date_key': dateKey};
+    final requestBody = {
+      'mood': mood,
+      'free_text': freeText,
+      'date_key': dateKey,
+    };
 
     print('[API REQUEST] POST $url');
     print('[API REQUEST BODY] ${jsonEncode(requestBody)}');
@@ -382,8 +428,7 @@ class ApiService {
     required String token,
     required String dateKey,
   }) async {
-    final url =
-        '$apiBase/tasks?date_key=${Uri.encodeQueryComponent(dateKey)}';
+    final url = '$apiBase/tasks?date_key=${Uri.encodeQueryComponent(dateKey)}';
 
     print('[API REQUEST] GET $url');
 
@@ -578,7 +623,9 @@ class ApiService {
       print('[API RESPONSE] ${response.statusCode} PATCH $url');
       print('[API RESPONSE BODY] ${response.body}');
 
-      if (response.statusCode == 204) return {}; // No Content — success, empty body
+      if (response.statusCode == 204) {
+        return {}; // No Content — success, empty body
+      }
       final decoded = jsonDecode(response.body);
       if (response.statusCode == 200) {
         return decoded as Map<String, dynamic>;
@@ -701,9 +748,8 @@ class ApiService {
     required String token,
     List<int> excludeIds = const [],
   }) async {
-    final query = excludeIds.isEmpty
-        ? ''
-        : '?exclude_ids=${excludeIds.join(',')}';
+    final query =
+        excludeIds.isEmpty ? '' : '?exclude_ids=${excludeIds.join(',')}';
     final url = '$apiBase/gentle_reads/random$query';
 
     print('[API REQUEST] GET $url');
@@ -917,7 +963,10 @@ class ApiService {
     try {
       final response = await _client.get(
         Uri.parse(url),
-        headers: {'accept': 'application/json', 'Authorization': 'Bearer $token'},
+        headers: {
+          'accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
       );
       print('[API RESPONSE] ${response.statusCode} GET $url');
       if (response.statusCode == 200) {
@@ -941,7 +990,10 @@ class ApiService {
     try {
       final response = await _client.get(
         Uri.parse(url),
-        headers: {'accept': 'application/json', 'Authorization': 'Bearer $token'},
+        headers: {
+          'accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
       );
       print('[API RESPONSE] ${response.statusCode} GET $url');
       if (response.statusCode == 200) {
@@ -950,6 +1002,7 @@ class ApiService {
       }
       return [];
     } catch (e) {
+      if (e is SessionExpiredException) rethrow;
       print('[API ERROR] fetchMonthCycleDays: $e');
       return [];
     }
@@ -977,6 +1030,7 @@ class ApiService {
       }
       return [];
     } catch (e) {
+      if (e is SessionExpiredException) rethrow;
       print('[API ERROR] fetchMonthTasks: $e');
       return [];
     }
@@ -1004,6 +1058,7 @@ class ApiService {
       }
       return [];
     } catch (e) {
+      if (e is SessionExpiredException) rethrow;
       print('[API ERROR] fetchMonthDailyPages: $e');
       return [];
     }
@@ -1034,6 +1089,7 @@ class ApiService {
       }
       return [];
     } catch (e) {
+      if (e is SessionExpiredException) rethrow;
       print('[API ERROR] bulkCreateCycleDays: $e');
       return [];
     }
@@ -1053,6 +1109,7 @@ class ApiService {
       );
       print('[API RESPONSE] ${response.statusCode} DELETE $url');
     } catch (e) {
+      if (e is SessionExpiredException) rethrow;
       print('[API ERROR] deleteCycleDay: $e');
     }
   }
@@ -1107,7 +1164,10 @@ class ApiService {
     try {
       final response = await _client.get(
         Uri.parse(url),
-        headers: {'accept': 'application/json', 'Authorization': 'Bearer $token'},
+        headers: {
+          'accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
       );
       print('[API RESPONSE] ${response.statusCode} GET $url');
       if (response.statusCode == 200) {
@@ -1132,10 +1192,7 @@ class ApiService {
   }) async {
     const url = '$apiBase/categories';
     final requestBody = {
-      'category': {
-        'name': name,
-        if (icon != null) 'icon': icon,
-      },
+      'category': {'name': name, if (icon != null) 'icon': icon},
     };
     print('[API REQUEST] POST $url');
     print('[API REQUEST BODY] ${jsonEncode(requestBody)}');
@@ -1154,13 +1211,16 @@ class ApiService {
       if (response.statusCode == 201) {
         return decoded as Map<String, dynamic>;
       }
-      final errorMsg = decoded['errors'] != null
-          ? (decoded['errors'] as List).join(', ')
-          : decoded['error'] as String? ?? 'Failed to create category.';
+      final errorMsg =
+          decoded['errors'] != null
+              ? (decoded['errors'] as List).join(', ')
+              : decoded['error'] as String? ?? 'Failed to create category.';
       throw ApiException(errorMsg);
     } on http.ClientException catch (e) {
       print('[API ERROR] ClientException: ${e.message}');
-      throw ApiException('Network error: Please check your internet connection.');
+      throw ApiException(
+        'Network error: Please check your internet connection.',
+      );
     } catch (e) {
       print('[API ERROR] createShoppingCategory: $e');
       if (e is ApiException) rethrow;
@@ -1183,11 +1243,14 @@ class ApiService {
       print('[API RESPONSE] ${response.statusCode} DELETE $url');
       if (response.statusCode != 200 && response.statusCode != 204) {
         throw ApiException(
-            'Failed to delete category (status: ${response.statusCode}).');
+          'Failed to delete category (status: ${response.statusCode}).',
+        );
       }
     } on http.ClientException catch (e) {
       print('[API ERROR] ClientException: ${e.message}');
-      throw ApiException('Network error: Please check your internet connection.');
+      throw ApiException(
+        'Network error: Please check your internet connection.',
+      );
     } catch (e) {
       print('[API ERROR] deleteShoppingCategory: $e');
       if (e is ApiException) rethrow;
@@ -1469,7 +1532,9 @@ class ApiService {
       );
     } on http.ClientException catch (e) {
       print('[API ERROR] ClientException: ${e.message}');
-      throw ApiException('Network error: Please check your internet connection.');
+      throw ApiException(
+        'Network error: Please check your internet connection.',
+      );
     } catch (e) {
       print('[API ERROR] Exception: ${e.toString()}');
       if (e is ApiException) rethrow;
@@ -1478,7 +1543,9 @@ class ApiService {
   }
 
   /// Gets the user's profile.
-  static Future<Map<String, dynamic>> getProfile({required String token}) async {
+  static Future<Map<String, dynamic>> getProfile({
+    required String token,
+  }) async {
     const url = '$apiBase/profile';
 
     print('[API REQUEST] GET $url');
@@ -1499,7 +1566,8 @@ class ApiService {
       if (response.statusCode == 200) {
         return decoded as Map<String, dynamic>;
       } else {
-        final errorMsg = decoded['error'] as String? ?? 'Failed to get profile.';
+        final errorMsg =
+            decoded['error'] as String? ?? 'Failed to get profile.';
         throw ApiException(errorMsg);
       }
     } on http.ClientException catch (e) {
@@ -1581,8 +1649,13 @@ class ApiService {
       final request = http.MultipartRequest('POST', Uri.parse(url));
       request.headers['Authorization'] = 'Bearer $token';
       request.headers['accept'] = 'application/json';
-      request.files.add(await http.MultipartFile.fromPath(
-        'image', imagePath, contentType: _imageMediaType(imagePath)));
+      request.files.add(
+        await http.MultipartFile.fromPath(
+          'image',
+          imagePath,
+          contentType: _imageMediaType(imagePath),
+        ),
+      );
 
       final streamed = await _client.send(request);
       final response = await http.Response.fromStream(streamed);
@@ -1626,7 +1699,8 @@ class ApiService {
       if (response.statusCode == 200) {
         return decoded as List<dynamic>;
       } else {
-        final errorMsg = decoded['error'] as String? ?? 'Failed to get memories.';
+        final errorMsg =
+            decoded['error'] as String? ?? 'Failed to get memories.';
         throw ApiException(errorMsg);
       }
     } on http.ClientException catch (e) {
@@ -1660,8 +1734,13 @@ class ApiService {
       request.fields['title'] = title;
       if (description != null) request.fields['description'] = description;
       if (imagePath != null) {
-        request.files.add(await http.MultipartFile.fromPath(
-        'image', imagePath, contentType: _imageMediaType(imagePath)));
+        request.files.add(
+          await http.MultipartFile.fromPath(
+            'image',
+            imagePath,
+            contentType: _imageMediaType(imagePath),
+          ),
+        );
       }
 
       final streamed = await _client.send(request);
@@ -1674,12 +1753,15 @@ class ApiService {
       if (response.statusCode == 200 || response.statusCode == 201) {
         return decoded as Map<String, dynamic>;
       } else {
-        final errorMsg = decoded['error'] as String? ?? 'Failed to create memory.';
+        final errorMsg =
+            decoded['error'] as String? ?? 'Failed to create memory.';
         throw ApiException(errorMsg);
       }
     } on http.ClientException catch (e) {
       print('[API ERROR] ClientException: ${e.message}');
-      throw ApiException('Network error: Please check your internet connection.');
+      throw ApiException(
+        'Network error: Please check your internet connection.',
+      );
     } catch (e) {
       print('[API ERROR] Exception: ${e.toString()}');
       if (e is ApiException) rethrow;
@@ -1708,8 +1790,13 @@ class ApiService {
       if (title != null) request.fields['title'] = title;
       if (description != null) request.fields['description'] = description;
       if (imagePath != null) {
-        request.files.add(await http.MultipartFile.fromPath(
-        'image', imagePath, contentType: _imageMediaType(imagePath)));
+        request.files.add(
+          await http.MultipartFile.fromPath(
+            'image',
+            imagePath,
+            contentType: _imageMediaType(imagePath),
+          ),
+        );
       }
 
       final streamed = await _client.send(request);
@@ -1722,12 +1809,15 @@ class ApiService {
       if (response.statusCode == 200 || response.statusCode == 204) {
         return decoded as Map<String, dynamic>;
       } else {
-        final errorMsg = decoded['error'] as String? ?? 'Failed to update memory.';
+        final errorMsg =
+            decoded['error'] as String? ?? 'Failed to update memory.';
         throw ApiException(errorMsg);
       }
     } on http.ClientException catch (e) {
       print('[API ERROR] ClientException: ${e.message}');
-      throw ApiException('Network error: Please check your internet connection.');
+      throw ApiException(
+        'Network error: Please check your internet connection.',
+      );
     } catch (e) {
       print('[API ERROR] Exception: ${e.toString()}');
       if (e is ApiException) rethrow;
@@ -1747,10 +1837,7 @@ class ApiService {
     try {
       final response = await _client.delete(
         Uri.parse(url),
-        headers: {
-          'accept': '*/*',
-          'Authorization': 'Bearer $token',
-        },
+        headers: {'accept': '*/*', 'Authorization': 'Bearer $token'},
       );
 
       print('[API RESPONSE] ${response.statusCode} DELETE $url');
@@ -1786,8 +1873,10 @@ class ApiService {
       'daily_page': {
         'date_key': dateKey,
         if (reflectionAnswer != null) 'reflection_answer': reflectionAnswer,
-        if (reflectionFollowupAnswer != null) 'reflection_followup_answer': reflectionFollowupAnswer,
-        if (nightReflectionAnswer != null) 'night_reflection_answer': nightReflectionAnswer,
+        if (reflectionFollowupAnswer != null)
+          'reflection_followup_answer': reflectionFollowupAnswer,
+        if (nightReflectionAnswer != null)
+          'night_reflection_answer': nightReflectionAnswer,
       },
     };
     print('[API REQUEST] POST $url');
@@ -1845,7 +1934,9 @@ class ApiService {
       if (response.statusCode == 200) {
         return decoded as Map<String, dynamic>;
       }
-      throw ApiException(decoded['error'] as String? ?? 'Failed to update category.');
+      throw ApiException(
+        decoded['error'] as String? ?? 'Failed to update category.',
+      );
     } on http.ClientException catch (e) {
       throw ApiException('Network error: ${e.message}');
     } catch (e) {

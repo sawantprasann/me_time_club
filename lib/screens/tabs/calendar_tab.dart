@@ -27,7 +27,6 @@ class _CalendarTabState extends State<CalendarTab> {
   late int _viewMonth;
   int _sel = 1;
   bool _pageExpanded = false;
-  bool _showYearPicker = false;
 
   // Tasks: key = "$year-$month-$day" (local cache key)
   final Map<String, List<_TaskItem>> _tasks = {};
@@ -54,8 +53,7 @@ class _CalendarTabState extends State<CalendarTab> {
   String get _apiDateKey =>
       '$_viewYear-${_viewMonth.toString().padLeft(2, '0')}-${_sel.toString().padLeft(2, '0')}';
 
-  String get _apiMonth =>
-      '$_viewYear-${_viewMonth.toString().padLeft(2, '0')}';
+  String get _apiMonth => '$_viewYear-${_viewMonth.toString().padLeft(2, '0')}';
 
   @override
   void initState() {
@@ -102,7 +100,7 @@ class _CalendarTabState extends State<CalendarTab> {
               final month = int.parse(parts[1]);
               final day = int.parse(parts[2]);
               final localKey = '$year-$month-$day';
-              
+
               final item = _TaskItem(
                 id: t['id'].toString(),
                 text: t['title'] as String? ?? '',
@@ -127,7 +125,8 @@ class _CalendarTabState extends State<CalendarTab> {
         setState(() {
           final days = _daysInMonth;
           for (int i = 1; i <= days; i++) {
-            final dateKey = '$_viewYear-${_viewMonth.toString().padLeft(2, '0')}-${i.toString().padLeft(2, '0')}';
+            final dateKey =
+                '$_viewYear-${_viewMonth.toString().padLeft(2, '0')}-${i.toString().padLeft(2, '0')}';
             _fetchedPages[dateKey] = null;
           }
           for (final p in rawPages) {
@@ -148,14 +147,20 @@ class _CalendarTabState extends State<CalendarTab> {
   Future<void> _loadCycleDays() async {
     if (_cycleDaysLoaded) return;
     try {
-      final raw = await ApiService.fetchAllCycleDays(token: widget.user.token ?? '');
+      final raw = await ApiService.fetchAllCycleDays(
+        token: widget.user.token ?? '',
+      );
       if (!mounted) return;
       setState(() {
         for (final r in raw) {
           final dk = r['date_key'] as String; // "2026-07-02"
           _cycleDayIds[dk] = r['id'].toString();
           final parts = dk.split('-');
-          final d = DateTime(int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
+          final d = DateTime(
+            int.parse(parts[0]),
+            int.parse(parts[1]),
+            int.parse(parts[2]),
+          );
           _cycleDays.add(_dateKey(d));
         }
         _cycleDaysLoaded = true;
@@ -174,11 +179,12 @@ class _CalendarTabState extends State<CalendarTab> {
       return;
     }
     // Parse all cycle days to DateTime
-    final dates = _cycleDays.map((k) {
-      final p = k.split('-');
-      return DateTime(int.parse(p[0]), int.parse(p[1]), int.parse(p[2]));
-    }).toList()
-      ..sort();
+    final dates =
+        _cycleDays.map((k) {
+            final p = k.split('-');
+            return DateTime(int.parse(p[0]), int.parse(p[1]), int.parse(p[2]));
+          }).toList()
+          ..sort();
 
     // A start day is one where the day before is NOT a cycle day
     final daySet = dates.map((d) => _dateKey(d)).toSet();
@@ -214,15 +220,16 @@ class _CalendarTabState extends State<CalendarTab> {
       );
       if (!mounted) return;
       setState(() {
-        _tasks[_taskKey] = raw
-            .map(
-              (t) => _TaskItem(
-                id: t['id'].toString(),
-                text: t['title'] as String? ?? '',
-                done: t['completed'] as bool? ?? false,
-              ),
-            )
-            .toList();
+        _tasks[_taskKey] =
+            raw
+                .map(
+                  (t) => _TaskItem(
+                    id: t['id'].toString(),
+                    text: t['title'] as String? ?? '',
+                    done: t['completed'] as bool? ?? false,
+                  ),
+                )
+                .toList();
       });
     } catch (e) {
       debugPrint('[TASKS LOAD ERROR] $e');
@@ -365,13 +372,14 @@ class _CalendarTabState extends State<CalendarTab> {
   Future<void> _markCycleDay() async {
     final base = DateTime(_viewYear, _viewMonth, _sel);
     final localKey = _dateKey(base);
-    final paddedKey = _apiDateKey;
 
     if (_cycleDays.contains(localKey)) {
       // Unmark this day AND remove all 3 days of the period that started here.
       // Find the start of the period this day belongs to.
       DateTime start = base;
-      while (_cycleDays.contains(_dateKey(start.subtract(const Duration(days: 1))))) {
+      while (_cycleDays.contains(
+        _dateKey(start.subtract(const Duration(days: 1))),
+      )) {
         start = start.subtract(const Duration(days: 1));
       }
       // Collect up to 3 days from start
@@ -382,18 +390,24 @@ class _CalendarTabState extends State<CalendarTab> {
         final lk = _dateKey(d);
         if (_cycleDays.contains(lk)) {
           toRemove.add(lk);
-          final pk = '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+          final pk =
+              '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
           final id = _cycleDayIds[pk];
           if (id != null) idsToDelete.add(id);
         }
       }
       setState(() {
-        for (final k in toRemove) _cycleDays.remove(k);
+        for (final k in toRemove) {
+          _cycleDays.remove(k);
+        }
         _computePredicted();
       });
       for (final id in idsToDelete) {
         try {
-          await ApiService.deleteCycleDay(token: widget.user.token ?? '', cycleDayId: id);
+          await ApiService.deleteCycleDay(
+            token: widget.user.token ?? '',
+            cycleDayId: id,
+          );
         } catch (e) {
           debugPrint('[CYCLE DELETE ERROR] $e');
         }
@@ -404,7 +418,9 @@ class _CalendarTabState extends State<CalendarTab> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: const Text('You\'ve already logged a period this month.'),
+              content: const Text(
+                'You\'ve already logged a period this month.',
+              ),
               backgroundColor: t.cycleRose,
               behavior: SnackBarBehavior.floating,
             ),
@@ -485,12 +501,7 @@ class _CalendarTabState extends State<CalendarTab> {
       padding: const EdgeInsets.fromLTRB(18, 10, 18, 18),
       child: Column(
         children: [
-          _buildMonthNav(),
-          if (_showYearPicker) _buildYearPicker(),
-          const SizedBox(height: 14),
           _buildCalendarGrid(),
-          const SizedBox(height: 6),
-          _buildDotLegend(),
           const SizedBox(height: 18),
           _buildDailyPageSection(),
           const SizedBox(height: 14),
@@ -504,118 +515,201 @@ class _CalendarTabState extends State<CalendarTab> {
 
   Widget _buildMonthNav() {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        SolidButton(
-          onTap: _prevMonth,
-          icon: Transform(
-            alignment: Alignment.center,
-            transform: Matrix4.rotationY(3.14159),
-            child: AppIcons.chevRight(c: Colors.white, s: 16),
-          ),
-          size: 36,
-          color: t.accent,
+        Expanded(child: _buildMonthDropdown()),
+        const SizedBox(width: 12),
+        _buildYearDropdown(),
+        const SizedBox(width: 12),
+        _buildMonthArrow(
+          tooltip: 'Previous month',
+          icon: Icons.chevron_left_rounded,
+          onPressed: _prevMonth,
         ),
-        Row(
-          children: [
-            Text(
-              _monthNames[_viewMonth - 1],
-              style: AppTypography.playfair(20, t.text),
-            ),
-            const SizedBox(width: 10),
-            GestureDetector(
-              onTap: () => setState(() => _showYearPicker = !_showYearPicker),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 5,
-                ),
-                decoration: BoxDecoration(
-                  color: _showYearPicker ? t.accent : Colors.transparent,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: _showYearPicker ? t.accent : t.border,
-                  ),
-                ),
-                child: Text(
-                  '$_viewYear',
-                  style: AppTypography.lato700(
-                    13,
-                    _showYearPicker ? Colors.white : t.accent,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-        SolidButton(
-          onTap: _nextMonth,
-          icon: AppIcons.chevRight(c: Colors.white, s: 16),
-          size: 36,
-          color: t.accent,
+        const SizedBox(width: 6),
+        _buildMonthArrow(
+          tooltip: 'Next month',
+          icon: Icons.chevron_right_rounded,
+          onPressed: _nextMonth,
         ),
       ],
     );
   }
 
-  Widget _buildYearPicker() {
-    final currentYear = DateTime.now().year;
-    final years = List.generate(12, (i) => currentYear - 5 + i);
-    return Padding(
-      padding: const EdgeInsets.only(top: 12),
-      child: Wrap(
-        alignment: WrapAlignment.center,
-        spacing: 8,
-        runSpacing: 8,
-        children:
-            years.map((y) {
-              final sel = y == _viewYear;
-              return GestureDetector(
-                onTap: () {
-                  setState(() {
-                    _viewYear = y;
-                    _showYearPicker = false;
-                    _sel = 1;
-                    // Do NOT clear cycle days — loaded once for all months.
-                    _tasks.clear();
-                    _fetchedPages.clear();
-                  });
-                  _loadMonthData();
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 7,
-                  ),
-                  decoration: BoxDecoration(
-                    color: sel ? t.accent : Colors.transparent,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: sel ? t.accent : t.border),
-                  ),
-                  child: Text(
-                    '$y',
-                    style: AppTypography.lato700(
-                      12,
-                      sel ? Colors.white : t.muted,
+  Widget _buildMonthArrow({
+    required String tooltip,
+    required IconData icon,
+    required VoidCallback onPressed,
+  }) {
+    return IconButton(
+      tooltip: tooltip,
+      onPressed: onPressed,
+      icon: Icon(icon, size: 22),
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints.tightFor(width: 36, height: 40),
+      style: IconButton.styleFrom(
+        foregroundColor: t.muted,
+        backgroundColor: t.bg,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
+    );
+  }
+
+  void _changeDisplayedDate({int? month, int? year}) {
+    final nextMonth = month ?? _viewMonth;
+    final nextYear = year ?? _viewYear;
+    if (nextMonth == _viewMonth && nextYear == _viewYear) return;
+    setState(() {
+      _viewMonth = nextMonth;
+      _viewYear = nextYear;
+      _sel = 1;
+      _pageExpanded = false;
+      _tasks.clear();
+      _fetchedPages.clear();
+    });
+    _loadMonthData();
+  }
+
+  Widget _buildMonthDropdown() => _buildDateDropdown(
+    label: 'month',
+    selectedValue: _viewMonth,
+    values: List.generate(12, (index) => index + 1),
+    formatValue: (month) => _monthNames[month - 1],
+    menuWidth: 180,
+    onSelected: (month) => _changeDisplayedDate(month: month),
+  );
+
+  Widget _buildYearDropdown() {
+    const firstYear = 2000;
+    final lastYear = DateTime.now().year + 6;
+    final years =
+        {
+            ...List.generate(lastYear - firstYear + 1, (i) => firstYear + i),
+            _viewYear,
+          }.toList()
+          ..sort();
+    return _buildDateDropdown(
+      label: 'year',
+      selectedValue: _viewYear,
+      values: years,
+      formatValue: (year) => '$year',
+      menuWidth: 136,
+      onSelected: (year) => _changeDisplayedDate(year: year),
+    );
+  }
+
+  Widget _buildDateDropdown({
+    required String label,
+    required int selectedValue,
+    required List<int> values,
+    required String Function(int) formatValue,
+    required double menuWidth,
+    required ValueChanged<int> onSelected,
+  }) {
+    return PopupMenuButton<int>(
+      initialValue: selectedValue,
+      tooltip: 'Choose calendar $label',
+      position: PopupMenuPosition.under,
+      offset: const Offset(0, 6),
+      color: t.card,
+      surfaceTintColor: Colors.transparent,
+      shadowColor: Colors.black.withValues(alpha: 0.12),
+      elevation: 6,
+      menuPadding: const EdgeInsets.symmetric(vertical: 4),
+      constraints: BoxConstraints(
+        minWidth: menuWidth,
+        maxWidth: menuWidth,
+        maxHeight: 272,
+      ),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(color: t.border),
+      ),
+      itemBuilder:
+          (context) =>
+              values.map((value) {
+                final selected = value == selectedValue;
+                return PopupMenuItem<int>(
+                  value: value,
+                  height: 44,
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  child: Semantics(
+                    selected: selected,
+                    child: Row(
+                      children: [
+                        Text(
+                          formatValue(value),
+                          style:
+                              selected
+                                  ? AppTypography.lato700(14, t.accent)
+                                  : AppTypography.lato400(14, t.text),
+                        ),
+                        const Spacer(),
+                        if (selected)
+                          Icon(Icons.check_rounded, size: 18, color: t.accent),
+                      ],
                     ),
                   ),
+                );
+              }).toList(),
+      onSelected: onSelected,
+      child: Semantics(
+        label: 'Calendar $label',
+        button: true,
+        child: Container(
+          height: 40,
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          decoration: BoxDecoration(
+            color: t.accent.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: t.accent.withValues(alpha: 0.18)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Flexible(
+                child: Text(
+                  formatValue(selectedValue),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.lato700(14, t.accent),
                 ),
-              );
-            }).toList(),
+              ),
+              const SizedBox(width: 4),
+              Icon(
+                Icons.keyboard_arrow_down_rounded,
+                size: 18,
+                color: t.accent,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
 
   Widget _buildCalendarGrid() {
     final now = DateTime.now();
+    final weekCount = (_firstWeekday + _daysInMonth + 6) ~/ 7;
     bool isToday(int d) =>
         d == now.day && _viewMonth == now.month && _viewYear == now.year;
 
     return AppCard(
       t: t,
       padding: const EdgeInsets.all(12),
+      margin: EdgeInsets.zero,
       child: Column(
         children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(4, 2, 4, 16),
+            child: _buildMonthNav(),
+          ),
+          Divider(
+            height: 1,
+            thickness: 1,
+            color: t.border.withValues(alpha: 0.6),
+          ),
+          const SizedBox(height: 16),
           // Day headers
           Row(
             children:
@@ -638,7 +732,7 @@ class _CalendarTabState extends State<CalendarTab> {
           ),
           const SizedBox(height: 8),
           // Grid
-          ...List.generate(6, (week) {
+          ...List.generate(weekCount, (week) {
             return Row(
               children: List.generate(7, (dow) {
                 final dayNum = week * 7 + dow - _firstWeekday + 1;
@@ -659,7 +753,8 @@ class _CalendarTabState extends State<CalendarTab> {
                         widget.dailyPages.containsKey(dayNum)) ||
                     (_fetchedPages[dotDateKey] != null);
                 final hasCycle = _cycleDays.contains(dayKey);
-                final isPredicted = _nextPredictedDate != null &&
+                final isPredicted =
+                    _nextPredictedDate != null &&
                     _nextPredictedDate!.year == _viewYear &&
                     _nextPredictedDate!.month == _viewMonth &&
                     _nextPredictedDate!.day == dayNum;
@@ -680,9 +775,14 @@ class _CalendarTabState extends State<CalendarTab> {
                                 : today
                                 ? t.accent.withValues(alpha: 0.22)
                                 : Colors.transparent,
-                        border: isPredicted && !selected
-                            ? Border.all(color: t.cycleRose, width: 1.5, strokeAlign: BorderSide.strokeAlignOutside)
-                            : today && !selected
+                        border:
+                            isPredicted && !selected
+                                ? Border.all(
+                                  color: t.cycleRose,
+                                  width: 1.5,
+                                  strokeAlign: BorderSide.strokeAlignOutside,
+                                )
+                                : today && !selected
                                 ? Border.all(color: t.accent, width: 2)
                                 : null,
                         boxShadow:
@@ -731,6 +831,16 @@ class _CalendarTabState extends State<CalendarTab> {
               }),
             );
           }),
+          const SizedBox(height: 12),
+          Divider(
+            height: 1,
+            thickness: 1,
+            color: t.border.withValues(alpha: 0.6),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(top: 14, bottom: 4),
+            child: _buildDotLegend(),
+          ),
         ],
       ),
     );
@@ -1070,10 +1180,13 @@ class _CalendarTabState extends State<CalendarTab> {
     final alreadyThisMonth = _monthHasCycleEntry(_viewYear, _viewMonth);
 
     // Only show actual cycle days for the current view month in the chips
-    final viewMonthDays = _cycleDays.where((k) {
-      final p = k.split('-');
-      return int.parse(p[0]) == _viewYear && int.parse(p[1]) == _viewMonth;
-    }).toList()..sort();
+    final viewMonthDays =
+        _cycleDays.where((k) {
+            final p = k.split('-');
+            return int.parse(p[0]) == _viewYear &&
+                int.parse(p[1]) == _viewMonth;
+          }).toList()
+          ..sort();
 
     return AppCard(
       t: t,
@@ -1088,15 +1201,17 @@ class _CalendarTabState extends State<CalendarTab> {
               const Spacer(),
               SolidButton(
                 onTap: _markCycleDay,
-                icon: isMarked
-                    ? AppIcons.check(c: Colors.white, s: 14)
-                    : AppIcons.plus(c: Colors.white, s: 14),
+                icon:
+                    isMarked
+                        ? AppIcons.check(c: Colors.white, s: 14)
+                        : AppIcons.plus(c: Colors.white, s: 14),
                 size: 30,
-                color: isMarked
-                    ? t.cycleRose
-                    : alreadyThisMonth
-                    ? t.border
-                    : t.accent,
+                color:
+                    isMarked
+                        ? t.cycleRose
+                        : alreadyThisMonth
+                        ? t.border
+                        : t.accent,
               ),
             ],
           ),
@@ -1107,22 +1222,32 @@ class _CalendarTabState extends State<CalendarTab> {
             Wrap(
               spacing: 6,
               runSpacing: 6,
-              children: viewMonthDays.map((key) {
-                final parts = key.split('-');
-                final d = DateTime(int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
-                return Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: t.cycleRose.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: t.cycleRose.withValues(alpha: 0.35)),
-                  ),
-                  child: Text(
-                    '${d.day} ${_shortMonths[d.month - 1]}',
-                    style: AppTypography.lato400(11, t.cycleRose),
-                  ),
-                );
-              }).toList(),
+              children:
+                  viewMonthDays.map((key) {
+                    final parts = key.split('-');
+                    final d = DateTime(
+                      int.parse(parts[0]),
+                      int.parse(parts[1]),
+                      int.parse(parts[2]),
+                    );
+                    return Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: t.cycleRose.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: t.cycleRose.withValues(alpha: 0.35),
+                        ),
+                      ),
+                      child: Text(
+                        '${d.day} ${_shortMonths[d.month - 1]}',
+                        style: AppTypography.lato400(11, t.cycleRose),
+                      ),
+                    );
+                  }).toList(),
             ),
           ] else
             const SizedBox(height: 4),
@@ -1135,12 +1260,19 @@ class _CalendarTabState extends State<CalendarTab> {
               decoration: BoxDecoration(
                 color: t.cycleRose.withValues(alpha: 0.07),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: t.cycleRose.withValues(alpha: 0.25), style: BorderStyle.solid),
+                border: Border.all(
+                  color: t.cycleRose.withValues(alpha: 0.25),
+                  style: BorderStyle.solid,
+                ),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.calendar_today_outlined, color: t.cycleRose, size: 13),
+                  Icon(
+                    Icons.calendar_today_outlined,
+                    color: t.cycleRose,
+                    size: 13,
+                  ),
                   const SizedBox(width: 6),
                   Text(
                     'Next predicted: ${_nextPredictedDate!.day} ${_shortMonths[_nextPredictedDate!.month - 1]} ${_nextPredictedDate!.year}',
