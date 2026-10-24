@@ -1,0 +1,593 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Me Time Club — Circle API",
+    "version": "1.0.0-proposed",
+    "description": "Backend handoff prepared 24 October 2026. Existing feed/post endpoints are retained; response creation and embedded feed responses are proposed. Flutter currently previews feelings locally and is not connected to the new response endpoint. See CIRCLE_API.md for UI behavior and acceptance checks. Written response maximum length awaits backend confirmation."
+  },
+  "servers": [
+    {
+      "url": "http://139.59.23.15/api/v1",
+      "description": "Current app configuration; replace with the implementation environment."
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "tags": [
+    {
+      "name": "Circle",
+      "description": "Community posts and anonymous feeling/written responses."
+    }
+  ],
+  "paths": {
+    "/circle_posts": {
+      "get": {
+        "operationId": "listCirclePosts",
+        "tags": [
+          "Circle"
+        ],
+        "summary": "Fetch posts with their responses",
+        "description": "Return a root array, newest posts first (descending ID for ties). Include responses oldest first on every post. No pagination wrapper is used by the current app.",
+        "responses": {
+          "200": {
+            "description": "Feed returned. Empty array if no posts.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CirclePost"
+                  }
+                },
+                "examples": {
+                  "feed": {
+                    "value": [
+                      {
+                        "id": 101,
+                        "body": "Some days I just need a moment to breathe.",
+                        "anonymous": true,
+                        "author": "Anonymous",
+                        "created_at": "2026-10-24T08:00:00Z",
+                        "responses": [
+                          {
+                            "id": 501,
+                            "circle_post_id": 101,
+                            "body": "I understand",
+                            "feeling_key": "i_understand",
+                            "anonymous": true,
+                            "author": "Anonymous",
+                            "created_at": "2026-10-24T08:15:00Z"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  "empty": {
+                    "value": []
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createCirclePost",
+        "tags": [
+          "Circle"
+        ],
+        "summary": "Create a post using the existing contract",
+        "description": "Keep circle_post.is_anon in the request. Return anonymous in the response. Author comes from the authenticated session.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCirclePost"
+              },
+              "examples": {
+                "anonymousPost": {
+                  "value": {
+                    "circle_post": {
+                      "body": "Some days I just need a moment to breathe.",
+                      "is_anon": true
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Post created.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CirclePost"
+                },
+                "examples": {
+                  "created": {
+                    "value": {
+                      "id": 101,
+                      "body": "Some days I just need a moment to breathe.",
+                      "anonymous": true,
+                      "author": "Anonymous",
+                      "created_at": "2026-10-24T08:00:00Z",
+                      "responses": []
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        }
+      }
+    },
+    "/circle_posts/{post_id}/responses": {
+      "post": {
+        "operationId": "createCircleResponse",
+        "tags": [
+          "Circle"
+        ],
+        "summary": "Create a preset feeling or written response",
+        "description": "Missing/null feeling_key means written text. A preset key must match the canonical body. Replies are anonymous-only. Atomically deduplicate presets by authenticated user + post + feeling_key, returning the existing object with 200. Distinct feelings are allowed; selecting a preset never toggles it off. Separate intentional written replies are not deduplicated by body.",
+        "parameters": [
+          {
+            "name": "post_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            },
+            "example": 101
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCircleResponse"
+              },
+              "examples": {
+                "feeling": {
+                  "value": {
+                    "circle_response": {
+                      "body": "I understand",
+                      "feeling_key": "i_understand",
+                      "anonymous": true
+                    }
+                  }
+                },
+                "written": {
+                  "value": {
+                    "circle_response": {
+                      "body": "You are not alone. I'm here for you.",
+                      "anonymous": true
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Response created.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CircleResponse"
+                },
+                "examples": {
+                  "feeling": {
+                    "value": {
+                      "id": 501,
+                      "circle_post_id": 101,
+                      "body": "I understand",
+                      "feeling_key": "i_understand",
+                      "anonymous": true,
+                      "author": "Anonymous",
+                      "created_at": "2026-10-24T08:15:00Z"
+                    }
+                  },
+                  "written": {
+                    "value": {
+                      "id": 503,
+                      "circle_post_id": 101,
+                      "body": "You are not alone. I'm here for you.",
+                      "feeling_key": null,
+                      "anonymous": true,
+                      "author": "Anonymous",
+                      "created_at": "2026-10-24T08:30:00Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Same preset already exists for this user/post; return its original object without creating or removing a row.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CircleResponse"
+                },
+                "examples": {
+                  "existing": {
+                    "value": {
+                      "id": 501,
+                      "circle_post_id": 101,
+                      "body": "I understand",
+                      "feeling_key": "i_understand",
+                      "anonymous": true,
+                      "author": "Anonymous",
+                      "created_at": "2026-10-24T08:15:00Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Existing app access token; no client-supplied author ID is accepted."
+      }
+    },
+    "schemas": {
+      "FeelingKey": {
+        "type": "string",
+        "nullable": true,
+        "enum": [
+          "holding_you",
+          "i_understand",
+          "this_feels_heavy",
+          "youre_doing_okay",
+          "im_here",
+          "this_will_pass",
+          "take_a_breath",
+          null
+        ],
+        "description": "Null/omitted means a written reply. Preset labels: holding_you = Holding you; i_understand = I understand; this_feels_heavy = This feels heavy; youre_doing_okay = You're doing okay; im_here = I'm here; this_will_pass = This will pass; take_a_breath = Take a breath."
+      },
+      "CircleResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "circle_post_id",
+          "body",
+          "feeling_key",
+          "anonymous",
+          "author",
+          "created_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "circle_post_id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "body": {
+            "type": "string",
+            "minLength": 1
+          },
+          "feeling_key": {
+            "$ref": "#/components/schemas/FeelingKey"
+          },
+          "anonymous": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "author": {
+            "type": "string",
+            "enum": [
+              "Anonymous"
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "description": "A persistent anonymous response. Never include private author/profile identifiers."
+      },
+      "CirclePost": {
+        "type": "object",
+        "required": [
+          "id",
+          "body",
+          "anonymous",
+          "author",
+          "created_at",
+          "responses"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "body": {
+            "type": "string",
+            "minLength": 1
+          },
+          "anonymous": {
+            "type": "boolean"
+          },
+          "author": {
+            "type": "string",
+            "description": "Anonymous for anonymous posts; otherwise the display name."
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "responses": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CircleResponse"
+            },
+            "description": "Oldest first, then ascending ID. Empty array when there are none."
+          }
+        },
+        "additionalProperties": true,
+        "description": "Preserve any existing extra fields for older clients. Never expose private authors of anonymous content."
+      },
+      "CreateCircleResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "circle_response"
+        ],
+        "properties": {
+          "circle_response": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "body"
+            ],
+            "properties": {
+              "body": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Trim surrounding whitespace; reject blank text. A preset body must match its canonical label. Maximum length is awaiting backend confirmation.",
+                "pattern": "\\S"
+              },
+              "feeling_key": {
+                "$ref": "#/components/schemas/FeelingKey"
+              },
+              "anonymous": {
+                "type": "boolean",
+                "enum": [
+                  true
+                ],
+                "default": true
+              }
+            }
+          }
+        }
+      },
+      "CreateCirclePost": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "circle_post"
+        ],
+        "properties": {
+          "circle_post": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "body"
+            ],
+            "properties": {
+              "body": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Nonblank plain text after trimming.",
+                "pattern": "\\S"
+              },
+              "is_anon": {
+                "type": "boolean",
+                "default": false,
+                "description": "Existing request field: do not rename to anonymous."
+              }
+            }
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Human-readable message."
+          },
+          "code": {
+            "type": "string",
+            "description": "Optional stable error code."
+          },
+          "details": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "Malformed JSON or invalid request structure.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "examples": {
+              "error": {
+                "value": {
+                  "error": "Malformed JSON or invalid request structure."
+                }
+              }
+            }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "Missing, invalid, or expired bearer session.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "examples": {
+              "error": {
+                "value": {
+                  "error": "Missing, invalid, or expired bearer session."
+                }
+              }
+            }
+          }
+        }
+      },
+      "Forbidden": {
+        "description": "Access denied under existing Circle rules.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "examples": {
+              "error": {
+                "value": {
+                  "error": "Access denied under existing Circle rules."
+                }
+              }
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "The post does not exist or is no longer available.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "examples": {
+              "error": {
+                "value": {
+                  "error": "The post does not exist or is no longer available."
+                }
+              }
+            }
+          }
+        }
+      },
+      "ValidationError": {
+        "description": "Invalid fields, blank body, unknown/mismatched feeling, or anonymous=false.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "examples": {
+              "error": {
+                "value": {
+                  "error": "Invalid fields, blank body, unknown/mismatched feeling, or anonymous=false."
+                }
+              }
+            }
+          }
+        }
+      },
+      "ServerError": {
+        "description": "Unexpected server failure; return a generic error message.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "examples": {
+              "error": {
+                "value": {
+                  "error": "Unexpected server failure; return a generic error message."
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

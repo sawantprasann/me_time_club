@@ -6,7 +6,6 @@ import '../../theme/tokens.dart';
 import '../../icons/app_icons.dart';
 import '../../models/user_profile.dart';
 import '../../services/api_service.dart';
-import '../../widgets/shared_widgets.dart';
 import '../../widgets/voice_text_input.dart';
 
 class MemoriesTab extends StatefulWidget {

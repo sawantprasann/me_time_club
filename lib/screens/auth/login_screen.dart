@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../theme/tokens.dart';
 import '../../services/api_service.dart';
 import '../../widgets/shared_widgets.dart';
+import '../../widgets/app_logo.dart';
 
 class LoginScreen extends StatefulWidget {
   final Function(dynamic) onLoginSuccess;
@@ -108,6 +109,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     children: [
                       const SizedBox(height: 20),
                       // Brand Logo Image
+                      const AppLogo(),
+                      const SizedBox(height: 16),
                       Text(
                         'Me Time Club',
                         style: AppTypography.playfair(
@@ -336,6 +339,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               label: 'Enter Sanctuary',
                               onTap: _submit,
                               loading: _loading,
+                              loadingLabel: 'Signing in…',
                               t: t,
                             ),
                           ],

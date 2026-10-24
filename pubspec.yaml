@@ -15,6 +15,7 @@ dependencies:
   http: ^1.6.0
   http_parser: ^4.0.0
   shared_preferences: ^2.5.3
+  url_launcher: ^6.3.2
 
 dev_dependencies:
   flutter_test:
@@ -30,4 +31,7 @@ flutter:
 flutter_launcher_icons:
   android: "launcher_icon"
   ios: true
-  image_path: "assets/metimeclub_app_icon.png"
+  image_path: "assets/metimeclub_logo.png"
+  adaptive_icon_background: "#FAF7ED"
+  adaptive_icon_foreground: "assets/metimeclub_logo.png"
+  remove_alpha_ios: true

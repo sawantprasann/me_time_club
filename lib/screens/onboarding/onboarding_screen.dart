@@ -3,6 +3,7 @@ import '../../theme/tokens.dart';
 import '../../models/user_profile.dart';
 import '../../widgets/voice_text_input.dart';
 import '../../widgets/shared_widgets.dart';
+import '../../widgets/app_logo.dart';
 import '../../services/api_service.dart';
 
 /// 5-screen onboarding & registration flow.
@@ -131,6 +132,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               child: Column(
                 children: [
                   const Spacer(flex: 3),
+                  const AppLogo(size: 72),
+                  const SizedBox(height: 16),
                   // Brand Title
                   Text(
                     'Me Time Club',
@@ -693,6 +696,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
               child: Column(
                 children: [
+                  const SizedBox(height: 16),
+                  const AppLogo(),
                   const SizedBox(height: 16),
                   Text(
                     'Me Time Club',

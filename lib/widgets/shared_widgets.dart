@@ -159,6 +159,7 @@ class CTAButton extends StatelessWidget {
   final AppTokens t;
   final Widget? icon;
   final bool loading;
+  final String loadingLabel;
 
   const CTAButton({
     super.key,
@@ -168,6 +169,7 @@ class CTAButton extends StatelessWidget {
     required this.t,
     this.icon,
     this.loading = false,
+    this.loadingLabel = 'Chamomile is thinking…',
   });
 
   @override
@@ -198,7 +200,7 @@ class CTAButton extends StatelessWidget {
           children: [
             if (icon != null && !loading) ...[icon!, const SizedBox(width: 10)],
             Text(
-              loading ? 'Chamomile is thinking…' : label,
+              loading ? loadingLabel : label,
               style: AppTypography.playfair(
                 17,
                 isDisabled ? t.muted : Colors.white,

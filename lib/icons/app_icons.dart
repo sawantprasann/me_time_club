@@ -35,7 +35,7 @@ class AppIcons {
     child: CustomPaint(painter: _JournalPainter(c)),
   );
 
-  /// Radial circle — bottom nav Circle
+  /// Circle with a central ring and four inward marks — bottom nav Circle
   static Widget circle({required Color c, double s = 20}) => SizedBox(
     width: s,
     height: s,
@@ -382,19 +382,28 @@ class _CirclePainter extends CustomPainter {
           ..strokeWidth = 1.5
           ..style = PaintingStyle.stroke;
     final s = size.width;
-    canvas.drawCircle(Offset(s * 0.5, s * 0.5), s * 0.38, p);
-    // Inner dots
-    final dp =
-        Paint()
-          ..color = color
-          ..style = PaintingStyle.fill;
-    canvas.drawCircle(Offset(s * 0.35, s * 0.5), s * 0.05, dp);
-    canvas.drawCircle(Offset(s * 0.5, s * 0.5), s * 0.05, dp);
-    canvas.drawCircle(Offset(s * 0.65, s * 0.5), s * 0.05, dp);
+    p.strokeCap = StrokeCap.round;
+    canvas.drawCircle(Offset(s * 0.5, s * 0.5), s * 0.43, p);
+    canvas.drawCircle(Offset(s * 0.5, s * 0.5), s * 0.14, p);
+    for (var i = 0; i < 4; i++) {
+      final angle = i * pi / 2;
+      canvas.drawLine(
+        Offset(
+          s * 0.5 + cos(angle) * s * 0.31,
+          s * 0.5 + sin(angle) * s * 0.31,
+        ),
+        Offset(
+          s * 0.5 + cos(angle) * s * 0.43,
+          s * 0.5 + sin(angle) * s * 0.43,
+        ),
+        p,
+      );
+    }
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _CirclePainter oldDelegate) =>
+      oldDelegate.color != color;
 }
 
 class _MePainter extends CustomPainter {
