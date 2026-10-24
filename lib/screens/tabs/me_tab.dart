@@ -134,17 +134,21 @@ class _MeTabState extends State<MeTab> {
     ).then((confirmed) async {
       if (confirmed != true || !mounted) return;
       final token = widget.user.token ?? '';
-      final success = await ApiService.deleteAccount(token: token);
-      if (!mounted) return;
-      if (success) {
-        widget.onLogout();
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Could not delete account. Please try again.'),
-            backgroundColor: Color(0xFFD9534F),
-          ),
-        );
+      try {
+        final success = await ApiService.deleteAccount(token: token);
+        if (!mounted) return;
+        if (success) {
+          widget.onLogout();
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Could not delete account. Please try again.'),
+              backgroundColor: Color(0xFFD9534F),
+            ),
+          );
+        }
+      } on UnauthorizedException {
+        return;
       }
     });
   }
@@ -229,6 +233,7 @@ class _MeTabState extends State<MeTab> {
       }
     } catch (e) {
       debugPrint('[ME TAB SAVE ERROR] $e');
+      if (e is UnauthorizedException) return;
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -266,11 +271,10 @@ class _MeTabState extends State<MeTab> {
       }
     } catch (e) {
       debugPrint('[PROFILE PHOTO UPLOAD ERROR] $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Photo saved locally but failed to upload. Try again.')),
-        );
-      }
+      if (e is UnauthorizedException || !mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Photo saved locally but failed to upload. Try again.')),
+      );
     }
   }
 
@@ -278,7 +282,7 @@ class _MeTabState extends State<MeTab> {
   Widget build(BuildContext context) {
     if (_activeLetter != null) return _buildLetterEditor();
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(18, 10, 18, 90),
+      padding: const EdgeInsets.fromLTRB(18, 10, 18, 18),
       child: Column(
         children: [
           _buildAvatar(),
@@ -469,7 +473,7 @@ class _MeTabState extends State<MeTab> {
       photoWidget = Image.memory(_photo!, fit: BoxFit.cover, width: 96, height: 96);
     } else if (hasServer) {
       photoWidget = Image.network(
-        'http://139.59.23.15$serverUrl',
+        '${ApiService.serverHost}$serverUrl',
         fit: BoxFit.cover,
         width: 96,
         height: 96,
@@ -836,7 +840,7 @@ class _MeTabState extends State<MeTab> {
             : 'What do you want to remember when this season passes?';
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(18, 10, 18, 90),
+      padding: const EdgeInsets.fromLTRB(18, 10, 18, 18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

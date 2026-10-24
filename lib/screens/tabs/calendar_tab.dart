@@ -482,7 +482,7 @@ class _CalendarTabState extends State<CalendarTab> {
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(18, 10, 18, 90),
+      padding: const EdgeInsets.fromLTRB(18, 10, 18, 18),
       child: Column(
         children: [
           _buildMonthNav(),
@@ -858,6 +858,8 @@ class _CalendarTabState extends State<CalendarTab> {
                   style: AppTypography.cormorantItalic(14, t.text, height: 1.5),
                 ),
               ),
+              if (page.funMoment.trim().isNotEmpty)
+                _expandedSection('FUN MOMENT', page.funMoment),
               // Night Reflection
               Container(
                 margin: const EdgeInsets.only(top: 8),

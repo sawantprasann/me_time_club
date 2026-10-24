@@ -3,6 +3,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
+import '../models/gentle_read.dart';
 import '../models/user_profile.dart';
 
 /// Returns the MIME MediaType for an image path based on its extension.
@@ -29,8 +30,57 @@ class ApiException implements Exception {
   String toString() => message;
 }
 
+/// Thrown when an authenticated request is rejected because the JWT is missing or expired.
+class UnauthorizedException extends ApiException {
+  UnauthorizedException()
+      : super('Your session expired. Please sign in again.');
+}
+
+/// HTTP client that signs the user out locally when the server rejects the token.
+class _SessionClient extends http.BaseClient {
+  final http.Client _inner = http.Client();
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    final streamed = await _inner.send(request);
+    if (streamed.statusCode != 401) return streamed;
+
+    try {
+      await streamed.stream.drain<void>();
+    } catch (_) {}
+    ApiService.notifyUnauthorized();
+    throw UnauthorizedException();
+  }
+}
+
 class ApiService {
-  static const String baseUrl = 'http://139.59.23.15/api/v1/auth';
+  /// Server origin. Change this when the host changes; every API and media URL uses it.
+  static const String serverHost = 'http://139.59.23.15';
+
+  /// Versioned API root (`/api/v1/...`).
+  static const String apiBase = '$serverHost/api/v1';
+
+  /// Auth routes (`register`, `login`, `logout`).
+  static const String baseUrl = '$apiBase/auth';
+
+  /// Authenticated calls go through this client so a 401 ends the local session.
+  /// Login, register, and logout stay on the default client: a 401 there is not an expired session.
+  static final http.Client _client = _SessionClient();
+
+  static void Function()? onUnauthorized;
+  static bool _unauthorizedNotified = false;
+
+  static void notifyUnauthorized() {
+    if (_unauthorizedNotified) return;
+    _unauthorizedNotified = true;
+    final callback = onUnauthorized;
+    if (callback == null) return;
+    Future.microtask(callback);
+  }
+
+  static void resetUnauthorizedLatch() {
+    _unauthorizedNotified = false;
+  }
 
   /// Performs user registration.
   /// Throws ApiException if the request fails.
@@ -188,10 +238,10 @@ class ApiService {
 
   /// Permanently deletes the account and all user data from the server.
   static Future<bool> deleteAccount({required String token}) async {
-    const url = 'http://139.59.23.15/api/v1/auth/account';
+    const url = '$apiBase/auth/account';
     print('[API REQUEST] DELETE $url');
     try {
-      final response = await http.delete(
+      final response = await _client.delete(
         Uri.parse(url),
         headers: {
           'accept': 'application/json',
@@ -202,6 +252,7 @@ class ApiService {
       return response.statusCode == 200;
     } catch (e) {
       print('[API ERROR] deleteAccount: $e');
+      if (e is UnauthorizedException) rethrow;
       return false;
     }
   }
@@ -214,14 +265,14 @@ class ApiService {
     required String freeText,
     required String dateKey,
   }) async {
-    final url = 'http://139.59.23.15/api/v1/daily_pages/generate';
+    final url = '$apiBase/daily_pages/generate';
     final requestBody = {'mood': mood, 'free_text': freeText, 'date_key': dateKey};
 
     print('[API REQUEST] POST $url');
     print('[API REQUEST BODY] ${jsonEncode(requestBody)}');
 
     try {
-      final response = await http.post(
+      final response = await _client.post(
         Uri.parse(url),
         headers: {
           'accept': 'application/json',
@@ -276,7 +327,7 @@ class ApiService {
     String? mood,
     String? openingThought,
   }) async {
-    final url = 'http://139.59.23.15/api/v1/daily_pages/$pageId/feedback';
+    final url = '$apiBase/daily_pages/$pageId/feedback';
     final requestBody = {
       'feedback': {
         'vote': vote,
@@ -294,7 +345,7 @@ class ApiService {
     print('[API REQUEST BODY] ${jsonEncode(requestBody)}');
 
     try {
-      final response = await http.post(
+      final response = await _client.post(
         Uri.parse(url),
         headers: {
           'accept': 'application/json',
@@ -332,12 +383,12 @@ class ApiService {
     required String dateKey,
   }) async {
     final url =
-        'http://139.59.23.15/api/v1/tasks?date_key=${Uri.encodeQueryComponent(dateKey)}';
+        '$apiBase/tasks?date_key=${Uri.encodeQueryComponent(dateKey)}';
 
     print('[API REQUEST] GET $url');
 
     try {
-      final response = await http.get(
+      final response = await _client.get(
         Uri.parse(url),
         headers: {
           'accept': 'application/json',
@@ -377,7 +428,7 @@ class ApiService {
     required bool completed,
     String? dateKey,
   }) async {
-    const url = 'http://139.59.23.15/api/v1/tasks';
+    const url = '$apiBase/tasks';
     final requestBody = {
       'task': {
         'title': title,
@@ -390,7 +441,7 @@ class ApiService {
     print('[API REQUEST BODY] ${jsonEncode(requestBody)}');
 
     try {
-      final response = await http.post(
+      final response = await _client.post(
         Uri.parse(url),
         headers: {
           'accept': 'application/json',
@@ -428,12 +479,12 @@ class ApiService {
     required String token,
     required String taskId,
   }) async {
-    final url = 'http://139.59.23.15/api/v1/tasks/$taskId';
+    final url = '$apiBase/tasks/$taskId';
 
     print('[API REQUEST] GET $url');
 
     try {
-      final response = await http.get(
+      final response = await _client.get(
         Uri.parse(url),
         headers: {
           'accept': 'application/json',
@@ -468,12 +519,12 @@ class ApiService {
     required String token,
     required String taskId,
   }) async {
-    final url = 'http://139.59.23.15/api/v1/tasks/$taskId';
+    final url = '$apiBase/tasks/$taskId';
 
     print('[API REQUEST] DELETE $url');
 
     try {
-      final response = await http.delete(
+      final response = await _client.delete(
         Uri.parse(url),
         headers: {'accept': '*/*', 'Authorization': 'Bearer $token'},
       );
@@ -505,7 +556,7 @@ class ApiService {
     required bool completed,
     String? title,
   }) async {
-    final url = 'http://139.59.23.15/api/v1/tasks/$taskId';
+    final url = '$apiBase/tasks/$taskId';
     final requestBody = {
       'task': {if (title != null) 'title': title, 'completed': completed},
     };
@@ -514,7 +565,7 @@ class ApiService {
     print('[API REQUEST BODY] ${jsonEncode(requestBody)}');
 
     try {
-      final response = await http.patch(
+      final response = await _client.patch(
         Uri.parse(url),
         headers: {
           'accept': 'application/json',
@@ -553,7 +604,7 @@ class ApiService {
     required String token,
     required String body,
   }) async {
-    const url = 'http://139.59.23.15/api/v1/journal_entries';
+    const url = '$apiBase/journal_entries';
     final requestBody = {
       'journal_entry': {'body': body},
     };
@@ -562,7 +613,7 @@ class ApiService {
     print('[API REQUEST BODY] ${jsonEncode(requestBody)}');
 
     try {
-      final response = await http.post(
+      final response = await _client.post(
         Uri.parse(url),
         headers: {
           'accept': 'application/json',
@@ -601,7 +652,7 @@ class ApiService {
     required String entryId,
     required String body,
   }) async {
-    final url = 'http://139.59.23.15/api/v1/journal_entries/$entryId';
+    final url = '$apiBase/journal_entries/$entryId';
     final requestBody = {
       'journal_entry': {'body': body},
     };
@@ -610,7 +661,7 @@ class ApiService {
     print('[API REQUEST BODY] ${jsonEncode(requestBody)}');
 
     try {
-      final response = await http.patch(
+      final response = await _client.patch(
         Uri.parse(url),
         headers: {
           'accept': 'application/json',
@@ -643,17 +694,66 @@ class ApiService {
     }
   }
 
+  /// Loads one published gentle read at random.
+  /// [excludeIds] are skipped when another read is still available, so
+  /// Prev and Next do not walk through the library in order.
+  static Future<GentleRead?> randomGentleRead({
+    required String token,
+    List<int> excludeIds = const [],
+  }) async {
+    final query = excludeIds.isEmpty
+        ? ''
+        : '?exclude_ids=${excludeIds.join(',')}';
+    final url = '$apiBase/gentle_reads/random$query';
+
+    print('[API REQUEST] GET $url');
+
+    try {
+      final response = await _client.get(
+        Uri.parse(url),
+        headers: {
+          'accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      print('[API RESPONSE] ${response.statusCode} GET $url');
+
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+        if (decoded is! Map<String, dynamic>) return null;
+        return GentleRead.fromJson(decoded);
+      } else if (response.statusCode == 404) {
+        return null;
+      } else {
+        final decoded = jsonDecode(response.body);
+        final errorMsg =
+            decoded['error'] as String? ?? 'Failed to load gentle read.';
+        throw ApiException(errorMsg);
+      }
+    } on http.ClientException catch (e) {
+      print('[API ERROR] ClientException: ${e.message}');
+      throw ApiException(
+        'Network error: Please check your internet connection.',
+      );
+    } catch (e) {
+      print('[API ERROR] Exception: ${e.toString()}');
+      if (e is ApiException) rethrow;
+      throw ApiException('An unexpected error occurred: ${e.toString()}');
+    }
+  }
+
   /// Gets a daily page by its date key (YYYY-MM-DD).
   static Future<DailyPageContent?> getDailyPageByDate({
     required String token,
     required String dateKey,
   }) async {
-    final url = 'http://139.59.23.15/api/v1/daily_pages/$dateKey';
+    final url = '$apiBase/daily_pages/$dateKey';
 
     print('[API REQUEST] GET $url');
 
     try {
-      final response = await http.get(
+      final response = await _client.get(
         Uri.parse(url),
         headers: {
           'accept': 'application/json',
@@ -691,12 +791,12 @@ class ApiService {
   static Future<List<dynamic>> getJournalEntries({
     required String token,
   }) async {
-    const url = 'http://139.59.23.15/api/v1/journal_entries';
+    const url = '$apiBase/journal_entries';
 
     print('[API REQUEST] GET $url');
 
     try {
-      final response = await http.get(
+      final response = await _client.get(
         Uri.parse(url),
         headers: {
           'accept': 'application/json',
@@ -733,12 +833,12 @@ class ApiService {
     required String token,
     required String entryId,
   }) async {
-    final url = 'http://139.59.23.15/api/v1/journal_entries/$entryId';
+    final url = '$apiBase/journal_entries/$entryId';
 
     print('[API REQUEST] GET $url');
 
     try {
-      final response = await http.get(
+      final response = await _client.get(
         Uri.parse(url),
         headers: {
           'accept': 'application/json',
@@ -775,12 +875,12 @@ class ApiService {
     required String token,
     required String entryId,
   }) async {
-    final url = 'http://139.59.23.15/api/v1/journal_entries/$entryId';
+    final url = '$apiBase/journal_entries/$entryId';
 
     print('[API REQUEST] DELETE $url');
 
     try {
-      final response = await http.delete(
+      final response = await _client.delete(
         Uri.parse(url),
         headers: {'accept': '*/*', 'Authorization': 'Bearer $token'},
       );
@@ -812,10 +912,10 @@ class ApiService {
   static Future<List<Map<String, dynamic>>> fetchAllCycleDays({
     required String token,
   }) async {
-    const url = 'http://139.59.23.15/api/v1/cycle_days';
+    const url = '$apiBase/cycle_days';
     print('[API REQUEST] GET $url');
     try {
-      final response = await http.get(
+      final response = await _client.get(
         Uri.parse(url),
         headers: {'accept': 'application/json', 'Authorization': 'Bearer $token'},
       );
@@ -836,10 +936,10 @@ class ApiService {
     required String token,
     required String month,
   }) async {
-    final url = 'http://139.59.23.15/api/v1/cycle_days?month=$month';
+    final url = '$apiBase/cycle_days?month=$month';
     print('[API REQUEST] GET $url');
     try {
-      final response = await http.get(
+      final response = await _client.get(
         Uri.parse(url),
         headers: {'accept': 'application/json', 'Authorization': 'Bearer $token'},
       );
@@ -860,10 +960,10 @@ class ApiService {
     required String token,
     required String month,
   }) async {
-    final url = 'http://139.59.23.15/api/v1/tasks?month=$month';
+    final url = '$apiBase/tasks?month=$month';
     print('[API REQUEST] GET $url');
     try {
-      final response = await http.get(
+      final response = await _client.get(
         Uri.parse(url),
         headers: {
           'accept': 'application/json',
@@ -887,10 +987,10 @@ class ApiService {
     required String token,
     required String month,
   }) async {
-    final url = 'http://139.59.23.15/api/v1/daily_pages?month=$month';
+    final url = '$apiBase/daily_pages?month=$month';
     print('[API REQUEST] GET $url');
     try {
-      final response = await http.get(
+      final response = await _client.get(
         Uri.parse(url),
         headers: {
           'accept': 'application/json',
@@ -915,10 +1015,10 @@ class ApiService {
     required String token,
     required List<String> dateKeys,
   }) async {
-    const url = 'http://139.59.23.15/api/v1/cycle_days/bulk_create';
+    const url = '$apiBase/cycle_days/bulk_create';
     print('[API REQUEST] POST $url');
     try {
-      final response = await http.post(
+      final response = await _client.post(
         Uri.parse(url),
         headers: {
           'accept': 'application/json',
@@ -944,10 +1044,10 @@ class ApiService {
     required String token,
     required String cycleDayId,
   }) async {
-    final url = 'http://139.59.23.15/api/v1/cycle_days/$cycleDayId';
+    final url = '$apiBase/cycle_days/$cycleDayId';
     print('[API REQUEST] DELETE $url');
     try {
-      final response = await http.delete(
+      final response = await _client.delete(
         Uri.parse(url),
         headers: {'accept': '*/*', 'Authorization': 'Bearer $token'},
       );
@@ -959,12 +1059,12 @@ class ApiService {
 
   /// Gets all shopping items.
   static Future<List<dynamic>> getShoppingItems({required String token}) async {
-    const url = 'http://139.59.23.15/api/v1/shopping_items';
+    const url = '$apiBase/shopping_items';
 
     print('[API REQUEST] GET $url');
 
     try {
-      final response = await http.get(
+      final response = await _client.get(
         Uri.parse(url),
         headers: {
           'accept': 'application/json',
@@ -1002,10 +1102,10 @@ class ApiService {
   static Future<List<Map<String, dynamic>>> getShoppingCategories({
     required String token,
   }) async {
-    const url = 'http://139.59.23.15/api/v1/categories';
+    const url = '$apiBase/categories';
     print('[API REQUEST] GET $url');
     try {
-      final response = await http.get(
+      final response = await _client.get(
         Uri.parse(url),
         headers: {'accept': 'application/json', 'Authorization': 'Bearer $token'},
       );
@@ -1030,7 +1130,7 @@ class ApiService {
     required String name,
     String? icon,
   }) async {
-    const url = 'http://139.59.23.15/api/v1/categories';
+    const url = '$apiBase/categories';
     final requestBody = {
       'category': {
         'name': name,
@@ -1040,7 +1140,7 @@ class ApiService {
     print('[API REQUEST] POST $url');
     print('[API REQUEST BODY] ${jsonEncode(requestBody)}');
     try {
-      final response = await http.post(
+      final response = await _client.post(
         Uri.parse(url),
         headers: {
           'accept': 'application/json',
@@ -1073,10 +1173,10 @@ class ApiService {
     required String token,
     required int categoryId,
   }) async {
-    final url = 'http://139.59.23.15/api/v1/categories/$categoryId';
+    final url = '$apiBase/categories/$categoryId';
     print('[API REQUEST] DELETE $url');
     try {
-      final response = await http.delete(
+      final response = await _client.delete(
         Uri.parse(url),
         headers: {'accept': '*/*', 'Authorization': 'Bearer $token'},
       );
@@ -1102,7 +1202,7 @@ class ApiService {
     required bool checked,
     int? categoryId,
   }) async {
-    const url = 'http://139.59.23.15/api/v1/shopping_items';
+    const url = '$apiBase/shopping_items';
     final requestBody = {
       'shopping_item': {
         'name': name,
@@ -1115,7 +1215,7 @@ class ApiService {
     print('[API REQUEST BODY] ${jsonEncode(requestBody)}');
 
     try {
-      final response = await http.post(
+      final response = await _client.post(
         Uri.parse(url),
         headers: {
           'accept': 'application/json',
@@ -1156,7 +1256,7 @@ class ApiService {
     required bool checked,
     int? categoryId,
   }) async {
-    final url = 'http://139.59.23.15/api/v1/shopping_items/$itemId';
+    final url = '$apiBase/shopping_items/$itemId';
     final requestBody = {
       'shopping_item': {
         if (name != null) 'name': name,
@@ -1169,7 +1269,7 @@ class ApiService {
     print('[API REQUEST BODY] ${jsonEncode(requestBody)}');
 
     try {
-      final response = await http.patch(
+      final response = await _client.patch(
         Uri.parse(url),
         headers: {
           'accept': 'application/json',
@@ -1207,12 +1307,12 @@ class ApiService {
     required String token,
     required String itemId,
   }) async {
-    final url = 'http://139.59.23.15/api/v1/shopping_items/$itemId';
+    final url = '$apiBase/shopping_items/$itemId';
 
     print('[API REQUEST] DELETE $url');
 
     try {
-      final response = await http.delete(
+      final response = await _client.delete(
         Uri.parse(url),
         headers: {'accept': '*/*', 'Authorization': 'Bearer $token'},
       );
@@ -1239,12 +1339,12 @@ class ApiService {
 
   /// Gets all circle posts.
   static Future<List<dynamic>> getCirclePosts({required String token}) async {
-    const url = 'http://139.59.23.15/api/v1/circle_posts';
+    const url = '$apiBase/circle_posts';
 
     print('[API REQUEST] GET $url');
 
     try {
-      final response = await http.get(
+      final response = await _client.get(
         Uri.parse(url),
         headers: {
           'accept': 'application/json',
@@ -1282,7 +1382,7 @@ class ApiService {
     required String body,
     bool isAnon = false,
   }) async {
-    const url = 'http://139.59.23.15/api/v1/circle_posts';
+    const url = '$apiBase/circle_posts';
     final requestBody = {
       'circle_post': {'body': body, 'is_anon': isAnon},
     };
@@ -1291,7 +1391,7 @@ class ApiService {
     print('[API REQUEST BODY] ${jsonEncode(requestBody)}');
 
     try {
-      final response = await http.post(
+      final response = await _client.post(
         Uri.parse(url),
         headers: {
           'accept': 'application/json',
@@ -1341,14 +1441,14 @@ class ApiService {
     required String postId,
     required String reactionType,
   }) async {
-    final url = 'http://139.59.23.15/api/v1/circle_posts/$postId/react';
+    final url = '$apiBase/circle_posts/$postId/react';
     final requestBody = {'reaction_type': reactionType};
 
     print('[API REQUEST] POST $url');
     print('[API REQUEST BODY] ${jsonEncode(requestBody)}');
 
     try {
-      final response = await http.post(
+      final response = await _client.post(
         Uri.parse(url),
         headers: {
           'accept': 'application/json',
@@ -1379,12 +1479,12 @@ class ApiService {
 
   /// Gets the user's profile.
   static Future<Map<String, dynamic>> getProfile({required String token}) async {
-    const url = 'http://139.59.23.15/api/v1/profile';
+    const url = '$apiBase/profile';
 
     print('[API REQUEST] GET $url');
 
     try {
-      final response = await http.get(
+      final response = await _client.get(
         Uri.parse(url),
         headers: {
           'accept': 'application/json',
@@ -1419,14 +1519,14 @@ class ApiService {
     required String token,
     required Map<String, dynamic> profileParams,
   }) async {
-    const url = 'http://139.59.23.15/api/v1/profile';
+    const url = '$apiBase/profile';
     final requestBody = {'profile': profileParams};
 
     print('[API REQUEST] PATCH $url');
     print('[API REQUEST BODY] ${jsonEncode(requestBody)}');
 
     try {
-      final response = await http.patch(
+      final response = await _client.patch(
         Uri.parse(url),
         headers: {
           'accept': 'application/json',
@@ -1475,7 +1575,7 @@ class ApiService {
     required String token,
     required String imagePath,
   }) async {
-    const url = 'http://139.59.23.15/api/v1/uploads/profile_picture';
+    const url = '$apiBase/uploads/profile_picture';
     print('[API REQUEST] POST $url');
     try {
       final request = http.MultipartRequest('POST', Uri.parse(url));
@@ -1484,7 +1584,7 @@ class ApiService {
       request.files.add(await http.MultipartFile.fromPath(
         'image', imagePath, contentType: _imageMediaType(imagePath)));
 
-      final streamed = await request.send();
+      final streamed = await _client.send(request);
       final response = await http.Response.fromStream(streamed);
 
       print('[API RESPONSE] ${response.statusCode} POST $url');
@@ -1506,12 +1606,12 @@ class ApiService {
 
   /// Gets all memories.
   static Future<List<dynamic>> getMemories({required String token}) async {
-    const url = 'http://139.59.23.15/api/v1/memories';
+    const url = '$apiBase/memories';
 
     print('[API REQUEST] GET $url');
 
     try {
-      final response = await http.get(
+      final response = await _client.get(
         Uri.parse(url),
         headers: {
           'accept': 'application/json',
@@ -1549,7 +1649,7 @@ class ApiService {
     String? description,
     String? imagePath,
   }) async {
-    const url = 'http://139.59.23.15/api/v1/memories';
+    const url = '$apiBase/memories';
 
     print('[API REQUEST] POST $url');
 
@@ -1564,7 +1664,7 @@ class ApiService {
         'image', imagePath, contentType: _imageMediaType(imagePath)));
       }
 
-      final streamed = await request.send();
+      final streamed = await _client.send(request);
       final response = await http.Response.fromStream(streamed);
 
       print('[API RESPONSE] ${response.statusCode} POST $url');
@@ -1595,7 +1695,7 @@ class ApiService {
     String? description,
     String? imagePath,
   }) async {
-    final url = 'http://139.59.23.15/api/v1/memories/$memoryId';
+    final url = '$apiBase/memories/$memoryId';
 
     print('[API REQUEST] PATCH $url');
 
@@ -1612,7 +1712,7 @@ class ApiService {
         'image', imagePath, contentType: _imageMediaType(imagePath)));
       }
 
-      final streamed = await request.send();
+      final streamed = await _client.send(request);
       final response = await http.Response.fromStream(streamed);
 
       print('[API RESPONSE] ${response.statusCode} PATCH $url');
@@ -1640,12 +1740,12 @@ class ApiService {
     required String token,
     required String memoryId,
   }) async {
-    final url = 'http://139.59.23.15/api/v1/memories/$memoryId';
+    final url = '$apiBase/memories/$memoryId';
 
     print('[API REQUEST] DELETE $url');
 
     try {
-      final response = await http.delete(
+      final response = await _client.delete(
         Uri.parse(url),
         headers: {
           'accept': '*/*',
@@ -1681,7 +1781,7 @@ class ApiService {
     String? reflectionFollowupAnswer,
     String? nightReflectionAnswer,
   }) async {
-    const url = 'http://139.59.23.15/api/v1/daily_pages';
+    const url = '$apiBase/daily_pages';
     final body = {
       'daily_page': {
         'date_key': dateKey,
@@ -1692,7 +1792,7 @@ class ApiService {
     };
     print('[API REQUEST] POST $url');
     try {
-      final response = await http.post(
+      final response = await _client.post(
         Uri.parse(url),
         headers: {
           'accept': 'application/json',
@@ -1721,7 +1821,7 @@ class ApiService {
     String? icon,
     int? position,
   }) async {
-    final url = 'http://139.59.23.15/api/v1/categories/$categoryId';
+    final url = '$apiBase/categories/$categoryId';
     final body = {
       'category': {
         if (name != null) 'name': name,
@@ -1731,7 +1831,7 @@ class ApiService {
     };
     print('[API REQUEST] PATCH $url');
     try {
-      final response = await http.patch(
+      final response = await _client.patch(
         Uri.parse(url),
         headers: {
           'accept': 'application/json',

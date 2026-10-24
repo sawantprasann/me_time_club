@@ -1,6 +1,8 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import '../../theme/tokens.dart';
 import '../../icons/app_icons.dart';
+import '../../models/gentle_read.dart';
 import '../../models/user_profile.dart';
 import '../../data/fallback_database.dart';
 import '../../widgets/shared_widgets.dart';
@@ -36,6 +38,25 @@ class _HomeTabState extends State<HomeTab> {
   bool _loading = false;
   bool _fromFallback = false;
   bool _checkingExisting = false;
+  final List<GentleRead> _gentleReadHistory = [];
+  int _gentleReadIndex = 0;
+  bool _gentleReadLoading = false;
+  bool _gentleReadExpanded = false;
+  static const int _gentleReadPreviewLines = 6;
+  static const String _gentleReadMoreLabel = '… Read more ↓';
+  static const String _gentleReadLessLabel = ' Read less ↑';
+  TapGestureRecognizer? _gentleReadLinkRecognizer;
+
+  TapGestureRecognizer get _gentleReadLink {
+    return _gentleReadLinkRecognizer ??= TapGestureRecognizer()
+      ..onTap = _toggleGentleReadExpanded;
+  }
+
+  GentleRead? get _currentGentleRead {
+    if (_gentleReadHistory.isEmpty) return null;
+    final index = _gentleReadIndex.clamp(0, _gentleReadHistory.length - 1);
+    return _gentleReadHistory[index];
+  }
 
   // Answer fields — loaded from page, saved on change
   final _reflectionAnswerCtrl = TextEditingController();
@@ -56,10 +77,12 @@ class _HomeTabState extends State<HomeTab> {
     if (!widget.hasCheckedToday && _page == null) {
       _checkExistingPage();
     }
+    _loadGentleRead();
   }
 
   @override
   void dispose() {
+    _gentleReadLinkRecognizer?.dispose();
     _reflectionAnswerCtrl.dispose();
     _reflectionFollowupAnswerCtrl.dispose();
     _nightReflectionAnswerCtrl.dispose();
@@ -118,6 +141,7 @@ class _HomeTabState extends State<HomeTab> {
         }
       }
     } catch (e) {
+      if (e is UnauthorizedException) return;
       debugPrint('[CHECK EXISTING PAGE ERROR] $e');
       if (mounted) {
         setState(() {
@@ -126,6 +150,65 @@ class _HomeTabState extends State<HomeTab> {
         widget.onCheckedToday();
       }
     }
+  }
+
+  Future<void> _loadGentleRead({bool another = false}) async {
+    setState(() => _gentleReadLoading = true);
+    try {
+      final read = await ApiService.randomGentleRead(
+        token: widget.user.token ?? '',
+        excludeIds: another ? _gentleReadHistory.map((item) => item.id).toList() : const [],
+      );
+      if (!mounted) return;
+      setState(() {
+        _gentleReadLoading = false;
+        _gentleReadExpanded = false;
+        if (read == null) return;
+        if (!another) {
+          _gentleReadHistory
+            ..clear()
+            ..add(read);
+          _gentleReadIndex = 0;
+          return;
+        }
+        final existing = _gentleReadHistory.indexWhere((item) => item.id == read.id);
+        if (existing >= 0) {
+          _gentleReadIndex = existing;
+        } else {
+          _gentleReadHistory.add(read);
+          _gentleReadIndex = _gentleReadHistory.length - 1;
+        }
+      });
+    } catch (e) {
+      if (e is UnauthorizedException) return;
+      debugPrint('[GENTLE READ ERROR] $e');
+      if (mounted) setState(() => _gentleReadLoading = false);
+    }
+  }
+
+  void _goPrevGentleRead() {
+    if (_gentleReadLoading || _gentleReadIndex == 0) return;
+    setState(() {
+      _gentleReadIndex--;
+      _gentleReadExpanded = false;
+    });
+  }
+
+  Future<void> _goNextGentleRead() async {
+    if (_gentleReadLoading) return;
+    if (_gentleReadIndex < _gentleReadHistory.length - 1) {
+      setState(() {
+        _gentleReadIndex++;
+        _gentleReadExpanded = false;
+      });
+      return;
+    }
+    await _loadGentleRead(another: true);
+  }
+
+  void _toggleGentleReadExpanded() {
+    if (_gentleReadLoading) return;
+    setState(() => _gentleReadExpanded = !_gentleReadExpanded);
   }
 
   String get _greeting {
@@ -187,6 +270,7 @@ class _HomeTabState extends State<HomeTab> {
         widget.onSavePage(DateTime.now().day, _page!);
       }
     } catch (e) {
+      if (e is UnauthorizedException) return;
       debugPrint('[CHAMOMILE API ERROR] $e');
       final phase =
           widget.user.phases.isNotEmpty ? widget.user.phases.first : 'baby';
@@ -216,7 +300,7 @@ class _HomeTabState extends State<HomeTab> {
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(18, 10, 18, 90),
+      padding: const EdgeInsets.fromLTRB(18, 10, 18, 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -276,14 +360,13 @@ class _HomeTabState extends State<HomeTab> {
                 nightReflectionAnswerCtrl: _nightReflectionAnswerCtrl,
                 onSaveAnswers: _saveAnswers,
               ),
-              const SizedBox(height: 8),
               DailyPageFeedback(
                 user: widget.user,
                 page: _page!,
                 t: t,
                 mood: _mood,
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
               // New check-in button
               Center(
                 child: GestureDetector(
@@ -312,8 +395,244 @@ class _HomeTabState extends State<HomeTab> {
                 ),
               ),
             ],
+            _buildGentleRead(),
           ],
         ],
+      ),
+    );
+  }
+
+  Widget _buildGentleRead() {
+    final read = _currentGentleRead;
+    if (read == null && !_gentleReadLoading) {
+      return const SizedBox.shrink();
+    }
+
+    final canBrowse = (read?.total ?? 0) > 1;
+
+    return SectionCard(
+      title: 'Gentle Read',
+      accentColor: t.muted,
+      icon: AppIcons.book(c: t.muted, s: 16),
+      t: t,
+      margin: const EdgeInsets.only(top: 14),
+      child: read == null
+          ? Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Center(
+                child: SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(t.accent),
+                  ),
+                ),
+              ),
+            )
+          : LayoutBuilder(
+              builder: (context, constraints) {
+                final style = AppTypography.lato400(14, t.text, height: 1.6);
+                const strut = StrutStyle(
+                  fontSize: 14,
+                  height: 1.6,
+                  forceStrutHeight: true,
+                );
+                final width = constraints.maxWidth;
+                final overflows = _gentleReadOverflows(
+                  read.body,
+                  style,
+                  width,
+                  textScaler: MediaQuery.textScalerOf(context),
+                  strutStyle: strut,
+                );
+                final expanded = _gentleReadExpanded && overflows;
+                final showPrev = _gentleReadIndex > 0;
+                final linkStyle = AppTypography.lato700(14, t.accent, height: 1.6);
+                final preview = overflows && !expanded
+                    ? _gentleReadClippedPreview(
+                        read.body,
+                        style,
+                        linkStyle,
+                        width,
+                        textScaler: MediaQuery.textScalerOf(context),
+                        strutStyle: strut,
+                      )
+                    : read.body;
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (read.title.trim().isNotEmpty) ...[
+                      Text(
+                        read.title,
+                        style: AppTypography.cormorant600(17, t.text, height: 1.4),
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+                    AnimatedOpacity(
+                      opacity: _gentleReadLoading ? 0.45 : 1,
+                      duration: const Duration(milliseconds: 180),
+                      child: Text.rich(
+                        TextSpan(
+                          style: style,
+                          children: [
+                            TextSpan(text: expanded ? read.body : preview),
+                            if (overflows)
+                              TextSpan(
+                                text: expanded ? _gentleReadLessLabel : _gentleReadMoreLabel,
+                                style: linkStyle,
+                                recognizer: _gentleReadLink,
+                              ),
+                          ],
+                        ),
+                        strutStyle: strut,
+                      ),
+                    ),
+                    if (canBrowse) ...[
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          if (showPrev)
+                            _gentleReadNav(
+                              label: 'Prev',
+                              forward: false,
+                              onTap: _goPrevGentleRead,
+                            ),
+                          const Spacer(),
+                          _gentleReadNav(
+                            label: 'Next',
+                            forward: true,
+                            onTap: _goNextGentleRead,
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
+                );
+              },
+            ),
+    );
+  }
+
+  bool _gentleReadOverflows(
+    String body,
+    TextStyle style,
+    double maxWidth, {
+    required TextScaler textScaler,
+    required StrutStyle strutStyle,
+  }) {
+    if (!maxWidth.isFinite || maxWidth <= 0) return body.length > 280;
+    return !_gentleReadFits(
+      body,
+      style,
+      maxWidth,
+      textScaler: textScaler,
+      strutStyle: strutStyle,
+    );
+  }
+
+  /// Shortens [body] so the Read more label stays on the last visible line.
+  String _gentleReadClippedPreview(
+    String body,
+    TextStyle style,
+    TextStyle linkStyle,
+    double maxWidth, {
+    required TextScaler textScaler,
+    required StrutStyle strutStyle,
+  }) {
+    if (!maxWidth.isFinite || maxWidth <= 0) {
+      return body.length > 280 ? body.substring(0, 280).trimRight() : body;
+    }
+
+    bool fits(String text) {
+      return _gentleReadFits(
+        text,
+        style,
+        maxWidth,
+        textScaler: textScaler,
+        strutStyle: strutStyle,
+        link: _gentleReadMoreLabel,
+        linkStyle: linkStyle,
+      );
+    }
+
+    var low = 0;
+    var high = body.length;
+    var best = 0;
+    while (low <= high) {
+      final mid = (low + high) >> 1;
+      if (fits(body.substring(0, mid).trimRight())) {
+        best = mid;
+        low = mid + 1;
+      } else {
+        high = mid - 1;
+      }
+    }
+
+    final trimmed = body.substring(0, best).trimRight();
+    final breakAt = trimmed.lastIndexOf(RegExp(r'\s'));
+    if (breakAt > 0 && breakAt >= trimmed.length * 0.6 && fits(trimmed.substring(0, breakAt).trimRight())) {
+      return trimmed.substring(0, breakAt).trimRight();
+    }
+    return trimmed;
+  }
+
+  bool _gentleReadFits(
+    String text,
+    TextStyle style,
+    double maxWidth, {
+    required TextScaler textScaler,
+    required StrutStyle strutStyle,
+    String? link,
+    TextStyle? linkStyle,
+  }) {
+    final painter = TextPainter(
+      text: TextSpan(
+        style: style,
+        children: [
+          TextSpan(text: text),
+          if (link != null) TextSpan(text: link, style: linkStyle),
+        ],
+      ),
+      maxLines: _gentleReadPreviewLines,
+      strutStyle: strutStyle,
+      textScaler: textScaler,
+      textDirection: TextDirection.ltr,
+    )..layout(maxWidth: maxWidth);
+    final fits = !painter.didExceedMaxLines;
+    painter.dispose();
+    return fits;
+  }
+
+  Widget _gentleReadNav({
+    required String label,
+    required bool forward,
+    required VoidCallback onTap,
+  }) {
+    final enabled = !_gentleReadLoading;
+    final color = enabled ? t.accent : t.muted;
+    return GestureDetector(
+      onTap: enabled ? onTap : null,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: t.border),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (!forward) ...[
+              Icon(Icons.chevron_left, size: 16, color: color),
+              const SizedBox(width: 2),
+            ],
+            Text(label, style: AppTypography.lato400(13, color)),
+            if (forward) ...[
+              const SizedBox(width: 2),
+              Icon(Icons.chevron_right, size: 16, color: color),
+            ],
+          ],
+        ),
       ),
     );
   }
@@ -390,7 +709,7 @@ class _HomeTabState extends State<HomeTab> {
   }
 }
 
-/// Renders all 9 sections of a Chamomile daily page
+/// Renders the Chamomile daily page. Gentle Read lives below this, on Home.
 class _DailyPageView extends StatelessWidget {
   final DailyPageContent page;
   final AppTokens t;
@@ -452,33 +771,7 @@ class _DailyPageView extends StatelessWidget {
           ),
         ),
         // 3. Emotional Alignment
-        SectionCard(
-          title: 'Emotional Alignment',
-          accentColor: t.green,
-          icon: AppIcons.heart(c: t.green, s: 16),
-          t: t,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _label('FEELING', t.green),
-              Text(
-                page.emotionalFeeling,
-                style: AppTypography.lato400(14, t.text, height: 1.5),
-              ),
-              const SizedBox(height: 10),
-              _label('NEED', t.green),
-              Text(
-                page.emotionalNeed,
-                style: AppTypography.lato400(14, t.text, height: 1.5),
-              ),
-              Divider(color: t.border, height: 24),
-              Text(
-                page.emotionalResponse,
-                style: AppTypography.cormorant600(17, t.text, height: 1.6),
-              ),
-            ],
-          ),
-        ),
+        _buildEmotionalAlignment(),
         // 4. Insight
         SectionCard(
           title: 'Insight',
@@ -493,23 +786,141 @@ class _DailyPageView extends StatelessWidget {
         // 5. Micro Ritual — gradient card
         _buildMicroRitual(),
         const SizedBox(height: 14),
-        // 6. Gentle Read
-        SectionCard(
-          title: 'Gentle Read',
-          accentColor: t.muted,
-          icon: AppIcons.book(c: t.muted, s: 16),
-          t: t,
-          child: Text(
-            page.gentleRead,
-            style: AppTypography.lato400(14, t.text, height: 1.6),
-          ),
-        ),
-        // 7. Fun Moment
+        // 6. Fun Moment
         _buildFunMoment(),
-        const SizedBox(height: 14),
-        // 8. Night Reflection — dark card
+        // 7. Night Reflection — dark card
         _buildNightReflection(),
       ],
+    );
+  }
+
+  Widget _buildEmotionalAlignment() {
+    return AppCard(
+      t: t,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              AppIcons.heart(c: t.green, s: 16),
+              const SizedBox(width: 8),
+              Text(
+                'Emotional Alignment',
+                style: AppTypography.playfair(16, t.text),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Text(
+            'When your thoughts, body, and actions feel in sync, you feel lighter.',
+            textAlign: TextAlign.center,
+            style: AppTypography.cormorant600(16, t.muted, height: 1.4)
+                .copyWith(fontWeight: FontWeight.w400),
+          ),
+          if (page.emotionalFeeling.trim().isNotEmpty) ...[
+            const SizedBox(height: 16),
+            _alignmentCard(
+              icon: AppIcons.heart(c: t.green, s: 14),
+              label: 'FEELING',
+              subtitle: 'You are carrying this',
+              body: page.emotionalFeeling,
+              background: _alignmentFill(const Color(0xFFF4F4EC), const Color(0xFF34312C)),
+            ),
+          ],
+          if (page.emotionalNeed.trim().isNotEmpty) ...[
+            const SizedBox(height: 10),
+            _alignmentCard(
+              icon: _alignmentCircle(),
+              label: 'NEED',
+              subtitle: 'What you need right now',
+              body: page.emotionalNeed,
+              background: _alignmentFill(const Color(0xFFF0F0E8), const Color(0xFF2E2E28)),
+            ),
+          ],
+          if (page.emotionalResponse.trim().isNotEmpty) ...[
+            const SizedBox(height: 10),
+            _alignmentCard(
+              icon: _alignmentDiamond(),
+              label: 'RESPONSE',
+              subtitle: 'A gentle step toward yourself',
+              body: page.emotionalResponse,
+              background: _alignmentFill(const Color(0xFFECF0E8), const Color(0xFF2A332E)),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// Day fills match the daily-page artwork: cream, deeper beige, then sage.
+  Color _alignmentFill(Color day, Color night) =>
+      t == AppTokens.day ? day : night;
+
+  Widget _alignmentCard({
+    required Widget icon,
+    required String label,
+    required String subtitle,
+    required String body,
+    required Color background,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 6,
+            runSpacing: 4,
+            children: [
+              icon,
+              Text(
+                label,
+                style: AppTypography.lato700(11, t.green, letterSpacing: 1.1),
+              ),
+              Text('—', style: AppTypography.lato400(12, t.muted)),
+              Text(subtitle, style: AppTypography.lato400(13, t.muted)),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            body,
+            style: AppTypography.cormorantItalic(18, t.text, height: 1.35),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _alignmentCircle() {
+    return Container(
+      width: 13,
+      height: 13,
+      margin: const EdgeInsets.only(right: 1),
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: t.green, width: 1.4),
+      ),
+    );
+  }
+
+  Widget _alignmentDiamond() {
+    return Transform.rotate(
+      angle: 0.785,
+      child: Container(
+        width: 8,
+        height: 8,
+        margin: const EdgeInsets.symmetric(horizontal: 3, vertical: 3),
+        decoration: BoxDecoration(
+          color: t.green,
+          borderRadius: BorderRadius.circular(1),
+        ),
+      ),
     );
   }
 
@@ -565,18 +976,16 @@ class _DailyPageView extends StatelessWidget {
   }
 
   Widget _buildFunMoment() {
-    return AppCard(
+    if (page.funMoment.trim().isEmpty) return const SizedBox.shrink();
+
+    return SectionCard(
+      title: 'Fun Moment',
+      accentColor: t.gold,
+      icon: AppIcons.star(c: t.gold, s: 16),
       t: t,
-      child: Column(
-        children: [
-          AppIcons.bloom(c: t.accent, s: 28),
-          const SizedBox(height: 12),
-          Text(
-            page.funMoment,
-            style: AppTypography.cormorantItalic(17, t.text, height: 1.6),
-            textAlign: TextAlign.center,
-          ),
-        ],
+      child: Text(
+        page.funMoment,
+        style: AppTypography.cormorant600(17, t.text, height: 1.6),
       ),
     );
   }
@@ -662,15 +1071,6 @@ class _DailyPageView extends StatelessWidget {
     );
   }
 
-  Widget _label(String text, Color color) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Text(
-        text,
-        style: AppTypography.lato700(10, color, letterSpacing: 1.2),
-      ),
-    );
-  }
 }
 
 class DailyPageFeedback extends StatefulWidget {
@@ -728,9 +1128,9 @@ class _DailyPageFeedbackState extends State<DailyPageFeedback> {
     final t = widget.t;
 
     if (_submitted) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 20),
+      return Padding(
+        padding: const EdgeInsets.only(top: 14),
+        child: Center(
           child: Text(
             'Thank you for helping Chamomile learn. ✦',
             style: AppTypography.cormorantItalic(14, t.muted),
@@ -741,7 +1141,7 @@ class _DailyPageFeedbackState extends State<DailyPageFeedback> {
 
     if (_vote == 'down') {
       return Container(
-        margin: const EdgeInsets.symmetric(vertical: 14),
+        margin: const EdgeInsets.only(top: 14),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: t.card,
@@ -818,7 +1218,7 @@ class _DailyPageFeedbackState extends State<DailyPageFeedback> {
     }
 
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: 14),
+      margin: const EdgeInsets.only(top: 14),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
       decoration: BoxDecoration(
         color: t.card,

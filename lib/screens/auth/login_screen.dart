@@ -6,11 +6,13 @@ import '../../widgets/shared_widgets.dart';
 class LoginScreen extends StatefulWidget {
   final Function(dynamic) onLoginSuccess;
   final VoidCallback onNavigateToRegister;
+  final String? initialMessage;
 
   const LoginScreen({
     super.key,
     required this.onLoginSuccess,
     required this.onNavigateToRegister,
+    this.initialMessage,
   });
 
   @override
@@ -24,6 +26,12 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _obscurePassword = true;
   bool _loading = false;
   String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _errorMessage = widget.initialMessage;
+  }
 
   @override
   void dispose() {
