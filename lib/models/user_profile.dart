@@ -186,6 +186,15 @@ class DailyPageContent {
   final String microSkill;
   final String funMoment;
   final String nightReflection;
+  // What Chamomile says (personalized welcome message from API)
+  final String? whatChamomileSays;
+  final String? mood;
+  final String? freeText;
+  final String? chamomileModel;
+  final bool fromFallback;
+  final String? dateKey;
+  final String? createdAt;
+  final String? updatedAt;
   // User-written answers (saved back to server via POST /api/v1/daily_pages)
   final String reflectionAnswer;
   final String reflectionFollowupAnswer;
@@ -203,6 +212,14 @@ class DailyPageContent {
     required this.microSkill,
     required this.funMoment,
     required this.nightReflection,
+    this.whatChamomileSays,
+    this.mood,
+    this.freeText,
+    this.chamomileModel,
+    this.fromFallback = false,
+    this.dateKey,
+    this.createdAt,
+    this.updatedAt,
     this.reflectionAnswer = '',
     this.reflectionFollowupAnswer = '',
     this.nightReflectionAnswer = '',
@@ -245,6 +262,34 @@ class DailyPageContent {
         root['id']?.toString() ??
         json['id']?.toString();
 
+    final whatChamomile =
+        content['what_chamomile_says'] as String? ??
+        root['what_chamomile_says'] as String?;
+
+    final pageMood =
+        content['mood'] as String? ?? root['mood'] as String?;
+
+    final freeTextVal =
+        content['free_text'] as String? ?? root['free_text'] as String?;
+
+    final modelVal =
+        content['chamomile_model'] as String? ??
+        root['chamomile_model'] as String?;
+
+    final isFallback =
+        content['from_fallback'] as bool? ??
+        root['from_fallback'] as bool? ??
+        false;
+
+    final dateKeyVal =
+        content['date_key'] as String? ?? root['date_key'] as String?;
+
+    final createdVal =
+        content['created_at'] as String? ?? root['created_at'] as String?;
+
+    final updatedVal =
+        content['updated_at'] as String? ?? root['updated_at'] as String?;
+
     return DailyPageContent(
       id: parsedId,
       openingThought: content['opening_thought'] as String? ?? '',
@@ -259,9 +304,19 @@ class DailyPageContent {
       microSkill: content['micro_skill'] as String? ?? '',
       funMoment: content['fun_moment'] as String? ?? '',
       nightReflection: content['night_reflection'] as String? ?? '',
+      whatChamomileSays: whatChamomile,
+      mood: pageMood,
+      freeText: freeTextVal,
+      chamomileModel: modelVal,
+      fromFallback: isFallback,
+      dateKey: dateKeyVal,
+      createdAt: createdVal,
+      updatedAt: updatedVal,
       reflectionAnswer: content['reflection_answer'] as String? ?? '',
-      reflectionFollowupAnswer: content['reflection_followup_answer'] as String? ?? '',
-      nightReflectionAnswer: content['night_reflection_answer'] as String? ?? '',
+      reflectionFollowupAnswer:
+          content['reflection_followup_answer'] as String? ?? '',
+      nightReflectionAnswer:
+          content['night_reflection_answer'] as String? ?? '',
     );
   }
 
@@ -281,6 +336,14 @@ class DailyPageContent {
       'micro_skill': microSkill,
       'fun_moment': funMoment,
       'night_reflection': nightReflection,
+      if (whatChamomileSays != null) 'what_chamomile_says': whatChamomileSays,
+      if (mood != null) 'mood': mood,
+      if (freeText != null) 'free_text': freeText,
+      if (chamomileModel != null) 'chamomile_model': chamomileModel,
+      'from_fallback': fromFallback,
+      if (dateKey != null) 'date_key': dateKey,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
       'reflection_answer': reflectionAnswer,
       'reflection_followup_answer': reflectionFollowupAnswer,
       'night_reflection_answer': nightReflectionAnswer,

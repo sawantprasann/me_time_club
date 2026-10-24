@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import '../models/gentle_read.dart';
 import '../models/user_profile.dart';
+import '../models/circle_response.dart';
 
 /// Returns the MIME MediaType for an image path based on its extension.
 /// Defaults to image/jpeg when unknown — ensures Rails ALLOWED_TYPES passes.
@@ -1420,7 +1421,12 @@ class ApiService {
 
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body);
-        return decoded as List<dynamic>;
+        if (decoded is List) {
+          return decoded;
+        } else if (decoded is Map<String, dynamic> && decoded['posts'] is List) {
+          return decoded['posts'] as List<dynamic>;
+        }
+        return [];
       } else {
         final decoded = jsonDecode(response.body);
         final errorMsg =
@@ -1439,15 +1445,70 @@ class ApiService {
     }
   }
 
+  /// Gets all circle post moods from /api/v1/circle_posts/moods.
+  static Future<List<CircleMood>> getCircleMoods({
+    required String token,
+  }) async {
+    const url = '$apiBase/circle_posts/moods';
+
+    print('[API REQUEST] GET $url');
+
+    try {
+      final response = await _client.get(
+        Uri.parse(url),
+        headers: {
+          'accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      print('[API RESPONSE] ${response.statusCode} GET $url');
+      print('[API RESPONSE BODY] ${response.body}');
+
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+        if (decoded is List) {
+          return decoded
+              .whereType<Map<String, dynamic>>()
+              .map(CircleMood.fromJson)
+              .toList();
+        }
+      } else {
+        final decoded = jsonDecode(response.body);
+        final errorMsg =
+            decoded['error'] as String? ?? 'Failed to get circle moods.';
+        throw ApiException(errorMsg);
+      }
+      return [];
+    } on http.ClientException catch (e) {
+      print('[API ERROR] ClientException: ${e.message}');
+      throw ApiException(
+        'Network error: Please check your internet connection.',
+      );
+    } catch (e) {
+      print('[API ERROR] Exception: ${e.toString()}');
+      if (e is ApiException) rethrow;
+      throw ApiException('An unexpected error occurred: ${e.toString()}');
+    }
+  }
+
   /// Creates a new circle post.
   static Future<Map<String, dynamic>> createCirclePost({
     required String token,
     required String body,
-    bool isAnon = false,
+    bool? isAnon,
+    bool anonymous = false,
+    String? topicTag,
   }) async {
     const url = '$apiBase/circle_posts';
+    final isAnonymous = isAnon ?? anonymous;
     final requestBody = {
-      'circle_post': {'body': body, 'is_anon': isAnon},
+      'circle_post': {
+        'body': body,
+        'anonymous': isAnonymous,
+        if (topicTag != null && topicTag.trim().isNotEmpty)
+          'topic_tag': topicTag.trim(),
+      },
     };
 
     print('[API REQUEST] POST $url');
@@ -1497,15 +1558,25 @@ class ApiService {
     }
   }
 
-  /// Toggles a reaction on a circle post.
-  /// Returns the updated post JSON (with new counts + my_reactions).
-  static Future<Map<String, dynamic>?> reactToCirclePost({
+  /// Responds to a circle post (with a mood or text reply).
+  /// Endpoint: POST /api/v1/circle_posts/:postId/respond
+  static Future<Map<String, dynamic>> respondToCirclePost({
     required String token,
     required String postId,
-    required String reactionType,
+    String? moodKey,
+    String? body,
+    bool anonymous = true,
   }) async {
-    final url = '$apiBase/circle_posts/$postId/react';
-    final requestBody = {'reaction_type': reactionType};
+    final url = '$apiBase/circle_posts/$postId/respond';
+    final Map<String, dynamic> requestBody = {
+      'anonymous': anonymous,
+    };
+    if (moodKey != null && moodKey.isNotEmpty) {
+      requestBody['mood_key'] = moodKey;
+    }
+    if (body != null && body.isNotEmpty) {
+      requestBody['body'] = body;
+    }
 
     print('[API REQUEST] POST $url');
     print('[API REQUEST BODY] ${jsonEncode(requestBody)}');
@@ -1527,9 +1598,12 @@ class ApiService {
       if (response.statusCode == 200 || response.statusCode == 201) {
         return jsonDecode(response.body) as Map<String, dynamic>;
       }
-      throw ApiException(
-        'Failed to react to circle post (status: ${response.statusCode}).',
-      );
+      final decoded = jsonDecode(response.body);
+      final errorMsg =
+          decoded is Map && decoded['error'] != null
+              ? decoded['error'].toString()
+              : 'Failed to send response.';
+      throw ApiException(errorMsg);
     } on http.ClientException catch (e) {
       print('[API ERROR] ClientException: ${e.message}');
       throw ApiException(

@@ -12,6 +12,8 @@ class CirclePostCard extends StatefulWidget {
   final String body;
   final String time;
   final List<CircleReply> replies;
+  final List<CircleMood> moods;
+  final String? myMood;
   final Future<void> Function(CircleResponseDraft)? onSendReply;
 
   const CirclePostCard({
@@ -21,6 +23,8 @@ class CirclePostCard extends StatefulWidget {
     required this.body,
     required this.time,
     this.replies = const [],
+    this.moods = const [],
+    this.myMood,
     this.onSendReply,
   });
 
@@ -29,7 +33,7 @@ class CirclePostCard extends StatefulWidget {
 }
 
 class _CirclePostCardState extends State<CirclePostCard> {
-  static const _feelings = {
+  static const _defaultFeelings = {
     'holding_you': 'Holding you',
     'i_understand': 'I understand',
     'this_feels_heavy': 'This feels heavy',
@@ -38,6 +42,13 @@ class _CirclePostCardState extends State<CirclePostCard> {
     'this_will_pass': 'This will pass',
     'take_a_breath': 'Take a breath',
   };
+
+  Map<String, String> get _feelings {
+    if (widget.moods.isNotEmpty) {
+      return {for (final m in widget.moods) m.key: m.label};
+    }
+    return _defaultFeelings;
+  }
 
   final _draft = TextEditingController();
   // UI-only responses while the backend contract is being implemented.
@@ -51,6 +62,22 @@ class _CirclePostCardState extends State<CirclePostCard> {
     ...widget.replies,
     ..._localFeelingReplies,
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.myMood != null) {
+      _selectedFeeling = _feelings[widget.myMood];
+    }
+  }
+
+  @override
+  void didUpdateWidget(CirclePostCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.myMood != oldWidget.myMood && widget.myMood != null) {
+      _selectedFeeling = _feelings[widget.myMood];
+    }
+  }
 
   @override
   void dispose() {

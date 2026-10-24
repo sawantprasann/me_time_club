@@ -28,6 +28,7 @@ class _CircleTabState extends State<CircleTab> {
   bool _isAnon = false;
   bool _loadingPosts = false;
   final List<_Post> _posts = [];
+  final List<CircleMood> _moods = [];
 
   AppTokens get t => widget.t;
 
@@ -37,13 +38,20 @@ class _CircleTabState extends State<CircleTab> {
     _loadPosts();
   }
 
-  void _loadPosts() async {
-    setState(() => _loadingPosts = true);
+  Future<void> _loadPosts({bool showSpinner = true}) async {
+    if (showSpinner) {
+      setState(() => _loadingPosts = true);
+    }
 
     try {
-      final postsList = await ApiService.getCirclePosts(
-        token: widget.user.token ?? '',
-      );
+      final token = widget.user.token ?? '';
+      final results = await Future.wait([
+        ApiService.getCirclePosts(token: token),
+        ApiService.getCircleMoods(token: token),
+      ]);
+
+      final postsList = results[0];
+      final moodsList = results[1] as List<CircleMood>;
 
       final loadedPosts =
           postsList.map((item) {
@@ -72,6 +80,7 @@ class _CircleTabState extends State<CircleTab> {
               body: body,
               isAnon: isAnon,
               time: timeString,
+              myMood: item['my_mood'] as String?,
               replies:
                   (item['responses'] as List<dynamic>? ?? [])
                       .whereType<Map<String, dynamic>>()
@@ -86,6 +95,9 @@ class _CircleTabState extends State<CircleTab> {
           _posts
             ..clear()
             ..addAll(loadedPosts);
+          _moods
+            ..clear()
+            ..addAll(moodsList);
           _loadingPosts = false;
         });
       }
@@ -108,9 +120,11 @@ class _CircleTabState extends State<CircleTab> {
       final res = await ApiService.createCirclePost(
         token: widget.user.token ?? '',
         body: bodyText,
-        isAnon: anon,
+        anonymous: anon,
       );
       final createdId = res['id']?.toString();
+      final isAnonymous = res['anonymous'] as bool? ?? anon;
+      final authorName = res['author']?.toString() ?? (isAnonymous ? 'Anonymous' : widget.userName);
 
       if (mounted) {
         setState(() {
@@ -118,9 +132,9 @@ class _CircleTabState extends State<CircleTab> {
             0,
             _Post(
               id: createdId,
-              name: anon ? 'Anonymous' : widget.userName,
+              name: isAnonymous ? 'Anonymous' : authorName,
               body: bodyText,
-              isAnon: anon,
+              isAnon: isAnonymous,
               time: 'Just now',
             ),
           );
@@ -143,26 +157,35 @@ class _CircleTabState extends State<CircleTab> {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(18, 10, 18, 18),
-      child: Column(
-        children: [
-          _buildComposer(),
-          const SizedBox(height: 16),
-          if (_loadingPosts)
-            const Center(
-              child: Padding(
-                padding: EdgeInsets.symmetric(vertical: 20),
-                child: SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+    return RefreshIndicator(
+      color: t.accent,
+      backgroundColor: t.card,
+      onRefresh: () => _loadPosts(showSpinner: false),
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(18, 10, 18, 18),
+        child: Column(
+          children: [
+            _buildComposer(),
+            const SizedBox(height: 16),
+            if (_loadingPosts && _posts.isEmpty)
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 20),
+                  child: SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(t.accent),
+                    ),
+                  ),
                 ),
-              ),
-            )
-          else
-            ..._posts.map((post) => _buildPostCard(post)),
-        ],
+              )
+            else
+              ..._posts.map((post) => _buildPostCard(post)),
+          ],
+        ),
       ),
     );
   }
@@ -256,6 +279,33 @@ class _CircleTabState extends State<CircleTab> {
     body: post.body,
     time: post.time,
     replies: post.replies,
+    moods: _moods,
+    myMood: post.myMood,
+    onSendReply: (draft) async {
+      if (post.id == null) return;
+      final updatedPost = await ApiService.respondToCirclePost(
+        token: widget.user.token ?? '',
+        postId: post.id!,
+        moodKey: draft.feelingKey,
+        body: draft.feelingKey == null ? draft.body : null,
+        anonymous: true,
+      );
+      if (mounted) {
+        setState(() {
+          post.myMood = updatedPost['my_mood'] as String?;
+          final rawResponses =
+              updatedPost['responses'] as List<dynamic>? ?? [];
+          post.replies
+            ..clear()
+            ..addAll(
+              rawResponses
+                  .whereType<Map<String, dynamic>>()
+                  .map(CircleReply.fromJson)
+                  .where((reply) => reply.body.trim().isNotEmpty),
+            );
+        });
+      }
+    },
   );
 }
 
@@ -265,6 +315,7 @@ class _Post {
   final String body;
   final bool isAnon;
   final String time;
+  String? myMood;
   final List<CircleReply> replies;
 
   _Post({
@@ -273,6 +324,7 @@ class _Post {
     required this.body,
     required this.isAnon,
     required this.time,
+    this.myMood,
     this.replies = const [],
   });
 }

@@ -4,7 +4,6 @@ import '../../theme/tokens.dart';
 import '../../icons/app_icons.dart';
 import '../../models/gentle_read.dart';
 import '../../models/user_profile.dart';
-import '../../data/fallback_database.dart';
 import '../../widgets/shared_widgets.dart';
 import '../../widgets/app_logo.dart';
 import '../../widgets/gentle_read_post.dart';
@@ -38,7 +37,6 @@ class _HomeTabState extends State<HomeTab> {
   String _freeText = '';
   DailyPageContent? _page;
   bool _loading = false;
-  bool _fromFallback = false;
   bool _checkingExisting = false;
   final List<GentleRead> _gentleReadHistory = [];
   int _gentleReadIndex = 0;
@@ -122,6 +120,12 @@ class _HomeTabState extends State<HomeTab> {
       if (mounted) {
         setState(() {
           _page = page;
+          if (page?.mood != null && page!.mood!.isNotEmpty) {
+            _mood = page.mood;
+          }
+          if (page?.freeText != null && page!.freeText!.isNotEmpty) {
+            _freeText = page.freeText!;
+          }
           _checkingExisting = false;
         });
         _syncAnswerControllers();
@@ -253,7 +257,6 @@ class _HomeTabState extends State<HomeTab> {
       if (mounted) {
         setState(() {
           _page = result['content'] as DailyPageContent;
-          _fromFallback = result['from_fallback'] as bool? ?? false;
           _loading = false;
         });
         _syncAnswerControllers();
@@ -265,17 +268,17 @@ class _HomeTabState extends State<HomeTab> {
     } catch (e) {
       if (e is UnauthorizedException) return;
       debugPrint('[CHAMOMILE API ERROR] $e');
-      final phase =
-          widget.user.phases.isNotEmpty ? widget.user.phases.first : 'baby';
-      final page = getFallback(phase);
       if (mounted) {
-        setState(() {
-          _page = page;
-          _loading = false;
-          _fromFallback = true;
-        });
-        _syncAnswerControllers();
-        widget.onSavePage(DateTime.now().day, page);
+        setState(() => _loading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              e is ApiException
+                  ? e.message
+                  : 'Failed to generate daily page. Please check your connection and try again.',
+            ),
+          ),
+        );
       }
     }
   }
@@ -285,7 +288,6 @@ class _HomeTabState extends State<HomeTab> {
       _mood = null;
       _freeText = '';
       _page = null;
-      _fromFallback = false;
     });
     widget.onSavePage(DateTime.now().day, null);
   }
@@ -337,14 +339,6 @@ class _HomeTabState extends State<HomeTab> {
             // Daily page content
             if (_page != null) ...[
               _buildChamomileWelcome(),
-              if (_fromFallback)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Text(
-                    '✦ From our library',
-                    style: AppTypography.lato400(10, t.muted),
-                  ),
-                ),
               _DailyPageView(
                 page: _page!,
                 t: t,
@@ -506,6 +500,14 @@ class _HomeTabState extends State<HomeTab> {
             ? _greeting
             : '$_greeting, ${name.split(RegExp(r'\s+')).first}';
 
+    final textToShow =
+        (_page?.whatChamomileSays != null &&
+                _page!.whatChamomileSays!.trim().isNotEmpty)
+            ? _page!.whatChamomileSays!.trim()
+            : "$greeting. I've been waiting for this moment with you. "
+                'Before the day pulls you in every direction — '
+                "you're here. That matters. How are you arriving today?";
+
     return AppCard(
       t: t,
       child: Row(
@@ -520,9 +522,7 @@ class _HomeTabState extends State<HomeTab> {
                 Text('CHAMOMILE', style: AppTypography.sectionLabel(t.accent)),
                 const SizedBox(height: 10),
                 Text(
-                  "$greeting. I've been waiting for this moment with you. "
-                  'Before the day pulls you in every direction — '
-                  "you're here. That matters. How are you arriving today?",
+                  textToShow,
                   style: AppTypography.cormorantItalic(
                     18,
                     t.text,
