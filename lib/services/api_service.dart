@@ -423,6 +423,47 @@ class ApiService {
     }
   }
 
+  /// Fetches all tasks for the authenticated user.
+  static Future<List<Map<String, dynamic>>> getTasks({
+    required String token,
+  }) async {
+    const url = '$apiBase/tasks';
+
+    print('[API REQUEST] GET $url');
+
+    try {
+      final response = await _client.get(
+        Uri.parse(url),
+        headers: {
+          'accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      print('[API RESPONSE] ${response.statusCode} GET $url');
+      print('[API RESPONSE BODY] ${response.body}');
+
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+        return List<Map<String, dynamic>>.from(decoded as List);
+      } else {
+        final decoded = jsonDecode(response.body);
+        final errorMsg =
+            decoded['error'] as String? ?? 'Failed to fetch tasks.';
+        throw ApiException(errorMsg);
+      }
+    } on http.ClientException catch (e) {
+      print('[API ERROR] ClientException: ${e.message}');
+      throw ApiException(
+        'Network error: Please check your internet connection.',
+      );
+    } catch (e) {
+      print('[API ERROR] Exception: ${e.toString()}');
+      if (e is ApiException) rethrow;
+      throw ApiException('An unexpected error occurred: ${e.toString()}');
+    }
+  }
+
   /// Fetches all tasks for a specific date.
   /// Returns a list of task maps from the server.
   static Future<List<Map<String, dynamic>>> getTasksForDate({

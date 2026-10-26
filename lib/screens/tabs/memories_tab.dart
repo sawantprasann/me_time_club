@@ -2,6 +2,8 @@ import 'dart:io';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:gal/gal.dart';
+import 'package:http/http.dart' as http;
 import '../../theme/tokens.dart';
 import '../../icons/app_icons.dart';
 import '../../models/user_profile.dart';
@@ -213,10 +215,105 @@ class _MemoriesTabState extends State<MemoriesTab> {
         ),
       );
 
+  bool _downloading = false;
+
+  void _showSuccess(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.check_circle_outline, color: Colors.white, size: 20),
+            const SizedBox(width: 8),
+            Expanded(child: Text(msg)),
+          ],
+        ),
+        backgroundColor: const Color(0xFF4A7C59),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   void _showError(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(msg), backgroundColor: Colors.redAccent),
     );
+  }
+
+  Future<void> _downloadMemoryImage(_Memory m) async {
+    final hasPhoto =
+        m.localPath != null || (m.photoUrl != null && m.photoUrl!.isNotEmpty);
+    if (!hasPhoto) {
+      _showError('This moment does not have a photo to download.');
+      return;
+    }
+
+    if (_downloading) return;
+    setState(() => _downloading = true);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Row(
+          children: [
+            SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Colors.white,
+              ),
+            ),
+            SizedBox(width: 12),
+            Text('Saving photo to gallery…'),
+          ],
+        ),
+        duration: Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+
+    try {
+      if (m.localPath != null) {
+        await Gal.putImage(m.localPath!);
+      } else if (m.photoUrl != null && m.photoUrl!.isNotEmpty) {
+        final fullUrl = m.photoUrl!.startsWith('http')
+            ? m.photoUrl!
+            : '${ApiService.serverHost}${m.photoUrl}';
+        final token = widget.user.token ?? '';
+        final response = await http.get(
+          Uri.parse(fullUrl),
+          headers: token.isNotEmpty ? {'Authorization': 'Bearer $token'} : null,
+        );
+        if (response.statusCode == 200) {
+          final timestamp = DateTime.now().millisecondsSinceEpoch;
+          await Gal.putImageBytes(
+            response.bodyBytes,
+            name: 'metime_memory_${m.id}_$timestamp',
+          );
+        } else {
+          throw Exception('Failed to download photo (HTTP ${response.statusCode})');
+        }
+      }
+
+      if (mounted) {
+        _showSuccess('Photo saved to your gallery!');
+      }
+    } on GalException catch (e) {
+      debugPrint('[DOWNLOAD MEMORY ERROR] GalException: ${e.type}');
+      if (mounted) {
+        if (e.type == GalExceptionType.accessDenied) {
+          _showError('Photo library access was denied. Please allow access in settings.');
+        } else {
+          _showError('Failed to save photo: ${e.type.message}');
+        }
+      }
+    } catch (e) {
+      debugPrint('[DOWNLOAD MEMORY ERROR] $e');
+      if (mounted) {
+        _showError('Could not save photo: $e');
+      }
+    } finally {
+      if (mounted) setState(() => _downloading = false);
+    }
   }
 
   void _showActionsMenu(_Memory m) {
@@ -240,6 +337,27 @@ class _MemoriesTabState extends State<MemoriesTab> {
               ),
             ),
             const SizedBox(height: 16),
+            if (m.localPath != null ||
+                (m.photoUrl != null && m.photoUrl!.isNotEmpty))
+              ListTile(
+                leading: Icon(
+                  Icons.file_download_outlined,
+                  color: t.accent,
+                  size: 20,
+                ),
+                title: Text(
+                  'Download Photo',
+                  style: AppTypography.lato700(14, t.text),
+                ),
+                subtitle: Text(
+                  'Save to your device gallery',
+                  style: AppTypography.lato400(11, t.muted),
+                ),
+                onTap: () {
+                  Navigator.of(ctx).pop();
+                  _downloadMemoryImage(m);
+                },
+              ),
             ListTile(
               leading: AppIcons.pen(c: t.accent, s: 18),
               title: Text('Edit Moment', style: AppTypography.lato700(14, t.text)),

@@ -34,6 +34,8 @@
 	<string>Me Time Club uses your microphone for voice input</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Me Time Club accesses your photos for memories and profile</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Me Time Club needs permission to save memory photos to your photo library</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>Me Time Club uses speech recognition for voice input</string>
 	<key>UIApplicationSceneManifest</key>

@@ -12,11 +12,15 @@ class CircleTab extends StatefulWidget {
   final UserProfile user;
   final AppTokens t;
   final String userName;
+  final bool isActive;
+  final int refreshTrigger;
   const CircleTab({
     super.key,
     required this.user,
     required this.t,
     required this.userName,
+    this.isActive = true,
+    this.refreshTrigger = 0,
   });
 
   @override
@@ -36,6 +40,15 @@ class _CircleTabState extends State<CircleTab> {
   void initState() {
     super.initState();
     _loadPosts();
+  }
+
+  @override
+  void didUpdateWidget(CircleTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if ((widget.isActive && !oldWidget.isActive) ||
+        widget.refreshTrigger != oldWidget.refreshTrigger) {
+      _loadPosts(showSpinner: false);
+    }
   }
 
   Future<void> _loadPosts({bool showSpinner = true}) async {
@@ -282,7 +295,7 @@ class _CircleTabState extends State<CircleTab> {
     moods: _moods,
     myMood: post.myMood,
     onSendReply: (draft) async {
-      if (post.id == null) return;
+      if (post.id == null) return null;
       final updatedPost = await ApiService.respondToCirclePost(
         token: widget.user.token ?? '',
         postId: post.id!,
@@ -290,21 +303,23 @@ class _CircleTabState extends State<CircleTab> {
         body: draft.feelingKey == null ? draft.body : null,
         anonymous: true,
       );
+      final rawResponses =
+          updatedPost['responses'] as List<dynamic>? ?? [];
+      final parsedReplies = rawResponses
+          .whereType<Map<String, dynamic>>()
+          .map(CircleReply.fromJson)
+          .where((reply) => reply.body.trim().isNotEmpty)
+          .toList();
+
       if (mounted) {
         setState(() {
           post.myMood = updatedPost['my_mood'] as String?;
-          final rawResponses =
-              updatedPost['responses'] as List<dynamic>? ?? [];
           post.replies
             ..clear()
-            ..addAll(
-              rawResponses
-                  .whereType<Map<String, dynamic>>()
-                  .map(CircleReply.fromJson)
-                  .where((reply) => reply.body.trim().isNotEmpty),
-            );
+            ..addAll(parsedReplies);
         });
       }
+      return parsedReplies;
     },
   );
 }

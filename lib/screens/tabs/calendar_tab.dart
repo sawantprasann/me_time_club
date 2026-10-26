@@ -10,12 +10,16 @@ class CalendarTab extends StatefulWidget {
   final UserProfile user;
   final AppTokens t;
   final Map<int, DailyPageContent> dailyPages;
+  final bool isActive;
+  final int? refreshTrigger;
 
   const CalendarTab({
     super.key,
     required this.user,
     required this.t,
     required this.dailyPages,
+    this.isActive = false,
+    this.refreshTrigger,
   });
 
   @override
@@ -67,17 +71,28 @@ class _CalendarTabState extends State<CalendarTab> {
   }
 
   @override
+  void didUpdateWidget(covariant CalendarTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final becameActive = widget.isActive && !oldWidget.isActive;
+    final refreshChanged = widget.refreshTrigger != null &&
+        widget.refreshTrigger != oldWidget.refreshTrigger;
+    if (becameActive || (widget.isActive && refreshChanged)) {
+      _loadMonthData(forceRefreshCycle: true);
+    }
+  }
+
+  @override
   void dispose() {
     _taskController.dispose();
     super.dispose();
   }
 
-  Future<void> _loadMonthData() async {
+  Future<void> _loadMonthData({bool forceRefreshCycle = false}) async {
     final token = widget.user.token ?? '';
     final monthStr = _apiMonth;
 
     // 1. Fetch cycle days
-    await _loadCycleDays();
+    await _loadCycleDays(force: forceRefreshCycle);
 
     // 2. Fetch monthly tasks
     try {
@@ -143,15 +158,19 @@ class _CalendarTabState extends State<CalendarTab> {
   }
 
   /// Load ALL cycle days once from the server (no month filter).
-  /// Re-entrant safe: skips if already loaded.
-  Future<void> _loadCycleDays() async {
-    if (_cycleDaysLoaded) return;
+  /// Re-entrant safe: skips if already loaded, unless [force] is true.
+  Future<void> _loadCycleDays({bool force = false}) async {
+    if (_cycleDaysLoaded && !force) return;
     try {
       final raw = await ApiService.fetchAllCycleDays(
         token: widget.user.token ?? '',
       );
       if (!mounted) return;
       setState(() {
+        if (force) {
+          _cycleDays.clear();
+          _cycleDayIds.clear();
+        }
         for (final r in raw) {
           final dk = r['date_key'] as String; // "2026-07-02"
           _cycleDayIds[dk] = r['id'].toString();
@@ -497,18 +516,23 @@ class _CalendarTabState extends State<CalendarTab> {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(18, 10, 18, 18),
-      child: Column(
-        children: [
-          _buildCalendarGrid(),
-          const SizedBox(height: 18),
-          _buildDailyPageSection(),
-          const SizedBox(height: 14),
-          _buildTasksSection(),
-          const SizedBox(height: 14),
-          _buildCycleSection(),
-        ],
+    return RefreshIndicator(
+      color: t.accent,
+      onRefresh: () => _loadMonthData(forceRefreshCycle: true),
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(18, 10, 18, 18),
+        child: Column(
+          children: [
+            _buildCalendarGrid(),
+            const SizedBox(height: 18),
+            _buildDailyPageSection(),
+            const SizedBox(height: 14),
+            _buildTasksSection(),
+            const SizedBox(height: 14),
+            _buildCycleSection(),
+          ],
+        ),
       ),
     );
   }
@@ -893,13 +917,11 @@ class _CalendarTabState extends State<CalendarTab> {
     final dateKey =
         '$_viewYear-${_viewMonth.toString().padLeft(2, '0')}-${_sel.toString().padLeft(2, '0')}';
 
-    DailyPageContent? page;
+    DailyPageContent? page = _fetchedPages[dateKey];
     final isSessionCurrent =
         _isCurrentMonth && widget.dailyPages.containsKey(_sel);
-    if (isSessionCurrent) {
+    if (page == null && isSessionCurrent) {
       page = widget.dailyPages[_sel];
-    } else {
-      page = _fetchedPages[dateKey];
     }
 
     final hasPage = page != null;

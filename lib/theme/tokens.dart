@@ -88,15 +88,14 @@ class AppTypography {
         height: height,
       );
 
-  /// Cormorant Garamond Italic — Reflections, quotes, textareas
+  /// Cormorant Garamond Italic 400 — Reflections, quotes, textareas
   static TextStyle cormorantItalic(
     double size,
     Color color, {
     double? height,
-    FontWeight fontWeight = FontWeight.w400,
   }) => GoogleFonts.cormorantGaramond(
     fontSize: size,
-    fontWeight: fontWeight,
+    fontWeight: FontWeight.w400,
     fontStyle: FontStyle.italic,
     color: color,
     height: height,
@@ -121,18 +120,13 @@ class AppTypography {
       );
 
   /// Lato 400 — UI labels, dates, navigation
-  static TextStyle lato400(
-    double size,
-    Color color, {
-    double? height,
-    double letterSpacing = 0,
-  }) => GoogleFonts.lato(
-    fontSize: size,
-    fontWeight: FontWeight.w400,
-    color: color,
-    height: height,
-    letterSpacing: letterSpacing,
-  );
+  static TextStyle lato400(double size, Color color, {double? height}) =>
+      GoogleFonts.lato(
+        fontSize: size,
+        fontWeight: FontWeight.w400,
+        color: color,
+        height: height,
+      );
 
   /// Lato 700 — Section labels (UPPERCASE), chip selected
   static TextStyle lato700(

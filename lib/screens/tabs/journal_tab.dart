@@ -10,7 +10,16 @@ import '../../widgets/speech_button.dart';
 class JournalTab extends StatefulWidget {
   final UserProfile user;
   final AppTokens t;
-  const JournalTab({super.key, required this.user, required this.t});
+  final bool isActive;
+  final int? refreshTrigger;
+
+  const JournalTab({
+    super.key,
+    required this.user,
+    required this.t,
+    this.isActive = false,
+    this.refreshTrigger,
+  });
 
   @override
   State<JournalTab> createState() => _JournalTabState();
@@ -27,7 +36,8 @@ class _JournalTabState extends State<JournalTab> {
 
   // Tasks sub-tab
   final List<_TaskItem> _tasks = [];
-  String _newTask = '';
+  final TextEditingController _newTaskCtrl = TextEditingController();
+  bool _loadingTasks = false;
   bool _chamomileDone = false;
   // Shopping sub-tab
   final List<_ShopCategory> _categories = [];
@@ -48,8 +58,57 @@ class _JournalTabState extends State<JournalTab> {
   @override
   void initState() {
     super.initState();
+    _refreshAllData();
+  }
+
+  @override
+  void didUpdateWidget(covariant JournalTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final becameActive = widget.isActive && !oldWidget.isActive;
+    final refreshChanged = widget.refreshTrigger != null &&
+        widget.refreshTrigger != oldWidget.refreshTrigger;
+    if (becameActive || (widget.isActive && refreshChanged)) {
+      _refreshAllData();
+    }
+  }
+
+  Future<void> _refreshAllData() async {
     _fetchPastEntries();
+    _fetchTasks();
     _fetchShoppingCategories();
+  }
+
+  @override
+  void dispose() {
+    _newTaskCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _fetchTasks() async {
+    setState(() => _loadingTasks = true);
+    try {
+      final raw = await ApiService.getTasks(
+        token: widget.user.token ?? '',
+      );
+      if (!mounted) return;
+      setState(() {
+        _tasks
+          ..clear()
+          ..addAll(
+            raw.map(
+              (t) => _TaskItem(
+                id: t['id']?.toString(),
+                text: t['title'] as String? ?? '',
+                done: t['completed'] as bool? ?? false,
+              ),
+            ),
+          );
+        _loadingTasks = false;
+      });
+    } catch (e) {
+      debugPrint('[FETCH TASKS ERROR] $e');
+      if (mounted) setState(() => _loadingTasks = false);
+    }
   }
 
   void _fetchPastEntries() async {
@@ -175,16 +234,21 @@ class _JournalTabState extends State<JournalTab> {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(18, 10, 18, 18),
-      child: Column(
-        children: [
-          _buildSubTabs(),
-          const SizedBox(height: 16),
-          if (_sub == 'journal') _buildJournal(),
-          if (_sub == 'tasks') _buildTasks(),
-          if (_sub == 'shopping') _buildShopping(),
-        ],
+    return RefreshIndicator(
+      color: t.accent,
+      onRefresh: _refreshAllData,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(18, 10, 18, 18),
+        child: Column(
+          children: [
+            _buildSubTabs(),
+            const SizedBox(height: 16),
+            if (_sub == 'journal') _buildJournal(),
+            if (_sub == 'tasks') _buildTasks(),
+            if (_sub == 'shopping') _buildShopping(),
+          ],
+        ),
       ),
     );
   }
@@ -536,6 +600,20 @@ class _JournalTabState extends State<JournalTab> {
           ),
         ),
         const SizedBox(height: 14),
+        if (_loadingTasks && _tasks.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Center(
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(t.accent),
+                ),
+              ),
+            ),
+          ),
         // User tasks
         ..._tasks.asMap().entries.map((e) {
           final i = e.key;
@@ -621,16 +699,15 @@ class _JournalTabState extends State<JournalTab> {
           children: [
             Expanded(
               child: TextField(
-                onChanged: (v) => _newTask = v,
+                controller: _newTaskCtrl,
                 onSubmitted: (_) => _addTask(),
-                controller: TextEditingController(text: _newTask),
                 style: AppTypography.lato400(14, t.text),
                 decoration: _inputDeco('Add a task…'),
               ),
             ),
             const SizedBox(width: 8),
             SpeechButton(
-              onResult: (s) => setState(() => _newTask = s),
+              onResult: (s) => setState(() => _newTaskCtrl.text = s),
               t: t,
               size: 38,
             ),
@@ -648,18 +725,23 @@ class _JournalTabState extends State<JournalTab> {
   }
 
   void _addTask() async {
-    if (_newTask.trim().isEmpty) return;
+    final taskText = _newTaskCtrl.text.trim();
+    if (taskText.isEmpty) return;
     FocusManager.instance.primaryFocus?.unfocus();
-    final taskText = _newTask.trim();
     setState(() {
-      _newTask = '';
+      _newTaskCtrl.clear();
     });
+
+    final now = DateTime.now();
+    final dateKey =
+        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
 
     try {
       final res = await ApiService.createTask(
         token: widget.user.token ?? '',
         title: taskText,
         completed: false,
+        dateKey: dateKey,
       );
       final createdId = res['id']?.toString();
 

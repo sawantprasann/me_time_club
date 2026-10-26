@@ -524,11 +524,7 @@ class _HomeTabState extends State<HomeTab> {
           const SizedBox(height: 6),
           Text(
             greetingText,
-            style: AppTypography.cormorantItalic(
-              22,
-              t.accent,
-              fontWeight: FontWeight.w700,
-            ),
+            style: AppTypography.cormorantItalic(22, t.accent),
             textAlign: TextAlign.center,
           ),
         ],
@@ -544,11 +540,7 @@ class _HomeTabState extends State<HomeTab> {
         children: [
           Text(
             'How are you arriving today?',
-            style: AppTypography.cormorantItalic(
-              17,
-              t.text,
-              fontWeight: FontWeight.w600,
-            ),
+            style: AppTypography.cormorantItalic(17, t.text),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 12),
@@ -608,7 +600,6 @@ class _HomeTabState extends State<HomeTab> {
             style: AppTypography.cormorantItalic(
               18,
               t.text,
-              fontWeight: FontWeight.w600,
               height: 1.65,
             ),
           ),
@@ -745,7 +736,7 @@ class _DailyPageView extends StatelessWidget {
           if (page.emotionalNeed.trim().isNotEmpty) ...[
             const SizedBox(height: 10),
             _alignmentCard(
-              icon: Icon(Icons.adjust_rounded, color: t.accent, size: 15),
+              icon: AppIcons.circle(c: t.accent, s: 15),
               label: 'NEED',
               subtitle: 'What you need right now',
               body: page.emotionalNeed,

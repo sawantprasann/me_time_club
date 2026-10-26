@@ -1,7 +1,7 @@
 name: me_time_club
 description: "Me Time Club — Your daily sanctuary. A wellness app for mothers."
 publish_to: 'none'
-version: 1.0.0+4
+version: 1.0.0+13
 
 environment:
   sdk: ^3.7.2
@@ -16,6 +16,7 @@ dependencies:
   http_parser: ^4.0.0
   shared_preferences: ^2.5.3
   url_launcher: ^6.3.2
+  gal: ^2.3.3
 
 dev_dependencies:
   flutter_test:
