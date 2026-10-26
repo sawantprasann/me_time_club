@@ -302,7 +302,11 @@ class _AppRootState extends State<AppRoot> {
               if (_tab == 'home')
                 Text(
                   'Your daily sanctuary',
-                  style: AppTypography.cormorantItalic(11, t.accent),
+                  style: AppTypography.lato400(
+                    11,
+                    t.accent,
+                    letterSpacing: 0.3,
+                  ),
                 ),
             ],
           ),

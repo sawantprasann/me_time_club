@@ -75,10 +75,10 @@ class _GentleReadPostState extends State<GentleReadPost> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             child: Row(
               children: [
-                const AppLogo(size: 32),
+                const AppLogo(size: 28),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Column(
@@ -88,7 +88,7 @@ class _GentleReadPostState extends State<GentleReadPost> {
                         'GENTLE READS',
                         style: AppTypography.sectionLabel(t.muted),
                       ),
-                      const SizedBox(height: 3),
+                      const SizedBox(height: 2),
                       Text(
                         'A moment with Chamomile',
                         style: AppTypography.lato400(10, t.muted),
@@ -163,20 +163,25 @@ class _GentleReadPostState extends State<GentleReadPost> {
               opacity: widget.loading ? 0.45 : 1,
               duration: const Duration(milliseconds: 180),
               child: Padding(
-                padding: const EdgeInsets.all(16),
+                padding: EdgeInsets.fromLTRB(
+                  16,
+                  image != null ? 12 : 2,
+                  16,
+                  16,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     if (read.title.trim().isNotEmpty)
                       Text(
                         read.title,
-                        style: AppTypography.lato700(14, t.text, height: 1.5),
+                        style: AppTypography.lato700(14, t.text, height: 1.3),
                       ),
                     if (read.title.trim().isNotEmpty &&
                         read.body.trim().isNotEmpty)
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 4),
                     if (read.body.trim().isNotEmpty) _caption(read.body),
-                    if (hasCaption && link != null) const SizedBox(height: 14),
+                    if (hasCaption && link != null) const SizedBox(height: 12),
                     if (link != null) _link(link),
                   ],
                 ),
