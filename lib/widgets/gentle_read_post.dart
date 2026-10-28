@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import '../icons/app_icons.dart';
 import '../models/gentle_read.dart';
 import '../theme/tokens.dart';
-import 'app_logo.dart';
 
 /// A read-only post. Image, caption, and link are independent optional content.
 class GentleReadPost extends StatefulWidget {
@@ -75,25 +75,15 @@ class _GentleReadPostState extends State<GentleReadPost> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Row(
               children: [
-                const AppLogo(size: 28),
-                const SizedBox(width: 10),
+                AppIcons.book(c: t.muted, s: 18),
+                const SizedBox(width: 8),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'GENTLE READS',
-                        style: AppTypography.sectionLabel(t.muted),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'A moment with Chamomile',
-                        style: AppTypography.lato400(10, t.muted),
-                      ),
-                    ],
+                  child: Text(
+                    'GENTLE READ',
+                    style: AppTypography.sectionLabel(t.muted),
                   ),
                 ),
                 if (widget.loading)

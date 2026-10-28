@@ -59,6 +59,9 @@ class AppRoot extends StatefulWidget {
 class _AppRootState extends State<AppRoot> {
   UserProfile? _user;
   String _tab = 'home';
+  int _calendarRefreshCount = 0;
+  int _journalRefreshCount = 0;
+  int _circleRefreshCount = 0;
   bool _night = false;
   final Map<int, DailyPageContent> _dailyPages = {};
   bool _loadingSession = true;
@@ -107,9 +110,15 @@ class _AppRootState extends State<AppRoot> {
     });
   }
 
+  static const _nightModeKey = 'is_night_mode';
+
   Future<void> _loadSession() async {
     try {
       final prefs = await SharedPreferences.getInstance();
+      final savedNight = prefs.getBool(_nightModeKey);
+      if (savedNight != null && mounted) {
+        setState(() => _night = savedNight);
+      }
       final userStr = prefs.getString('user_profile');
       if (userStr != null) {
         final decoded = jsonDecode(userStr);
@@ -197,8 +206,15 @@ class _AppRootState extends State<AppRoot> {
     });
   }
 
-  void _toggleNight() {
-    setState(() => _night = !_night);
+  void _toggleNight() async {
+    final nextNight = !_night;
+    setState(() => _night = nextNight);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_nightModeKey, nextNight);
+    } catch (e) {
+      debugPrint('Failed to save night mode preference: $e');
+    }
   }
 
   @override
@@ -302,11 +318,7 @@ class _AppRootState extends State<AppRoot> {
               if (_tab == 'home')
                 Text(
                   'Your daily sanctuary',
-                  style: AppTypography.lato400(
-                    11,
-                    t.accent,
-                    letterSpacing: 0.3,
-                  ),
+                  style: AppTypography.cormorantItalic(11, t.accent),
                 ),
             ],
           ),
@@ -395,14 +407,24 @@ class _AppRootState extends State<AppRoot> {
           user: _user!,
           t: t,
           dailyPages: _dailyPages,
+          isActive: _tab == 'calendar',
+          refreshTrigger: _calendarRefreshCount,
         ),
         MemoriesTab(key: const ValueKey('memories'), user: _user!, t: t),
-        JournalTab(key: const ValueKey('journal'), user: _user!, t: t),
+        JournalTab(
+          key: const ValueKey('journal'),
+          user: _user!,
+          t: t,
+          isActive: _tab == 'journal',
+          refreshTrigger: _journalRefreshCount,
+        ),
         CircleTab(
           key: const ValueKey('circle'),
           user: _user!,
           t: t,
           userName: _user!.name,
+          isActive: _tab == 'circle',
+          refreshTrigger: _circleRefreshCount,
         ),
         MeTab(
           key: const ValueKey('me'),
@@ -472,7 +494,18 @@ class _AppRootState extends State<AppRoot> {
     final active = _tab == tab;
     return Expanded(
       child: GestureDetector(
-        onTap: () => setState(() => _tab = tab),
+        onTap: () {
+          setState(() {
+            if (tab == 'calendar') {
+              _calendarRefreshCount++;
+            } else if (tab == 'journal') {
+              _journalRefreshCount++;
+            } else if (tab == 'circle') {
+              _circleRefreshCount++;
+            }
+            _tab = tab;
+          });
+        },
         behavior: HitTestBehavior.opaque,
         child: Container(
           decoration: BoxDecoration(
