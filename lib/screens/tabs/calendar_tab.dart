@@ -32,6 +32,7 @@ class _CalendarTabState extends State<CalendarTab> {
   late int _viewMonth;
   int _sel = 1;
   bool _pageExpanded = false;
+  bool _tasksExpanded = false;
 
   // Tasks: key = "$year-$month-$day" (local cache key)
   final Map<String, List<_TaskItem>> _tasks = {};
@@ -309,6 +310,7 @@ class _CalendarTabState extends State<CalendarTab> {
     setState(() {
       _sel = dayNum;
       _pageExpanded = false;
+      _tasksExpanded = false;
     });
     _fetchDailyPageForSelected();
     _loadTasksForSelected();
@@ -338,6 +340,7 @@ class _CalendarTabState extends State<CalendarTab> {
       }
       _sel = 1;
       _pageExpanded = false;
+      _tasksExpanded = false;
       // Do NOT clear cycle days — they are loaded once for all months.
       _tasks.clear();
       _fetchedPages.clear();
@@ -355,6 +358,7 @@ class _CalendarTabState extends State<CalendarTab> {
       }
       _sel = 1;
       _pageExpanded = false;
+      _tasksExpanded = false;
       // Do NOT clear cycle days — they are loaded once for all months.
       _tasks.clear();
       _fetchedPages.clear();
@@ -380,6 +384,7 @@ class _CalendarTabState extends State<CalendarTab> {
 
       if (mounted) {
         setState(() {
+          _tasksExpanded = true;
           _tasks[_taskKey] = [
             ..._currentTasks,
             _TaskItem(id: createdId, text: taskText, done: false),
@@ -390,6 +395,7 @@ class _CalendarTabState extends State<CalendarTab> {
       debugPrint('[CALENDAR TASK API ERROR] $e');
       if (mounted) {
         setState(() {
+          _tasksExpanded = true;
           _tasks[_taskKey] = [
             ..._currentTasks,
             _TaskItem(text: taskText, done: false),
@@ -599,6 +605,7 @@ class _CalendarTabState extends State<CalendarTab> {
       _viewYear = nextYear;
       _sel = 1;
       _pageExpanded = false;
+      _tasksExpanded = false;
       _tasks.clear();
       _fetchedPages.clear();
     });
@@ -1108,6 +1115,9 @@ class _CalendarTabState extends State<CalendarTab> {
   }
 
   Widget _buildTasksSection() {
+    final tasks = _currentTasks;
+    final hasTasks = tasks.isNotEmpty;
+
     return AppCard(
       t: t,
       child: Column(
@@ -1115,93 +1125,119 @@ class _CalendarTabState extends State<CalendarTab> {
         children: [
           Row(
             children: [
-              AppIcons.journal(c: t.accent, s: 16),
+              AppIcons.journal(c: hasTasks ? t.accent : t.border, s: 16),
               const SizedBox(width: 8),
               Text('TASKS', style: AppTypography.sectionLabel(t.muted)),
+              const Spacer(),
+              if (hasTasks)
+                SolidButton(
+                  onTap: () =>
+                      setState(() => _tasksExpanded = !_tasksExpanded),
+                  icon: Transform.rotate(
+                    angle: _tasksExpanded ? 0.785 : 0,
+                    child: AppIcons.plus(c: Colors.white, s: 14),
+                  ),
+                  size: 30,
+                  color: _tasksExpanded ? const Color(0xFF8A5A55) : t.accent,
+                ),
             ],
           ),
           const SizedBox(height: 10),
-          ..._currentTasks.asMap().entries.map((e) {
-            final i = e.key;
-            final task = e.value;
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Row(
-                children: [
-                  GestureDetector(
-                    onTap: () async {
-                      final newDone = !task.done;
-                      setState(() {
-                        _tasks[_taskKey]![i] = _TaskItem(
-                          id: task.id,
-                          text: task.text,
-                          done: newDone,
-                        );
-                      });
-                      if (task.id != null) {
-                        try {
-                          await ApiService.updateTask(
-                            token: widget.user.token ?? '',
-                            taskId: task.id!,
-                            completed: newDone,
+          if (!hasTasks)
+            Text(
+              'No tasks for this day.',
+              style: AppTypography.cormorantItalic(14, t.muted),
+            )
+          else if (!_tasksExpanded)
+            Text(
+              tasks.length == 1 ? '1 task' : '${tasks.length} tasks',
+              style: AppTypography.cormorantItalic(14, t.muted),
+            )
+          else
+            ...tasks.asMap().entries.map((e) {
+              final i = e.key;
+              final task = e.value;
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  children: [
+                    GestureDetector(
+                      onTap: () async {
+                        final newDone = !task.done;
+                        setState(() {
+                          _tasks[_taskKey]![i] = _TaskItem(
+                            id: task.id,
+                            text: task.text,
+                            done: newDone,
                           );
-                        } catch (err) {
-                          debugPrint('[CALENDAR TASK UPDATE API ERROR] $err');
+                        });
+                        if (task.id != null) {
+                          try {
+                            await ApiService.updateTask(
+                              token: widget.user.token ?? '',
+                              taskId: task.id!,
+                              completed: newDone,
+                            );
+                          } catch (err) {
+                            debugPrint('[CALENDAR TASK UPDATE API ERROR] $err');
+                          }
                         }
-                      }
-                    },
-                    child: Container(
-                      width: 20,
-                      height: 20,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: task.done ? t.accent : t.border,
-                          width: 2,
+                      },
+                      child: Container(
+                        width: 20,
+                        height: 20,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: task.done ? t.accent : t.border,
+                            width: 2,
+                          ),
+                          color: task.done ? t.accent : Colors.transparent,
                         ),
-                        color: task.done ? t.accent : Colors.transparent,
-                      ),
-                      child:
-                          task.done
-                              ? AppIcons.check(c: Colors.white, s: 12)
-                              : null,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      task.text,
-                      style: AppTypography.lato400(14, t.text).copyWith(
-                        decoration:
-                            task.done ? TextDecoration.lineThrough : null,
-                        color: task.done ? t.muted : t.text,
+                        child:
+                            task.done
+                                ? AppIcons.check(c: Colors.white, s: 12)
+                                : null,
                       ),
                     ),
-                  ),
-                  GestureDetector(
-                    onTap: () async {
-                      final removedTask = _tasks[_taskKey]![i];
-                      setState(() {
-                        _tasks[_taskKey]!.removeAt(i);
-                      });
-                      if (removedTask.id != null) {
-                        try {
-                          await ApiService.deleteTask(
-                            token: widget.user.token ?? '',
-                            taskId: removedTask.id!,
-                          );
-                        } catch (err) {
-                          debugPrint('[CALENDAR TASK DELETE API ERROR] $err');
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        task.text,
+                        style: AppTypography.lato400(14, t.text).copyWith(
+                          decoration:
+                              task.done ? TextDecoration.lineThrough : null,
+                          color: task.done ? t.muted : t.text,
+                        ),
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () async {
+                        final removedTask = _tasks[_taskKey]![i];
+                        setState(() {
+                          _tasks[_taskKey]!.removeAt(i);
+                          if (_tasks[_taskKey]!.isEmpty) {
+                            _tasksExpanded = false;
+                          }
+                        });
+                        if (removedTask.id != null) {
+                          try {
+                            await ApiService.deleteTask(
+                              token: widget.user.token ?? '',
+                              taskId: removedTask.id!,
+                            );
+                          } catch (err) {
+                            debugPrint('[CALENDAR TASK DELETE API ERROR] $err');
+                          }
                         }
-                      }
-                    },
-                    child: AppIcons.close(c: t.muted, s: 14),
-                  ),
-                ],
-              ),
-            );
-          }),
-          const SizedBox(height: 8),
+                      },
+                      child: AppIcons.close(c: t.muted, s: 14),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          const SizedBox(height: 10),
           Row(
             children: [
               Expanded(
