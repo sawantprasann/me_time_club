@@ -5,6 +5,7 @@ import '../../models/user_profile.dart';
 import '../../services/api_service.dart';
 import '../../widgets/shared_widgets.dart';
 import '../../widgets/speech_button.dart';
+import '../../widgets/app_logo.dart';
 
 class CalendarTab extends StatefulWidget {
   final UserProfile user;
@@ -68,6 +69,7 @@ class _CalendarTabState extends State<CalendarTab> {
     _viewMonth = now.month;
     _sel = now.day;
     _loadMonthData();
+    _fetchDailyPageForSelected();
   }
 
   @override
@@ -78,6 +80,7 @@ class _CalendarTabState extends State<CalendarTab> {
         widget.refreshTrigger != oldWidget.refreshTrigger;
     if (becameActive || (widget.isActive && refreshChanged)) {
       _loadMonthData(forceRefreshCycle: true);
+      _fetchDailyPageForSelected();
     }
   }
 
@@ -138,16 +141,17 @@ class _CalendarTabState extends State<CalendarTab> {
       );
       if (mounted) {
         setState(() {
-          final days = _daysInMonth;
-          for (int i = 1; i <= days; i++) {
-            final dateKey =
-                '$_viewYear-${_viewMonth.toString().padLeft(2, '0')}-${i.toString().padLeft(2, '0')}';
-            _fetchedPages[dateKey] = null;
-          }
           for (final p in rawPages) {
             final dk = p['date_key'] as String?;
             if (dk != null) {
               _fetchedPages[dk] = DailyPageContent.fromJson(p);
+            }
+          }
+          if (_isCurrentMonth) {
+            for (final entry in widget.dailyPages.entries) {
+              final dk =
+                  '$_viewYear-${_viewMonth.toString().padLeft(2, '0')}-${entry.key.toString().padLeft(2, '0')}';
+              _fetchedPages[dk] = entry.value;
             }
           }
         });
@@ -264,9 +268,16 @@ class _CalendarTabState extends State<CalendarTab> {
     // Check session generated page first
     final isSessionCurrent =
         _isCurrentMonth && widget.dailyPages.containsKey(_sel);
-    if (isSessionCurrent) return;
+    if (isSessionCurrent) {
+      if (mounted) {
+        setState(() {
+          _fetchedPages[dateKey] = widget.dailyPages[_sel];
+        });
+      }
+      return;
+    }
 
-    if (_fetchedPages.containsKey(dateKey)) return;
+    if (_fetchedPages[dateKey] != null) return;
 
     setState(() {
       _loadingPage = true;
@@ -913,6 +924,59 @@ class _CalendarTabState extends State<CalendarTab> {
     ],
   );
 
+  Widget _buildChamomileWelcome(DailyPageContent page) {
+    final name = widget.user.name.trim();
+    final firstName = name.isEmpty ? '' : name.split(RegExp(r'\s+')).first;
+    final now = DateTime.now();
+    final greeting = now.hour < 12
+        ? 'Good morning'
+        : (now.hour < 17 ? 'Good afternoon' : 'Good evening');
+    final defaultGreeting =
+        firstName.isEmpty ? greeting : '$greeting, $firstName';
+
+    final textToShow = (page.whatChamomileSays != null &&
+            page.whatChamomileSays!.trim().isNotEmpty)
+        ? page.whatChamomileSays!.trim()
+        : "$defaultGreeting. I've been waiting for this moment with you. "
+            'Before the day pulls you in every direction — '
+            "you're here. That matters.";
+
+    return Container(
+      margin: const EdgeInsets.only(top: 4, bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: t.accent.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: t.accent.withValues(alpha: 0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              const ClipOval(child: AppLogo(size: 24)),
+              const SizedBox(width: 8),
+              Text(
+                'A NOTE FROM CHAMOMILE',
+                style: AppTypography.sectionLabel(t.accent),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            textToShow,
+            style: AppTypography.cormorantItalic(
+              16,
+              t.text,
+              height: 1.6,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildDailyPageSection() {
     final dateKey =
         '$_viewYear-${_viewMonth.toString().padLeft(2, '0')}-${_sel.toString().padLeft(2, '0')}';
@@ -965,6 +1029,7 @@ class _CalendarTabState extends State<CalendarTab> {
               ),
             )
           else if (page != null) ...[
+            _buildChamomileWelcome(page),
             Text(
               '❝ ${page.openingThought} ❞',
               style: AppTypography.dmSerifItalic(15, t.accent, height: 1.5),

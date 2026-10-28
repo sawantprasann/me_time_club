@@ -91,9 +91,13 @@ class _JournalTabState extends State<JournalTab> {
 
   Future<void> _fetchTasks() async {
     setState(() => _loadingTasks = true);
+    final now = DateTime.now();
+    final todayKey =
+        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
     try {
-      final raw = await ApiService.getTasks(
+      final raw = await ApiService.getTasksForDate(
         token: widget.user.token ?? '',
+        dateKey: todayKey,
       );
       if (!mounted) return;
       setState(() {
@@ -541,9 +545,16 @@ class _JournalTabState extends State<JournalTab> {
   // ─── Tasks Sub-Tab ───────────────────────────────
   Widget _buildTasks() {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        Text(
+          _dateLabel,
+          style: AppTypography.lato700(10, t.muted, letterSpacing: 1.8),
+        ),
+        const SizedBox(height: 14),
         // Chamomile reminder card
         Container(
+          width: double.infinity,
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(18),
@@ -620,6 +631,14 @@ class _JournalTabState extends State<JournalTab> {
                   valueColor: AlwaysStoppedAnimation<Color>(t.accent),
                 ),
               ),
+            ),
+          ),
+        if (!_loadingTasks && _tasks.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Text(
+              'No tasks for today yet',
+              style: AppTypography.lato400(13, t.muted).copyWith(fontStyle: FontStyle.italic),
             ),
           ),
         // User tasks
