@@ -42,10 +42,13 @@ class _JournalTabState extends State<JournalTab> {
   // Shopping sub-tab
   final List<_ShopCategory> _categories = [];
   bool _loadingCategories = true;
-  int? _openCat; // category id
-  String _newItem = '';
+  int? _openCat; // null means 'All' categories
+  int? _targetAddCatId; // target category for global item addition
+  final TextEditingController _globalItemCtrl = TextEditingController();
+  bool _addingItemLoading = false;
   bool _addingCat = false;
-  String _newCatName = '';
+  final TextEditingController _newCatCtrl = TextEditingController();
+  bool _addingCatLoading = false;
   final Map<int, List<_ShopItem>> _shopItems = {};
   // Inline rename state
   int? _editingCatId;
@@ -81,6 +84,8 @@ class _JournalTabState extends State<JournalTab> {
   @override
   void dispose() {
     _newTaskCtrl.dispose();
+    _newCatCtrl.dispose();
+    _globalItemCtrl.dispose();
     super.dispose();
   }
 
@@ -154,7 +159,10 @@ class _JournalTabState extends State<JournalTab> {
         _categories
           ..clear()
           ..addAll(cats);
-        _openCat = cats.isNotEmpty ? cats.first.id : null;
+        _openCat = null;
+        if (_targetAddCatId == null || !cats.any((c) => c.id == _targetAddCatId)) {
+          _targetAddCatId = cats.isNotEmpty ? cats.first.id : null;
+        }
         _loadingCategories = false;
       });
       _fetchShoppingItems();
@@ -770,9 +778,32 @@ class _JournalTabState extends State<JournalTab> {
       children: [
         // Category pills
         Wrap(
-          spacing: 6,
-          runSpacing: 6,
+          spacing: 8,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
+            // "All" filter pill
+            GestureDetector(
+              onTap: () => setState(() => _openCat = null),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                decoration: BoxDecoration(
+                  color: _openCat == null ? t.accent.withValues(alpha: 0.15) : t.card,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: _openCat == null ? t.accent : t.border.withValues(alpha: 0.8),
+                    width: _openCat == null ? 1.5 : 1,
+                  ),
+                ),
+                child: Text(
+                  'All',
+                  style: _openCat == null
+                      ? AppTypography.lato700(12, t.accent)
+                      : AppTypography.lato400(12, t.muted),
+                ),
+              ),
+            ),
             ..._categories.map((cat) {
               final active = _openCat == cat.id;
               final items = _shopItems[cat.id] ?? [];
@@ -794,14 +825,21 @@ class _JournalTabState extends State<JournalTab> {
                 );
               }
               return GestureDetector(
-                onTap: () => setState(() => _openCat = cat.id),
+                onTap: () => setState(() {
+                  _openCat = active ? null : cat.id;
+                  if (_openCat != null) _targetAddCatId = _openCat;
+                }),
                 onLongPress: () => _showCategoryOptions(cat),
-                child: Container(
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
                   decoration: BoxDecoration(
-                    color: active ? t.accent.withValues(alpha: 0.15) : Colors.transparent,
+                    color: active ? t.accent.withValues(alpha: 0.15) : t.card,
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: active ? t.accent : t.border),
+                    border: Border.all(
+                      color: active ? t.accent : t.border.withValues(alpha: 0.8),
+                      width: active ? 1.5 : 1,
+                    ),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -817,10 +855,16 @@ class _JournalTabState extends State<JournalTab> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: t.accent,
-                            borderRadius: BorderRadius.circular(8),
+                            color: active ? t.accent : t.muted.withValues(alpha: 0.18),
+                            borderRadius: BorderRadius.circular(10),
                           ),
-                          child: Text('$remaining', style: AppTypography.lato700(10, Colors.white)),
+                          child: Text(
+                            '$remaining',
+                            style: AppTypography.lato700(
+                              10,
+                              active ? Colors.white : t.muted,
+                            ),
+                          ),
                         ),
                       ],
                     ],
@@ -830,7 +874,12 @@ class _JournalTabState extends State<JournalTab> {
             }),
             // Add category button
             SolidButton(
-              onTap: () => setState(() => _addingCat = !_addingCat),
+              onTap: () {
+                setState(() {
+                  _addingCat = !_addingCat;
+                  if (!_addingCat) _newCatCtrl.clear();
+                });
+              },
               icon: _addingCat
                   ? AppIcons.close(c: Colors.white, s: 12)
                   : AppIcons.plus(c: Colors.white, s: 14),
@@ -846,174 +895,368 @@ class _JournalTabState extends State<JournalTab> {
             children: [
               Expanded(
                 child: TextField(
+                  controller: _newCatCtrl,
                   autofocus: true,
-                  onChanged: (v) => _newCatName = v,
+                  textInputAction: TextInputAction.done,
+                  onSubmitted: (_) => _addCategory(),
                   style: AppTypography.lato400(14, t.text),
                   decoration: _inputDeco('Category name…'),
                 ),
               ),
               const SizedBox(width: 8),
               GestureDetector(
-                onTap: _addCategory,
+                onTap: _addingCatLoading ? null : _addCategory,
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   decoration: BoxDecoration(
-                    color: t.accent,
+                    color: _addingCatLoading ? t.accent.withValues(alpha: 0.5) : t.accent,
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Text('Add', style: AppTypography.lato700(12, Colors.white)),
+                  child: _addingCatLoading
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : Text('Add', style: AppTypography.lato700(12, Colors.white)),
                 ),
               ),
             ],
           ),
         ],
         const SizedBox(height: 16),
-        // Items for selected category
-        if (_openCat != null && _categories.isNotEmpty) ...[
+        // Global Add Item Bar
+        if (_categories.isNotEmpty)
           Builder(
             builder: (_) {
-              final cat = _categories.firstWhere(
-                (c) => c.id == _openCat,
+              final effectiveCatId = _openCat ??
+                  _targetAddCatId ??
+                  (_categories.isNotEmpty ? _categories.first.id : null);
+              final targetCat = _categories.firstWhere(
+                (c) => c.id == effectiveCatId,
                 orElse: () => _categories.first,
               );
-              final items = _shopItems[cat.id] ?? [];
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 8,
-                        height: 8,
-                        decoration: BoxDecoration(shape: BoxShape.circle, color: t.accent),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(cat.name, style: AppTypography.lato700(12, t.text)),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  ...items.asMap().entries.map((e) {
-                    final i = e.key;
-                    final item = e.value;
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Row(
-                        children: [
-                          GestureDetector(
-                            onTap: () async {
-                              final newDone = !item.done;
-                              setState(() {
-                                _shopItems[cat.id]![i] = _ShopItem(
-                                  id: item.id,
-                                  text: item.text,
-                                  done: newDone,
-                                );
-                              });
-                              if (item.id != null) {
-                                try {
-                                  await ApiService.updateShoppingItem(
-                                    token: widget.user.token ?? '',
-                                    itemId: item.id!,
-                                    checked: newDone,
-                                    categoryId: cat.id,
-                                  );
-                                } catch (err) {
-                                  debugPrint('[UPDATE SHOPPING ITEM ERROR] $err');
-                                }
-                              }
-                            },
-                            child: Container(
-                              width: 20,
-                              height: 20,
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(4),
-                                border: Border.all(
-                                  color: item.done ? t.accent : t.border,
-                                  width: 2,
+
+              return Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: t.card,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: t.border.withValues(alpha: 0.7)),
+                  boxShadow: t.cardShadow,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          'Add to',
+                          style: AppTypography.lato700(12, t.muted),
+                        ),
+                        const SizedBox(width: 8),
+                        PopupMenuButton<int>(
+                          initialValue: targetCat.id,
+                          tooltip: 'Choose category',
+                          elevation: 4,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          color: t.card,
+                          onSelected: (id) => setState(() => _targetAddCatId = id),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: t.accent.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: t.accent.withValues(alpha: 0.35)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  width: 6,
+                                  height: 6,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: t.accent,
+                                  ),
                                 ),
-                                color: item.done ? t.accent : Colors.transparent,
-                              ),
-                              child: item.done ? AppIcons.check(c: Colors.white, s: 12) : null,
+                                const SizedBox(width: 6),
+                                Text(
+                                  targetCat.name,
+                                  style: AppTypography.lato700(12, t.accent),
+                                ),
+                                const SizedBox(width: 4),
+                                Icon(Icons.keyboard_arrow_down, size: 14, color: t.accent),
+                              ],
                             ),
                           ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: _editingItemId == item.id && item.id != null
-                                ? TextField(
-                                    autofocus: true,
-                                    controller: TextEditingController(text: _editingItemText)
-                                      ..selection = TextSelection.collapsed(offset: _editingItemText.length),
-                                    onChanged: (v) => _editingItemText = v,
-                                    onSubmitted: (_) => _renameItem(cat.id, i, _editingItemText),
-                                    onTapOutside: (_) => _renameItem(cat.id, i, _editingItemText),
-                                    style: AppTypography.lato400(14, t.text),
-                                    decoration: _inputDeco('Item name…'),
-                                  )
-                                : GestureDetector(
-                                    onLongPress: item.id != null
-                                        ? () => setState(() {
-                                              _editingItemId = item.id;
-                                              _editingItemText = item.text;
-                                            })
-                                        : null,
-                                    child: Text(
-                                      item.text,
-                                      style: AppTypography.lato400(14, t.text).copyWith(
-                                        decoration: item.done ? TextDecoration.lineThrough : null,
-                                        color: item.done ? t.muted : t.text,
-                                      ),
+                          itemBuilder: (ctx) => _categories.map((c) {
+                            final isSelected = c.id == targetCat.id;
+                            return PopupMenuItem<int>(
+                              value: c.id,
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 8,
+                                    height: 8,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: isSelected ? t.accent : t.muted.withValues(alpha: 0.3),
                                     ),
                                   ),
-                          ),
-                          GestureDetector(
-                            onTap: () async {
-                              final removedItem = _shopItems[cat.id]![i];
-                              setState(() => _shopItems[cat.id]!.removeAt(i));
-                              if (removedItem.id != null) {
-                                try {
-                                  await ApiService.deleteShoppingItem(
-                                    token: widget.user.token ?? '',
-                                    itemId: removedItem.id!,
-                                  );
-                                } catch (err) {
-                                  debugPrint('[DELETE SHOPPING ITEM ERROR] $err');
-                                }
-                              }
-                            },
-                            child: AppIcons.close(c: t.muted, s: 14),
-                          ),
-                        ],
-                      ),
-                    );
-                  }),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          onChanged: (v) => _newItem = v,
-                          onSubmitted: (_) => _addItem(cat.id),
-                          controller: TextEditingController(text: _newItem),
-                          style: AppTypography.lato400(14, t.text),
-                          decoration: _inputDeco('Add an item…'),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    c.name,
+                                    style: AppTypography.lato400(
+                                      13,
+                                      isSelected ? t.accent : t.text,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }).toList(),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      SpeechButton(
-                        onResult: (s) => setState(() => _newItem = s),
-                        t: t,
-                        size: 38,
-                      ),
-                      const SizedBox(width: 8),
-                      SolidButton(
-                        onTap: () => _addItem(cat.id),
-                        icon: AppIcons.plus(c: Colors.white, s: 14),
-                        size: 36,
-                        color: t.accent,
-                      ),
-                    ],
-                  ),
-                ],
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _globalItemCtrl,
+                            textInputAction: TextInputAction.done,
+                            onSubmitted: (_) => _addGlobalItem(),
+                            style: AppTypography.lato400(14, t.text),
+                            decoration: _inputDeco('Add an item to ${targetCat.name}…'),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        SpeechButton(
+                          onResult: (s) => setState(() => _globalItemCtrl.text = s),
+                          t: t,
+                          size: 38,
+                        ),
+                        const SizedBox(width: 8),
+                        SolidButton(
+                          onTap: _addGlobalItem,
+                          icon: _addingItemLoading
+                              ? const SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : AppIcons.plus(c: Colors.white, s: 14),
+                          size: 36,
+                          color: t.accent,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        const SizedBox(height: 20),
+        // All categories & their lists on screen
+        if (_categories.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 24),
+            child: Center(
+              child: Text('No categories yet', style: AppTypography.lato400(14, t.muted)),
+            ),
+          )
+        else ...[
+          Builder(
+            builder: (_) {
+              final catsToShow = _openCat == null
+                  ? _categories
+                  : _categories.where((c) => c.id == _openCat).toList();
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: catsToShow.map((cat) {
+                  final items = _shopItems[cat.id] ?? [];
+                  final remaining = items.where((i) => !i.done).length;
+
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    decoration: BoxDecoration(
+                      color: t.card,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: t.border.withValues(alpha: 0.7)),
+                      boxShadow: t.cardShadow,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Category Header
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 10,
+                                height: 10,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: t.accent,
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  cat.name,
+                                  style: AppTypography.lato700(15, t.text),
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: remaining > 0
+                                      ? t.accent.withValues(alpha: 0.12)
+                                      : t.muted.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text(
+                                  remaining > 0 ? '$remaining left' : 'All done',
+                                  style: AppTypography.lato700(
+                                    11,
+                                    remaining > 0 ? t.accent : t.muted,
+                                  ),
+                                ),
+                              ),
+                              if (!cat.isSystem) ...[
+                                const SizedBox(width: 8),
+                                GestureDetector(
+                                  onTap: () => _showCategoryOptions(cat),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(2),
+                                    child: AppIcons.pen(c: t.muted, s: 13),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                        Divider(color: t.border.withValues(alpha: 0.4), height: 1),
+                        // Items list
+                        if (items.isEmpty)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.shopping_bag_outlined,
+                                  size: 16,
+                                  color: t.muted.withValues(alpha: 0.45),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'No items in ${cat.name}',
+                                  style: AppTypography.lato400(13, t.muted).copyWith(
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                        else
+                          ListView.separated(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            itemCount: items.length,
+                            separatorBuilder: (_, __) => Divider(
+                              color: t.border.withValues(alpha: 0.25),
+                              height: 1,
+                              indent: 36,
+                            ),
+                            itemBuilder: (context, i) {
+                              final item = items[i];
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 4),
+                                child: Row(
+                                  children: [
+                                    GestureDetector(
+                                      onTap: () => _toggleShoppingItem(cat.id, i),
+                                      child: Container(
+                                        width: 22,
+                                        height: 22,
+                                        decoration: BoxDecoration(
+                                          borderRadius: BorderRadius.circular(6),
+                                          border: Border.all(
+                                            color: item.done ? t.accent : t.border,
+                                            width: 1.8,
+                                          ),
+                                          color: item.done ? t.accent : Colors.transparent,
+                                        ),
+                                        child: item.done
+                                            ? AppIcons.check(c: Colors.white, s: 12)
+                                            : null,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: _editingItemId == item.id && item.id != null
+                                          ? TextField(
+                                              autofocus: true,
+                                              controller: TextEditingController(text: _editingItemText)
+                                                ..selection = TextSelection.collapsed(
+                                                    offset: _editingItemText.length),
+                                              onChanged: (v) => _editingItemText = v,
+                                              onSubmitted: (_) =>
+                                                  _renameItem(cat.id, i, _editingItemText),
+                                              onTapOutside: (_) =>
+                                                  _renameItem(cat.id, i, _editingItemText),
+                                              style: AppTypography.lato400(14, t.text),
+                                              decoration: _inputDeco('Item name…'),
+                                            )
+                                          : GestureDetector(
+                                              onLongPress: item.id != null
+                                                  ? () => setState(() {
+                                                        _editingItemId = item.id;
+                                                        _editingItemText = item.text;
+                                                      })
+                                                  : null,
+                                              child: Text(
+                                                item.text,
+                                                style: AppTypography.lato400(14, t.text).copyWith(
+                                                  decoration: item.done
+                                                      ? TextDecoration.lineThrough
+                                                      : null,
+                                                  color: item.done ? t.muted : t.text,
+                                                ),
+                                              ),
+                                            ),
+                                    ),
+                                    GestureDetector(
+                                      onTap: () => _deleteShoppingItem(cat.id, i),
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(4),
+                                        child: AppIcons.close(
+                                          c: t.muted.withValues(alpha: 0.6),
+                                          s: 14,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                      ],
+                    ),
+                  );
+                }).toList(),
               );
             },
           ),
@@ -1023,29 +1266,50 @@ class _JournalTabState extends State<JournalTab> {
   }
 
   Future<void> _addCategory() async {
-    if (_newCatName.trim().isEmpty) return;
-    final name = _newCatName.trim();
+    final name = _newCatCtrl.text.trim();
+    if (name.isEmpty || _addingCatLoading) return;
+    setState(() => _addingCatLoading = true);
     try {
       final res = await ApiService.createShoppingCategory(
         token: widget.user.token ?? '',
         name: name,
       );
       if (res != null && mounted) {
+        final catData = res['category'] is Map<String, dynamic>
+            ? res['category'] as Map<String, dynamic>
+            : res;
+        final rawId = catData['id'];
+        final catId = rawId is int
+            ? rawId
+            : int.tryParse(rawId?.toString() ?? '') ??
+                DateTime.now().millisecondsSinceEpoch;
         final newCat = _ShopCategory(
-          id: res['id'] as int,
-          name: res['name'] as String? ?? name,
+          id: catId,
+          name: catData['name'] as String? ?? name,
           isSystem: false,
         );
         setState(() {
           _categories.add(newCat);
           _shopItems[newCat.id] = [];
-          _openCat = newCat.id;
-          _newCatName = '';
+          _openCat = null;
+          _newCatCtrl.clear();
           _addingCat = false;
+          _addingCatLoading = false;
         });
       }
     } catch (e) {
       debugPrint('[CREATE CATEGORY ERROR] $e');
+      if (mounted) {
+        setState(() => _addingCatLoading = false);
+        final message =
+            e is ApiException ? e.message : 'Failed to create category: $e';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(message),
+            backgroundColor: Colors.red.shade700,
+          ),
+        );
+      }
     }
   }
 
@@ -1055,7 +1319,10 @@ class _JournalTabState extends State<JournalTab> {
     setState(() {
       _categories.removeWhere((c) => c.id == catId);
       _shopItems.remove(catId);
-      if (_openCat == catId) _openCat = _categories.isNotEmpty ? _categories.first.id : null;
+      if (_openCat == catId) _openCat = null;
+      if (_targetAddCatId == catId) {
+        _targetAddCatId = _categories.isNotEmpty ? _categories.first.id : null;
+      }
     });
     try {
       await ApiService.deleteShoppingCategory(
@@ -1156,38 +1423,86 @@ class _JournalTabState extends State<JournalTab> {
     );
   }
 
-  void _addItem(int catId) async {
-    if (_newItem.trim().isEmpty) return;
+  Future<void> _addGlobalItem() async {
+    final text = _globalItemCtrl.text.trim();
+    if (text.isEmpty || _addingItemLoading) return;
+
+    final targetCatId = _openCat ??
+        _targetAddCatId ??
+        (_categories.isNotEmpty ? _categories.first.id : null);
+    if (targetCatId == null) return;
+
     FocusManager.instance.primaryFocus?.unfocus();
-    final itemText = _newItem.trim();
-    setState(() => _newItem = '');
+    _globalItemCtrl.clear();
+    setState(() => _addingItemLoading = true);
 
     try {
       final res = await ApiService.createShoppingItem(
         token: widget.user.token ?? '',
-        name: itemText,
+        name: text,
         checked: false,
-        categoryId: catId,
+        categoryId: targetCatId,
       );
       final createdId = res['id']?.toString();
 
       if (mounted) {
         setState(() {
-          _shopItems[catId] = [
-            ...(_shopItems[catId] ?? []),
-            _ShopItem(id: createdId, text: itemText, done: false),
+          _shopItems[targetCatId] = [
+            ...(_shopItems[targetCatId] ?? []),
+            _ShopItem(id: createdId, text: text, done: false),
           ];
+          _addingItemLoading = false;
         });
       }
     } catch (e) {
       debugPrint('[CREATE SHOPPING ITEM ERROR] $e');
       if (mounted) {
         setState(() {
-          _shopItems[catId] = [
-            ...(_shopItems[catId] ?? []),
-            _ShopItem(text: itemText, done: false),
+          _shopItems[targetCatId] = [
+            ...(_shopItems[targetCatId] ?? []),
+            _ShopItem(text: text, done: false),
           ];
+          _addingItemLoading = false;
         });
+      }
+    }
+  }
+
+  Future<void> _toggleShoppingItem(int catId, int i) async {
+    final item = _shopItems[catId]![i];
+    final newDone = !item.done;
+    setState(() {
+      _shopItems[catId]![i] = _ShopItem(
+        id: item.id,
+        text: item.text,
+        done: newDone,
+      );
+    });
+    if (item.id != null) {
+      try {
+        await ApiService.updateShoppingItem(
+          token: widget.user.token ?? '',
+          itemId: item.id!,
+          checked: newDone,
+          categoryId: catId,
+        );
+      } catch (err) {
+        debugPrint('[UPDATE SHOPPING ITEM ERROR] $err');
+      }
+    }
+  }
+
+  Future<void> _deleteShoppingItem(int catId, int i) async {
+    final removedItem = _shopItems[catId]![i];
+    setState(() => _shopItems[catId]!.removeAt(i));
+    if (removedItem.id != null) {
+      try {
+        await ApiService.deleteShoppingItem(
+          token: widget.user.token ?? '',
+          itemId: removedItem.id!,
+        );
+      } catch (err) {
+        debugPrint('[DELETE SHOPPING ITEM ERROR] $err');
       }
     }
   }

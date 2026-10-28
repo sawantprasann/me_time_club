@@ -1212,6 +1212,7 @@ class ApiService {
         },
       );
       print('[API RESPONSE] ${response.statusCode} GET $url');
+      print('[API RESPONSE BODY categories] ${response.body}');
       if (response.statusCode == 200) {
         return (jsonDecode(response.body) as List<dynamic>)
             .cast<Map<String, dynamic>>();
@@ -1249,8 +1250,9 @@ class ApiService {
         body: jsonEncode(requestBody),
       );
       print('[API RESPONSE] ${response.statusCode} POST $url');
+      print('[API RESPONSE BODY createShoppingCategory] ${response.body}');
       final decoded = jsonDecode(response.body);
-      if (response.statusCode == 201) {
+      if (response.statusCode == 200 || response.statusCode == 201) {
         return decoded as Map<String, dynamic>;
       }
       final errorMsg =

@@ -47,7 +47,7 @@ void main() {
         ),
       );
       await tester.pump();
-      expect(find.text('GENTLE READS'), findsOneWidget);
+      expect(find.text('GENTLE READ'), findsOneWidget);
       expect(
         find.text('A short moment of calm.'),
         hasText ? findsOneWidget : findsNothing,

@@ -147,7 +147,7 @@ class AppIcons {
     child: CustomPaint(painter: _RitualPainter(c)),
   );
 
-  /// Open book — Gentle Read section
+  /// Closed book outline — Gentle Read section
   static Widget book({required Color c, double s = 20}) => SizedBox(
     width: s,
     height: s,
@@ -918,28 +918,20 @@ class _BookPainter extends CustomPainter {
           ..strokeCap = StrokeCap.round
           ..strokeJoin = StrokeJoin.round;
     final s = size.width;
-    // Left page
-    final left =
-        Path()
-          ..moveTo(s * 0.5, s * 0.25)
-          ..quadraticBezierTo(s * 0.3, s * 0.2, s * 0.1, s * 0.22)
-          ..lineTo(s * 0.1, s * 0.78)
-          ..quadraticBezierTo(s * 0.3, s * 0.76, s * 0.5, s * 0.8);
-    canvas.drawPath(left, p);
-    // Right page
-    final right =
-        Path()
-          ..moveTo(s * 0.5, s * 0.25)
-          ..quadraticBezierTo(s * 0.7, s * 0.2, s * 0.9, s * 0.22)
-          ..lineTo(s * 0.9, s * 0.78)
-          ..quadraticBezierTo(s * 0.7, s * 0.76, s * 0.5, s * 0.8);
-    canvas.drawPath(right, p);
-    // Spine
-    canvas.drawLine(Offset(s * 0.5, s * 0.25), Offset(s * 0.5, s * 0.8), p);
+    final rect = RRect.fromRectAndCorners(
+      Rect.fromLTWH(s * 0.2, s * 0.12, s * 0.6, s * 0.76),
+      topLeft: Radius.circular(s * 0.12),
+      bottomLeft: Radius.circular(s * 0.12),
+      topRight: Radius.circular(s * 0.08),
+      bottomRight: Radius.circular(s * 0.08),
+    );
+    canvas.drawRRect(rect, p);
+    canvas.drawLine(Offset(s * 0.2, s * 0.72), Offset(s * 0.8, s * 0.72), p);
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _BookPainter oldDelegate) =>
+      oldDelegate.color != color;
 }
 
 class _PenPainter extends CustomPainter {
