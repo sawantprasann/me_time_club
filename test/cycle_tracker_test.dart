@@ -189,6 +189,9 @@ class _TestHttpClient extends Fake implements HttpClient {
   @override
   Future<HttpClientRequest> openUrl(String method, Uri url) async =>
       _TestRequest(method, url);
+
+  @override
+  void close({bool force = false}) {}
 }
 
 class _TestRequest extends Fake implements HttpClientRequest {
