@@ -512,45 +512,22 @@ class _CalendarTabState extends State<CalendarTab> {
     return !_cycleDays.contains(_dateKey(prev));
   }
 
-  /// Period the header X would remove: the selected day if it is marked,
-  /// otherwise the period already logged in the viewed month.
+  /// Period the header X would remove. Only the selected date, and only when
+  /// that date is a marked cycle day.
   DateTime? get _removablePeriodStart {
-    if (_cycleDays.contains(_dateKey(_selectedDate))) {
-      return _periodStartFor(_selectedDate);
-    }
-    DateTime? firstInMonth;
-    for (final d in _cycleHistoryDates) {
-      if (d.year == _viewYear && d.month == _viewMonth) {
-        firstInMonth = d;
-        break;
-      }
-    }
-    if (firstInMonth == null) return null;
-    return _periodStartFor(firstInMonth);
+    if (!_cycleDays.contains(_dateKey(_selectedDate))) return null;
+    return _periodStartFor(_selectedDate);
   }
 
-  /// The cycle that contains [day], as consecutive marked days.
-  List<DateTime> _cycleRun(DateTime day) {
-    if (!_cycleDays.contains(_dateKey(day))) return const [];
-    final dates = <DateTime>[];
-    var cursor = _periodStartFor(day);
-    while (_cycleDays.contains(_dateKey(cursor))) {
-      dates.add(cursor);
-      cursor = cursor.add(const Duration(days: 1));
-    }
-    return dates;
-  }
-
-  /// Cycles shown on the calendar: the one that contains today, and the one
-  /// that contains the selected date. Older cycles stay stored and stay hidden.
+  /// Drawn only for today, or for the selected date, and only when that day
+  /// is a marked cycle day. Other saved days stay hidden. Leaving a cycle
+  /// day for a date that is not marked hides that day.
   Set<String> get _visibleCycleDayKeys {
     final keys = <String>{};
-    for (final day in [
-      ..._cycleRun(DateTime.now()),
-      ..._cycleRun(_selectedDate),
-    ]) {
-      keys.add(_dateKey(day));
-    }
+    final todayKey = _dateKey(DateTime.now());
+    final selectedKey = _dateKey(_selectedDate);
+    if (_cycleDays.contains(todayKey)) keys.add(todayKey);
+    if (_cycleDays.contains(selectedKey)) keys.add(selectedKey);
     return keys;
   }
 
