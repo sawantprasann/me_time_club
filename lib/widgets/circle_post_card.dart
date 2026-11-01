@@ -275,12 +275,14 @@ class _CirclePostCardState extends State<CirclePostCard> {
           } else {
             _selectedKeys.add(feelingKey);
           }
-        } else {
+        } else if (_draft.text.trim() == text) {
           _draft.clear();
-          _replyFocus.requestFocus();
         }
       });
-      if (feelingKey == null) _revealComposer();
+      if (feelingKey == null) {
+        if (!_replyFocus.hasFocus) _replyFocus.requestFocus();
+        _revealComposer();
+      }
     } catch (_) {
       if (mounted) {
         setState(() {
@@ -346,7 +348,7 @@ class _CirclePostCardState extends State<CirclePostCard> {
               _comment(reply),
               const SizedBox(height: 14),
             ],
-            if (_hasMoreComments) _loadMoreButton(),
+            if (_hasMoreComments || _extraComments > 0) _commentLinks(),
           ],
           const SizedBox(height: 8),
           LayoutBuilder(
@@ -380,10 +382,10 @@ class _CirclePostCardState extends State<CirclePostCard> {
                   _divider(),
                   if (_panel == _ResponsePanel.feelings) ...[
                     Text(
-                      'SEND A FEELING…',
-                      style: AppTypography.lato400(10, t.muted).copyWith(letterSpacing: 1.3),
+                      'TAP TO SELECT · TAP AGAIN TO REMOVE',
+                      style: AppTypography.lato400(11, t.muted).copyWith(letterSpacing: 1.4),
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 12),
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
@@ -463,23 +465,42 @@ class _CirclePostCardState extends State<CirclePostCard> {
     );
   }
 
-  Widget _loadMoreButton() {
+  String get _loadMoreLabel {
     final next = _nextCommentBatch;
-    final label = next == 1 ? 'Load 1 more comment' : 'Load $next more comments';
+    final noun = next == 1 ? 'response' : 'responses';
+    return 'Load $next more $noun...';
+  }
+
+  Widget _commentLinks() {
+    final more = _hasMoreComments;
+    final less = _extraComments > 0;
     return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: OutlinedButton.icon(
-        onPressed: () => setState(() => _extraComments += next),
-        style: OutlinedButton.styleFrom(
-          foregroundColor: t.accent,
-          backgroundColor: t.accent.withValues(alpha: 0.06),
-          side: BorderSide(color: t.accent.withValues(alpha: 0.35)),
-          shape: const StadiumBorder(),
-          minimumSize: const Size.fromHeight(44),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        ),
-        icon: Icon(Icons.expand_more_rounded, size: 18, color: t.accent),
-        label: Text(label, style: AppTypography.lato700(13, t.accent)),
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (more)
+            _commentLink(
+              _loadMoreLabel,
+              onTap: () => setState(() => _extraComments += _nextCommentBatch),
+            ),
+          if (less)
+            _commentLink(
+              'Show less ↑',
+              onTap: () => setState(() => _extraComments = 0),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _commentLink(String label, {required VoidCallback onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Text(label, style: AppTypography.lato400(16, t.accent)),
       ),
     );
   }
@@ -505,7 +526,7 @@ class _CirclePostCardState extends State<CirclePostCard> {
               const SizedBox(height: 2),
               Text(
                 reply.body,
-                style: AppTypography.cormorantItalic(17, t.text, height: 1.45),
+                style: AppTypography.cormorantItalic(14, t.text, height: 1.55),
               ),
             ],
           ),
@@ -534,7 +555,7 @@ class _CirclePostCardState extends State<CirclePostCard> {
   Widget _feelingChip(String key, String feeling) {
     final selected = _selectedKeys.contains(key);
     return ChoiceChip(
-      label: Text(feeling),
+      label: Text(selected ? '$feeling ✓' : feeling),
       selected: selected,
       onSelected: _sending
           ? null
@@ -557,7 +578,6 @@ class _CirclePostCardState extends State<CirclePostCard> {
     final input = TextField(
       controller: _draft,
       focusNode: _replyFocus,
-      readOnly: _sending,
       scrollPadding: const EdgeInsets.only(bottom: 96),
       minLines: 1,
       maxLines: 4,
@@ -583,33 +603,30 @@ class _CirclePostCardState extends State<CirclePostCard> {
         ),
       ),
     );
-    final send = FilledButton(
-      focusNode: _sendFocus,
-      onPressed: canSend
-          ? () {
-              _replyFocus.requestFocus();
-              _send();
-            }
-          : null,
-      style: FilledButton.styleFrom(
-        backgroundColor: t.accent,
-        foregroundColor: Colors.white,
-        disabledBackgroundColor: t.border,
-        disabledForegroundColor: t.muted,
-        minimumSize: const Size(64, 44),
-        shape: const StadiumBorder(),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+    final send = TextFieldTapRegion(
+      child: FilledButton(
+        focusNode: _sendFocus,
+        onPressed: canSend ? _send : null,
+        style: FilledButton.styleFrom(
+          backgroundColor: t.accent,
+          foregroundColor: Colors.white,
+          disabledBackgroundColor: t.border,
+          disabledForegroundColor: t.muted,
+          minimumSize: const Size(64, 44),
+          shape: const StadiumBorder(),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        ),
+        child: _sending
+            ? const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+              )
+            : Text(
+                'Send',
+                style: AppTypography.lato700(12, canSend ? Colors.white : t.muted),
+              ),
       ),
-      child: _sending
-          ? const SizedBox(
-              width: 16,
-              height: 16,
-              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-            )
-          : Text(
-              'Send',
-              style: AppTypography.lato700(12, canSend ? Colors.white : t.muted),
-            ),
     );
     return LayoutBuilder(
       builder: (context, constraints) {

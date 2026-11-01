@@ -45,8 +45,17 @@ Future<void> tapText(WidgetTester tester, String text) async {
   await tester.pump();
 }
 
+Finder chipFinder(String label) {
+  return find.byWidgetPredicate((widget) {
+    if (widget is! ChoiceChip) return false;
+    final child = widget.label;
+    if (child is! Text) return false;
+    return child.data == label || child.data == '$label ✓';
+  });
+}
+
 Future<void> tapChip(WidgetTester tester, String label) async {
-  final chip = find.widgetWithText(ChoiceChip, label);
+  final chip = chipFinder(label);
   await tester.ensureVisible(chip);
   await tester.tap(chip);
   await tester.pump();
@@ -57,7 +66,7 @@ String hintText(WidgetTester tester) {
 }
 
 bool chipSelected(WidgetTester tester, String label) {
-  return tester.widget<ChoiceChip>(find.widgetWithText(ChoiceChip, label)).selected;
+  return tester.widget<ChoiceChip>(chipFinder(label)).selected;
 }
 
 void main() {
@@ -75,6 +84,7 @@ void main() {
 
     await tapText(tester, 'Respond with feeling');
     expect(find.byType(ChoiceChip), findsNWidgets(7));
+    expect(find.text('TAP TO SELECT · TAP AGAIN TO REMOVE'), findsOneWidget);
     expect(hintText(tester), 'Or write a gentle response…');
     expect(
       tester.widget<TextField>(find.byType(TextField)).controller!.text,
@@ -104,6 +114,7 @@ void main() {
 
     await tapText(tester, 'Respond');
     expect(hintText(tester), 'Write a gentle response…');
+    expect(find.text('TAP TO SELECT · TAP AGAIN TO REMOVE'), findsNothing);
     expect(find.byType(ChoiceChip), findsNothing);
     expect(
       tester.widget<TextField>(find.byType(TextField)).controller!.text,
@@ -293,12 +304,96 @@ void main() {
     expect(find.text('Comment 0'), findsOneWidget);
     expect(find.text('Comment 1'), findsOneWidget);
     expect(find.text('Comment 2'), findsNothing);
-    expect(find.text('Load 10 more comments'), findsOneWidget);
+    expect(find.text('Load 10 more responses...'), findsOneWidget);
+    expect(find.text('Show less ↑'), findsNothing);
 
-    await tapText(tester, 'Load 10 more comments');
+    await tapText(tester, 'Load 10 more responses...');
     expect(find.text('Comment 2'), findsOneWidget);
     expect(find.text('Comment 11'), findsOneWidget);
-    expect(find.text('Load 10 more comments'), findsNothing);
+    expect(find.text('Load 10 more responses...'), findsNothing);
+    expect(find.text('Show less ↑'), findsOneWidget);
+
+    await tapText(tester, 'Show less ↑');
+    expect(find.text('Comment 2'), findsNothing);
+    expect(find.text('Load 10 more responses...'), findsOneWidget);
+    expect(find.text('Show less ↑'), findsNothing);
+  });
+
+  testWidgets('One hidden comment uses the singular load more label', (tester) async {
+    await showCard(
+      tester,
+      replies: const [
+        CircleReply(author: 'A Mum', body: 'First'),
+        CircleReply(author: 'A Mum', body: 'Second'),
+        CircleReply(author: 'A Mum', body: 'Third'),
+      ],
+    );
+
+    expect(find.text('Third'), findsNothing);
+    expect(find.text('Load 1 more response...'), findsOneWidget);
+    expect(find.text('Show less ↑'), findsNothing);
+
+    await tapText(tester, 'Load 1 more response...');
+    expect(find.text('Third'), findsOneWidget);
+    expect(find.text('Load 1 more response...'), findsNothing);
+    expect(find.text('Show less ↑'), findsOneWidget);
+  });
+
+  testWidgets('Load more and show less appear together while comments remain', (
+    tester,
+  ) async {
+    await showCard(
+      tester,
+      replies: [
+        for (var i = 0; i < 14; i++)
+          CircleReply(author: 'A Mum', body: 'Comment $i'),
+      ],
+    );
+
+    expect(find.text('Load 10 more responses...'), findsOneWidget);
+    expect(find.text('Show less ↑'), findsNothing);
+
+    await tapText(tester, 'Load 10 more responses...');
+    expect(find.text('Comment 11'), findsOneWidget);
+    expect(find.text('Comment 12'), findsNothing);
+    expect(find.text('Load 2 more responses...'), findsOneWidget);
+    expect(find.text('Show less ↑'), findsOneWidget);
+
+    await tapText(tester, 'Load 2 more responses...');
+    expect(find.text('Comment 13'), findsOneWidget);
+    expect(find.textContaining('Load '), findsNothing);
+    expect(find.text('Show less ↑'), findsOneWidget);
+  });
+
+  testWidgets('Sending a reply keeps the text field focused', (tester) async {
+    final completion = Completer<void>();
+    await showCard(
+      tester,
+      onSend: (_) => completion.future,
+    );
+    await tapText(tester, 'Respond');
+    await tester.tap(find.byType(TextField));
+    await tester.pump();
+    await tester.showKeyboard(find.byType(TextField));
+    await tester.enterText(find.byType(TextField), 'Here with you');
+    await tester.pump();
+    expect(tester.testTextInput.isVisible, isTrue);
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Send'));
+    await tester.pump();
+    expect(tester.testTextInput.isVisible, isTrue);
+    expect(
+      tester.widget<TextField>(find.byType(TextField)).controller!.text,
+      'Here with you',
+    );
+
+    completion.complete();
+    await tester.pump();
+    expect(tester.testTextInput.isVisible, isTrue);
+    expect(
+      tester.widget<TextField>(find.byType(TextField)).controller!.text,
+      isEmpty,
+    );
   });
 
   testWidgets('Failed replies retain the draft and can be retried', (
