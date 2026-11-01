@@ -529,6 +529,45 @@ class _CalendarTabState extends State<CalendarTab> {
     return _periodStartFor(firstInMonth);
   }
 
+  /// The cycle that contains [day], as consecutive marked days.
+  List<DateTime> _cycleRun(DateTime day) {
+    if (!_cycleDays.contains(_dateKey(day))) return const [];
+    final dates = <DateTime>[];
+    var cursor = _periodStartFor(day);
+    while (_cycleDays.contains(_dateKey(cursor))) {
+      dates.add(cursor);
+      cursor = cursor.add(const Duration(days: 1));
+    }
+    return dates;
+  }
+
+  /// Cycles shown on the calendar: the one that contains today, and the one
+  /// that contains the selected date. Older cycles stay stored and stay hidden.
+  Set<String> get _visibleCycleDayKeys {
+    final keys = <String>{};
+    for (final day in [
+      ..._cycleRun(DateTime.now()),
+      ..._cycleRun(_selectedDate),
+    ]) {
+      keys.add(_dateKey(day));
+    }
+    return keys;
+  }
+
+  List<DateTime> get _visibleCycleDates {
+    final dates =
+        _visibleCycleDayKeys.map((key) {
+          final parts = key.split('-');
+          return DateTime(
+            int.parse(parts[0]),
+            int.parse(parts[1]),
+            int.parse(parts[2]),
+          );
+        }).toList()
+          ..sort();
+    return dates;
+  }
+
   List<DateTime> get _cycleHistoryDates {
     final dates =
         _cycleDays.map((k) {
@@ -975,7 +1014,7 @@ class _CalendarTabState extends State<CalendarTab> {
                     (_isCurrentMonth &&
                         widget.dailyPages.containsKey(dayNum)) ||
                     (_fetchedPages[dotDateKey] != null);
-                final hasCycle = _cycleDays.contains(dayKey);
+                final hasCycle = _visibleCycleDayKeys.contains(dayKey);
                 final isPredicted =
                     _nextPredictedDate != null &&
                     _nextPredictedDate!.year == _viewYear &&
@@ -1494,7 +1533,7 @@ class _CalendarTabState extends State<CalendarTab> {
   Widget _buildCycleSection() {
     final selected = _selectedDate;
     final removing = _removablePeriodStart;
-    final history = _cycleHistoryDates;
+    final history = _visibleCycleDates;
     final now = DateTime.now();
     final markTarget =
         _isSameDay(selected, now) ? 'today' : _formatCycleLabel(selected);
@@ -1551,7 +1590,7 @@ class _CalendarTabState extends State<CalendarTab> {
             ),
             const SizedBox(height: 16),
           ],
-          if (history.isEmpty)
+          if (_cycleHistoryDates.isEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 6),
               child: Center(
@@ -1566,7 +1605,7 @@ class _CalendarTabState extends State<CalendarTab> {
                 ),
               ),
             )
-          else
+          else if (history.isNotEmpty)
             _cycleHistory(history),
         ],
       ),
@@ -1660,7 +1699,7 @@ class _CalendarTabState extends State<CalendarTab> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('YOUR CYCLE HISTORY', style: AppTypography.sectionLabel(t.muted)),
+        Text('THIS CYCLE', style: AppTypography.sectionLabel(t.muted)),
         const SizedBox(height: 10),
         Wrap(
           spacing: 8,
