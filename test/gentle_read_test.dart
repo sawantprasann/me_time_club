@@ -47,7 +47,7 @@ void main() {
         ),
       );
       await tester.pump();
-      expect(find.text('GENTLE READ'), findsOneWidget);
+      expect(find.textContaining('LITTLE READS'), findsOneWidget);
       expect(
         find.text('A short moment of calm.'),
         hasText ? findsOneWidget : findsNothing,
@@ -133,6 +133,35 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('A story without a photo uses the text card', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: GentleReadPost(
+              read: const GentleRead(
+                id: 6,
+                title: 'The cup that waited',
+                body: 'She made tea at seven.\n\nShe drank it slowly.',
+              ),
+              t: AppTokens.day,
+              baseUri: Uri.parse('https://api.example.com'),
+              onOpenLink: (_) {},
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(find.text('10-WORD STORY'), findsOneWidget);
+    expect(find.text('The cup that waited'), findsOneWidget);
+    expect(find.text('She made tea at seven.'), findsOneWidget);
+    expect(find.text('She drank it slowly.'), findsOneWidget);
+    expect(find.textContaining('Me Time Club'), findsOneWidget);
+    expect(find.byType(AspectRatio), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('A photo uses the Instagram portrait shape', (tester) async {
     await tester.pumpWidget(

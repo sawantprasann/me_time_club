@@ -565,7 +565,7 @@ class _HomeTabState extends State<HomeTab> {
     if (read == null) {
       return AppCard(
         t: t,
-        margin: const EdgeInsets.only(top: 14),
+        margin: const EdgeInsets.fromLTRB(18, 18, 18, 0),
         child: Center(
           child: SizedBox(
             width: 18,

@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../icons/app_icons.dart';
 import '../models/gentle_read.dart';
 import '../theme/tokens.dart';
 
-/// A read-only post. Image, caption, and link are independent optional content.
+/// Home-screen read, laid out like a little editorial card.
 class GentleReadPost extends StatefulWidget {
   final GentleRead read;
   final AppTokens t;
@@ -16,7 +17,7 @@ class GentleReadPost extends StatefulWidget {
   /// Swipes still available today. Null hides the daily note.
   final int? swipesRemaining;
 
-  /// Instagram portrait posts are 4:5.
+  /// Portrait photo, close to an Instagram 4:5 frame.
   static const double portraitAspectRatio = 4 / 5;
 
   const GentleReadPost({
@@ -61,170 +62,351 @@ class _GentleReadPostState extends State<GentleReadPost> {
     return resolved;
   }
 
+  int _wordCount(String text) {
+    return text
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((word) => word.isNotEmpty)
+        .length;
+  }
+
+  int _minutes(GentleRead read) {
+    final words = _wordCount('${read.title} ${read.body}');
+    if (words == 0) return 1;
+    return (words / 180).ceil().clamp(1, 30);
+  }
+
+  /// Text-only reads are labeled by length, as in "100-WORD STORY".
+  String _storyKicker(String body) {
+    final words = _wordCount(body);
+    final rounded =
+        words == 0 ? 10 : ((words / 10).round() * 10).clamp(10, 9990);
+    return '$rounded-WORD STORY';
+  }
+
   @override
   Widget build(BuildContext context) {
     final read = widget.read;
     final image = _webUri(read.imageUrl);
     final link = _webUri(read.linkUrl);
-    final hasCaption =
-        read.title.trim().isNotEmpty || read.body.trim().isNotEmpty;
+    final hasTitle = read.title.trim().isNotEmpty;
+    final hasBody = read.body.trim().isNotEmpty;
+    final hasCopy = hasTitle || hasBody;
     final hasNavigation = widget.onPrevious != null || widget.onNext != null;
+    final day = t == AppTokens.day;
+    final sage = day ? const Color(0xFF7E8B72) : t.green;
+    final tagline = day ? const Color(0xFFB7A89A) : t.muted;
+    final bodyColor = day ? const Color(0xFF5E564F) : t.text;
+    final kicker = day ? const Color(0xFFC47D72) : t.accent;
 
-    return Container(
-      margin: const EdgeInsets.only(top: 14),
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(color: t.card, boxShadow: t.cardShadow),
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onHorizontalDragUpdate: (details) => _dragDx += details.delta.dx,
-        onHorizontalDragEnd: _onSwipeEnd,
-        onHorizontalDragCancel: () => _dragDx = 0,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-              child: Row(
-                children: [
-                  AppIcons.book(c: t.muted, s: 18),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'GENTLE READ',
-                      style: AppTypography.sectionLabel(t.muted),
-                    ),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _header(sage, tagline),
+          const SizedBox(height: 12),
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onHorizontalDragUpdate: (details) => _dragDx += details.delta.dx,
+            onHorizontalDragEnd: _onSwipeEnd,
+            onHorizontalDragCancel: () => _dragDx = 0,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: t.card,
+                borderRadius: BorderRadius.circular(26),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: day ? 0.06 : 0.28),
+                    blurRadius: 22,
+                    offset: const Offset(0, 10),
                   ),
-                  if (widget.loading)
-                    SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: t.accent,
-                      ),
-                    ),
                 ],
               ),
-            ),
-            if (image != null)
-              AspectRatio(
-                aspectRatio: GentleReadPost.portraitAspectRatio,
-                child: Image.network(
-                  image.toString(),
-                  fit: BoxFit.cover,
-                  semanticLabel: read.imageAlt ?? 'Gentle Read image',
-                  loadingBuilder: (context, child, progress) {
-                    if (progress == null) return child;
-                    return ColoredBox(
-                      color: t.bg,
-                      child: Center(
-                        child: SizedBox(
-                          width: 22,
-                          height: 22,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: t.accent,
-                            value:
-                                progress.expectedTotalBytes == null
-                                    ? null
-                                    : progress.cumulativeBytesLoaded /
-                                        progress.expectedTotalBytes!,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(26),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (image != null) _photo(image, read.imageAlt),
+                    if (hasCopy || link != null)
+                      AnimatedOpacity(
+                        opacity: widget.loading ? 0.45 : 1,
+                        duration: const Duration(milliseconds: 180),
+                        child: Padding(
+                          padding: EdgeInsets.fromLTRB(
+                            22,
+                            image == null ? 22 : 16,
+                            22,
+                            20,
                           ),
-                        ),
-                      ),
-                    );
-                  },
-                  errorBuilder:
-                      (context, error, stack) => ColoredBox(
-                        color: t.bg,
-                        child: Center(
                           child: Column(
-                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Icon(
-                                Icons.image_not_supported_outlined,
-                                color: t.muted,
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Image unavailable',
-                                style: AppTypography.lato400(12, t.muted),
-                              ),
+                              if (image == null && hasBody) ...[
+                                Text(
+                                  _storyKicker(read.body),
+                                  style: GoogleFonts.lato(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 1.25,
+                                    color: kicker,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                              ],
+                              if (hasTitle) _title(read.title),
+                              if (hasTitle && hasBody)
+                                SizedBox(height: image == null ? 16 : 8),
+                              if (hasBody)
+                                _caption(
+                                  read.body,
+                                  bodyColor,
+                                  spacedParagraphs: image == null,
+                                ),
+                              if (link != null) ...[
+                                if (hasCopy) const SizedBox(height: 12),
+                                _link(link),
+                              ],
+                              if (hasCopy) ...[
+                                const SizedBox(height: 18),
+                                Text(
+                                  'Me Time Club · ${_minutes(read)} min',
+                                  style: AppTypography.lato400(12, t.muted),
+                                ),
+                              ],
                             ],
                           ),
                         ),
                       ),
-                ),
-              ),
-            if (image == null && hasCaption) _portraitText(read),
-            if (image != null && (hasCaption || link != null))
-              AnimatedOpacity(
-                opacity: widget.loading ? 0.45 : 1,
-                duration: const Duration(milliseconds: 180),
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(18, 12, 18, 16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      if (read.title.trim().isNotEmpty)
-                        Text(
-                          read.title,
-                          style: AppTypography.lato700(14, t.text, height: 1.3),
-                        ),
-                      if (read.title.trim().isNotEmpty &&
-                          read.body.trim().isNotEmpty)
-                        const SizedBox(height: 4),
-                      if (read.body.trim().isNotEmpty) _caption(read.body),
-                      if (hasCaption && link != null)
-                        const SizedBox(height: 12),
-                      if (link != null) _link(link),
-                    ],
-                  ),
-                ),
-              ),
-            if (image == null && link != null)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(18, 0, 18, 16),
-                child: _link(link),
-              ),
-            if (hasNavigation || widget.swipesRemaining != null) ...[
-              Divider(height: 1, color: t.border),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
-                child: Row(
-                  children: [
-                    if (widget.onPrevious != null)
-                      IconButton(
-                        onPressed: widget.loading ? null : widget.onPrevious,
-                        icon: const Icon(Icons.chevron_left_rounded),
-                        color: t.accent,
-                        tooltip: 'Previous',
-                      )
-                    else
-                      const SizedBox(width: 48),
-                    Expanded(
-                      child: Text(
-                        _swipeNote(),
-                        textAlign: TextAlign.center,
-                        style: AppTypography.lato400(12, t.muted),
-                      ),
-                    ),
-                    if (widget.onNext != null)
-                      IconButton(
-                        onPressed: widget.loading ? null : widget.onNext,
-                        icon: const Icon(Icons.chevron_right_rounded),
-                        color: t.accent,
-                        tooltip: 'Next',
-                      )
-                    else
-                      const SizedBox(width: 48),
                   ],
                 ),
               ),
+            ),
+          ),
+          if (hasNavigation || widget.swipesRemaining != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Row(
+                children: [
+                  _swipeButton(
+                    icon: Icons.chevron_left_rounded,
+                    tooltip: 'Previous',
+                    onPressed: widget.onPrevious,
+                  ),
+                  Expanded(
+                    child: Text(
+                      _swipeNote(),
+                      textAlign: TextAlign.center,
+                      style: AppTypography.lato400(12, t.muted),
+                    ),
+                  ),
+                  _swipeButton(
+                    icon: Icons.chevron_right_rounded,
+                    tooltip: 'Next',
+                    onPressed: widget.onNext,
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _header(Color sage, Color tagline) {
+    return Row(
+      children: [
+        Container(
+          width: 22,
+          height: 22,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: sage.withValues(alpha: 0.7)),
+          ),
+          child: AppIcons.book(c: sage, s: 12),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text.rich(
+            TextSpan(
+              children: [
+                TextSpan(
+                  text: 'LITTLE READS',
+                  style: GoogleFonts.lato(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.4,
+                    color: sage,
+                  ),
+                ),
+                TextSpan(
+                  text: '  for mummas exploring beyond motherhood',
+                  style: AppTypography.cormorantItalic(15, tagline, height: 1),
+                ),
+              ],
+            ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        if (widget.loading) ...[
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 14,
+            height: 14,
+            child: CircularProgressIndicator(strokeWidth: 2, color: t.accent),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _photo(Uri image, String? alt) {
+    return AspectRatio(
+      aspectRatio: GentleReadPost.portraitAspectRatio,
+      child: Image.network(
+        image.toString(),
+        fit: BoxFit.cover,
+        semanticLabel: alt ?? 'Little read image',
+        loadingBuilder: (context, child, progress) {
+          if (progress == null) return child;
+          return ColoredBox(
+            color: t.bg,
+            child: Center(
+              child: SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: t.accent,
+                  value:
+                      progress.expectedTotalBytes == null
+                          ? null
+                          : progress.cumulativeBytesLoaded /
+                              progress.expectedTotalBytes!,
+                ),
+              ),
+            ),
+          );
+        },
+        errorBuilder:
+            (context, error, stack) => ColoredBox(
+              color: t.bg,
+              child: Center(
+                child: Text(
+                  'Image unavailable',
+                  style: AppTypography.lato400(12, t.muted),
+                ),
+              ),
+            ),
+      ),
+    );
+  }
+
+  Widget _title(String title) {
+    return Text(
+      title,
+      style: GoogleFonts.cormorantGaramond(
+        fontSize: 26,
+        fontWeight: FontWeight.w700,
+        height: 1.15,
+        color: t.text,
+      ),
+    );
+  }
+
+  Widget _caption(String body, Color color, {bool spacedParagraphs = false}) {
+    final style = AppTypography.cormorantItalic(17, color, height: 1.5);
+    if (spacedParagraphs) {
+      final parts =
+          body
+              .split(RegExp(r'\r?\n+'))
+              .map((part) => part.trim())
+              .where((part) => part.isNotEmpty)
+              .toList();
+      if (parts.length > 1) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (var i = 0; i < parts.length; i++) ...[
+              if (i > 0) const SizedBox(height: 14),
+              Text(parts[i], style: style),
             ],
           ],
-        ),
+        );
+      }
+    }
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final painter = TextPainter(
+          text: TextSpan(text: body, style: style),
+          textDirection: Directionality.of(context),
+          textScaler: MediaQuery.textScalerOf(context),
+          maxLines: 6,
+        )..layout(maxWidth: constraints.maxWidth);
+        final overflows = painter.didExceedMaxLines;
+        painter.dispose();
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              body,
+              style: style,
+              maxLines: _expanded ? null : 6,
+              overflow:
+                  _expanded ? TextOverflow.visible : TextOverflow.ellipsis,
+            ),
+            if (overflows)
+              TextButton(
+                onPressed:
+                    widget.loading
+                        ? null
+                        : () => setState(() => _expanded = !_expanded),
+                style: TextButton.styleFrom(
+                  foregroundColor: t.accent,
+                  padding: EdgeInsets.zero,
+                  minimumSize: const Size(0, 32),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  alignment: Alignment.centerLeft,
+                ),
+                child: Text(_expanded ? 'Show less' : 'Read more'),
+              ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _link(Uri uri) {
+    final label = widget.read.linkLabel?.trim();
+    final text = label == null || label.isEmpty ? uri.host : label;
+    return GestureDetector(
+      onTap: () => widget.onOpenLink(uri),
+      child: Text(
+        text,
+        style: AppTypography.cormorantItalic(
+          16,
+          t.accent,
+          height: 1.3,
+        ).copyWith(decoration: TextDecoration.underline),
       ),
+    );
+  }
+
+  Widget _swipeButton({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback? onPressed,
+  }) {
+    return IconButton(
+      onPressed: widget.loading ? null : onPressed,
+      icon: Icon(icon),
+      color: onPressed == null ? Colors.transparent : t.accent,
+      disabledColor: Colors.transparent,
+      tooltip: onPressed == null ? null : tooltip,
+      visualDensity: VisualDensity.compact,
     );
   }
 
@@ -246,122 +428,5 @@ class _GentleReadPostState extends State<GentleReadPost> {
     if (left <= 0) return "That's your three for today";
     if (left == 1) return '1 swipe left today';
     return '$left swipes left today';
-  }
-
-  /// A text-only read fills the same portrait frame as a photo.
-  Widget _portraitText(GentleRead read) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final height =
-            constraints.maxWidth / GentleReadPost.portraitAspectRatio;
-        final quote = Padding(
-          padding: const EdgeInsets.fromLTRB(28, 28, 28, 28),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (read.title.trim().isNotEmpty)
-                Text(
-                  read.title,
-                  textAlign: TextAlign.center,
-                  style: AppTypography.cormorant600(26, t.text, height: 1.2),
-                ),
-              if (read.title.trim().isNotEmpty && read.body.trim().isNotEmpty)
-                const SizedBox(height: 14),
-              if (read.body.trim().isNotEmpty)
-                _caption(
-                  read.body,
-                  collapsedLines: read.title.trim().isNotEmpty ? 6 : 8,
-                  centered: true,
-                ),
-            ],
-          ),
-        );
-        if (_expanded) return quote;
-        return SizedBox(height: height, child: Center(child: quote));
-      },
-    );
-  }
-
-  Widget _caption(
-    String body, {
-    int collapsedLines = 6,
-    bool centered = false,
-  }) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final style =
-            centered
-                ? AppTypography.cormorantItalic(22, t.text, height: 1.45)
-                : AppTypography.lato400(15, t.text, height: 1.6);
-        final painter = TextPainter(
-          text: TextSpan(text: body, style: style),
-          textDirection: Directionality.of(context),
-          textScaler: MediaQuery.textScalerOf(context),
-          maxLines: collapsedLines,
-          textAlign: centered ? TextAlign.center : TextAlign.start,
-        )..layout(maxWidth: constraints.maxWidth);
-        final overflows = painter.didExceedMaxLines;
-        painter.dispose();
-        return Column(
-          crossAxisAlignment:
-              centered ? CrossAxisAlignment.center : CrossAxisAlignment.start,
-          children: [
-            Text(
-              body,
-              textAlign: centered ? TextAlign.center : TextAlign.start,
-              style: style,
-              maxLines: _expanded ? null : collapsedLines,
-              overflow:
-                  _expanded ? TextOverflow.visible : TextOverflow.ellipsis,
-            ),
-            if (overflows)
-              TextButton(
-                onPressed:
-                    widget.loading
-                        ? null
-                        : () => setState(() => _expanded = !_expanded),
-                style: TextButton.styleFrom(
-                  foregroundColor: t.accent,
-                  padding: EdgeInsets.zero,
-                  minimumSize: const Size(0, 36),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                child: Text(_expanded ? 'Show less' : 'Read more'),
-              ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _link(Uri uri) {
-    final label = widget.read.linkLabel?.trim();
-    return Material(
-      color: t.bg,
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        onTap: () => widget.onOpenLink(uri),
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            children: [
-              Icon(Icons.link_rounded, color: t.accent, size: 20),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  label == null || label.isEmpty ? uri.host : label,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTypography.lato700(12, t.text),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Icon(Icons.open_in_new_rounded, color: t.muted, size: 16),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 }
