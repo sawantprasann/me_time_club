@@ -277,6 +277,7 @@ class _GentleReadPostState extends State<GentleReadPost> {
                             read.body,
                             index,
                             spacedParagraphs: image == null,
+                            collapsedLines: image == null ? 12 : 6,
                           ),
                         if (link != null) ...[
                           if (hasCopy) const SizedBox(height: 10),
@@ -384,7 +385,12 @@ class _GentleReadPostState extends State<GentleReadPost> {
     );
   }
 
-  Widget _caption(String body, int index, {bool spacedParagraphs = false}) {
+  Widget _caption(
+    String body,
+    int index, {
+    bool spacedParagraphs = false,
+    int collapsedLines = 6,
+  }) {
     final style = AppTypography.cormorantItalic(15, t.text, height: 1.65);
     if (spacedParagraphs) {
       final parts =
@@ -412,7 +418,7 @@ class _GentleReadPostState extends State<GentleReadPost> {
           text: TextSpan(text: body, style: style),
           textDirection: Directionality.of(context),
           textScaler: MediaQuery.textScalerOf(context),
-          maxLines: 6,
+          maxLines: collapsedLines,
         )..layout(maxWidth: constraints.maxWidth);
         final overflows = painter.didExceedMaxLines;
         final expanded = _expandedIndex == index;
@@ -423,7 +429,7 @@ class _GentleReadPostState extends State<GentleReadPost> {
             Text(
               body,
               style: style,
-              maxLines: expanded ? null : 6,
+              maxLines: expanded ? null : collapsedLines,
               overflow: expanded ? TextOverflow.visible : TextOverflow.ellipsis,
             ),
             if (overflows)
