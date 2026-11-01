@@ -44,8 +44,11 @@ class _GentleReadPostState extends State<GentleReadPost> {
   int? _expandedIndex;
   AppTokens get t => widget.t;
 
-  List<GentleRead> get _reads =>
-      widget.reads.isNotEmpty ? widget.reads : [widget.read];
+  List<GentleRead> get _reads {
+    final source = widget.reads.isNotEmpty ? widget.reads : [widget.read];
+    if (source.length <= GentleReadPost.readsPerDay) return source;
+    return source.take(GentleReadPost.readsPerDay).toList();
+  }
 
   bool get _canSlide => _reads.length > 1;
 
@@ -111,7 +114,8 @@ class _GentleReadPostState extends State<GentleReadPost> {
     final upper = page.ceil().clamp(0, last);
     final start = _heights[lower] ?? _heights[upper] ?? 1;
     final end = _heights[upper] ?? start;
-    return start + (end - start) * (page - lower);
+    // Extra pixels so a fraction of a pixel never paints the overflow stripe.
+    return start + (end - start) * (page - lower) + 2;
   }
 
   @override
@@ -120,24 +124,34 @@ class _GentleReadPostState extends State<GentleReadPost> {
     final index = _canSlide ? _slidePage.round().clamp(0, reads.length - 1) : 0;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(18, 18, 18, 0),
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _sectionHeader(),
           const SizedBox(height: 12),
-          if (_canSlide) ...[
-            _measurers(reads),
+          if (_canSlide)
             SizedBox(
               height: _viewportHeight,
               child: PageView.builder(
                 controller: _pages,
+                clipBehavior: Clip.hardEdge,
                 itemCount: reads.length,
                 onPageChanged: widget.onPageChanged,
-                itemBuilder: (context, page) => _card(reads[page], page),
+                itemBuilder: (context, page) {
+                  return OverflowBox(
+                    alignment: Alignment.topCenter,
+                    minHeight: 0,
+                    maxHeight: double.infinity,
+                    child: _ReportHeight(
+                      onHeight: (height) => _rememberHeight(page, height),
+                      child: _card(reads[page], page),
+                    ),
+                  );
+                },
               ),
-            ),
-          ] else
+            )
+          else
             _card(reads.first, 0),
           if (_canSlide) ...[
             const SizedBox(height: 14),
@@ -150,27 +164,6 @@ class _GentleReadPostState extends State<GentleReadPost> {
             ),
           ],
         ],
-      ),
-    );
-  }
-
-  Widget _measurers(List<GentleRead> reads) {
-    return SizedBox(
-      height: 0,
-      child: OverflowBox(
-        alignment: Alignment.topCenter,
-        minHeight: 0,
-        maxHeight: double.infinity,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            for (var i = 0; i < reads.length; i++)
-              _ReportHeight(
-                onHeight: (height) => _rememberHeight(i, height),
-                child: _card(reads[i], i),
-              ),
-          ],
-        ),
       ),
     );
   }

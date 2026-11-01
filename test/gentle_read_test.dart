@@ -215,6 +215,7 @@ void main() {
     await tester.pump();
     expect(find.text('GENTLE READ'), findsOneWidget);
     expect(find.text('1 of 3 · tap dots to browse'), findsOneWidget);
+    expect(find.text('Third', skipOffstage: true), findsNothing);
     expect(find.byIcon(Icons.chevron_right_rounded), findsNothing);
     await tester.tap(find.byKey(const ValueKey('gentle-read-dot-2')));
     await tester.pumpAndSettle();
