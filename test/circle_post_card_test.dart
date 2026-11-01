@@ -350,7 +350,7 @@ void main() {
     expect(find.text('Show less ↑'), findsOneWidget);
   });
 
-  testWidgets('Load more and show less appear together while comments remain', (
+  testWidgets('Show less appears only after the last comment batch', (
     tester,
   ) async {
     await showCard(
@@ -369,7 +369,7 @@ void main() {
     expect(find.text('Comment 2'), findsOneWidget);
     expect(find.text('Comment 1'), findsNothing);
     expect(find.text('Load 2 more responses...'), findsOneWidget);
-    expect(find.text('Show less ↑'), findsOneWidget);
+    expect(find.text('Show less ↑'), findsNothing);
 
     await tapText(tester, 'Load 2 more responses...');
     expect(find.text('Comment 0'), findsOneWidget);

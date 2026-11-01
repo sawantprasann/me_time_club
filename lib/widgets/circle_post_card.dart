@@ -10,6 +10,7 @@ enum _ResponsePanel { feelings, reply }
 /// Feelings are grouped under the post. Comments arrive oldest first and
 /// are shown newest first. The latest [initialVisibleComments] comments
 /// are shown. Load more reveals the next [commentsPageSize] older ones.
+/// Show less appears only once every comment is visible.
 /// The API returns every comment, so paging stays on this card.
 /// Respond with feeling and Respond are separate panels. A chip they
 /// already sent starts selected, and tapping it again removes that feeling.
@@ -351,7 +352,7 @@ class _CirclePostCardState extends State<CirclePostCard> {
               _comment(reply),
               const SizedBox(height: 14),
             ],
-            if (_hasMoreComments || _extraComments > 0) _commentLinks(),
+            if (_hasMoreComments || _onLastCommentBatch) _commentLinks(),
           ],
           const SizedBox(height: 8),
           LayoutBuilder(
@@ -468,6 +469,9 @@ class _CirclePostCardState extends State<CirclePostCard> {
     );
   }
 
+  bool get _onLastCommentBatch =>
+      !_hasMoreComments && widget.replies.length > CirclePostCard.initialVisibleComments;
+
   String get _loadMoreLabel {
     final next = _nextCommentBatch;
     final noun = next == 1 ? 'response' : 'responses';
@@ -475,17 +479,15 @@ class _CirclePostCardState extends State<CirclePostCard> {
   }
 
   Widget _commentLinks() {
-    final more = _hasMoreComments;
-    final less = _extraComments > 0;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (more)
+        if (_hasMoreComments)
           _commentLink(
             _loadMoreLabel,
             onTap: () => setState(() => _extraComments += _nextCommentBatch),
           ),
-        if (less)
+        if (_onLastCommentBatch)
           _commentLink(
             'Show less ↑',
             onTap: () => setState(() => _extraComments = 0),

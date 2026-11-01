@@ -39,6 +39,8 @@ class _JournalTabState extends State<JournalTab> {
   final TextEditingController _newTaskCtrl = TextEditingController();
   bool _loadingTasks = false;
   bool _chamomileDone = false;
+  static const _taskPageSize = 10;
+  int _extraTasks = 0;
   // Shopping sub-tab
   final List<_ShopCategory> _categories = [];
   bool _loadingCategories = true;
@@ -543,6 +545,69 @@ class _JournalTabState extends State<JournalTab> {
   }
 
   // ─── Tasks Sub-Tab ───────────────────────────────
+  int get _visibleTaskCount => _taskPageSize + _extraTasks;
+
+  List<_TaskItem> get _visibleTasks {
+    if (_tasks.length <= _visibleTaskCount) return _tasks;
+    return _tasks.sublist(0, _visibleTaskCount);
+  }
+
+  bool get _hasMoreTasks => _tasks.length > _visibleTaskCount;
+
+  bool get _onLastTaskBatch => !_hasMoreTasks && _tasks.length > _taskPageSize;
+
+  int get _nextTaskBatch {
+    final remaining = _tasks.length - _visibleTaskCount;
+    if (remaining <= 0) return 0;
+    return remaining < _taskPageSize ? remaining : _taskPageSize;
+  }
+
+  void _revealAddedTasks(int total) {
+    final hidden = total - _visibleTaskCount;
+    if (hidden > 0) _extraTasks += hidden;
+  }
+
+  String get _loadMoreTasksLabel {
+    final next = _nextTaskBatch;
+    final noun = next == 1 ? 'task' : 'tasks';
+    return 'Load $next more $noun...';
+  }
+
+  Widget _taskPageLinks() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (_hasMoreTasks)
+          _taskPageLink(
+            _loadMoreTasksLabel,
+            onTap: () => setState(() => _extraTasks += _nextTaskBatch),
+          ),
+        if (_onLastTaskBatch)
+          _taskPageLink(
+            'Show less ↑',
+            onTap: () => setState(() => _extraTasks = 0),
+          ),
+      ],
+    );
+  }
+
+  Widget _taskPageLink(String label, {required VoidCallback onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(0, 4, 0, 6),
+        child: Text(
+          label,
+          style: AppTypography.lato600(12, t.accent).copyWith(
+            decoration: TextDecoration.underline,
+            decorationColor: t.accent.withValues(alpha: 0.314),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildTasks() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -642,102 +707,95 @@ class _JournalTabState extends State<JournalTab> {
             ),
           ),
         // User tasks
-        ..._tasks.asMap().entries.map((e) {
+        ..._visibleTasks.asMap().entries.map((e) {
           final i = e.key;
           final task = e.value;
           return Padding(
             padding: const EdgeInsets.only(bottom: 8),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              decoration: BoxDecoration(
-                color: t.accent.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: t.accent.withValues(alpha: 0.22)),
-              ),
-              child: Row(
-                children: [
-                  GestureDetector(
-                    onTap: () async {
-                      final newDone = !task.done;
-                      setState(() {
-                        _tasks[i] = _TaskItem(
-                          id: task.id,
-                          text: task.text,
-                          done: newDone,
+            child: Row(
+              children: [
+                GestureDetector(
+                  onTap: () async {
+                    final newDone = !task.done;
+                    setState(() {
+                      _tasks[i] = _TaskItem(
+                        id: task.id,
+                        text: task.text,
+                        done: newDone,
+                      );
+                    });
+                    if (task.id != null) {
+                      try {
+                        await ApiService.updateTask(
+                          token: widget.user.token ?? '',
+                          taskId: task.id!,
+                          completed: newDone,
                         );
-                      });
-                      if (task.id != null) {
-                        try {
-                          await ApiService.updateTask(
-                            token: widget.user.token ?? '',
-                            taskId: task.id!,
-                            completed: newDone,
-                          );
-                        } catch (err) {
-                          debugPrint('[JOURNAL TASK UPDATE API ERROR] $err');
-                        }
+                      } catch (err) {
+                        debugPrint('[JOURNAL TASK UPDATE API ERROR] $err');
                       }
-                    },
-                    child: Container(
-                      width: 20,
-                      height: 20,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: task.done ? t.accent : t.accent.withValues(alpha: 0.45),
-                          width: 2,
-                        ),
-                        color: task.done ? t.accent : Colors.transparent,
+                    }
+                  },
+                  child: Container(
+                    width: 20,
+                    height: 20,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: task.done ? t.accent : t.border,
+                        width: 2,
                       ),
-                      child:
-                          task.done
-                              ? AppIcons.check(c: Colors.white, s: 12)
-                              : null,
+                      color: task.done ? t.accent : Colors.transparent,
+                    ),
+                    child:
+                        task.done
+                            ? AppIcons.check(c: Colors.white, s: 12)
+                            : null,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    task.text,
+                    style: AppTypography.lato400(14, t.text).copyWith(
+                      decoration: task.done ? TextDecoration.lineThrough : null,
+                      color: task.done ? t.muted : t.text,
                     ),
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      task.text,
-                      style: AppTypography.lato400(14, t.text).copyWith(
-                        decoration: task.done ? TextDecoration.lineThrough : null,
-                        color: task.done ? t.muted : t.text,
-                      ),
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: () async {
-                      final removedTask = _tasks[i];
-                      setState(() {
-                        _tasks.removeAt(i);
-                      });
-                      if (removedTask.id != null) {
-                        try {
-                          await ApiService.deleteTask(
-                            token: widget.user.token ?? '',
-                            taskId: removedTask.id!,
-                          );
-                        } catch (err) {
-                          debugPrint('[JOURNAL TASK DELETE API ERROR] $err');
-                        }
+                ),
+                GestureDetector(
+                  onTap: () async {
+                    final removedTask = _tasks[i];
+                    setState(() {
+                      _tasks.removeAt(i);
+                    });
+                    if (removedTask.id != null) {
+                      try {
+                        await ApiService.deleteTask(
+                          token: widget.user.token ?? '',
+                          taskId: removedTask.id!,
+                        );
+                      } catch (err) {
+                        debugPrint('[JOURNAL TASK DELETE API ERROR] $err');
                       }
-                    },
-                    child: Container(
-                      width: 22,
-                      height: 22,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: t.accent.withValues(alpha: 0.14),
-                        shape: BoxShape.circle,
-                      ),
-                      child: AppIcons.close(c: t.accent, s: 12),
+                    }
+                  },
+                  child: Container(
+                    width: 22,
+                    height: 22,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: t.accent.withValues(alpha: 0.14),
+                      shape: BoxShape.circle,
                     ),
+                    child: AppIcons.close(c: t.accent, s: 12),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           );
         }),
+        if (_hasMoreTasks || _onLastTaskBatch) _taskPageLinks(),
         const SizedBox(height: 8),
         Row(
           children: [
@@ -792,6 +850,7 @@ class _JournalTabState extends State<JournalTab> {
       if (mounted) {
         setState(() {
           _tasks.add(_TaskItem(id: createdId, text: taskText, done: false));
+          _revealAddedTasks(_tasks.length);
         });
       }
     } catch (e) {
@@ -799,6 +858,7 @@ class _JournalTabState extends State<JournalTab> {
       if (mounted) {
         setState(() {
           _tasks.add(_TaskItem(text: taskText, done: false));
+          _revealAddedTasks(_tasks.length);
         });
       }
     }
