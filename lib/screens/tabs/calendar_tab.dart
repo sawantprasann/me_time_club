@@ -504,23 +504,38 @@ class _CalendarTabState extends State<CalendarTab> {
     return !_cycleDays.contains(_dateKey(prev));
   }
 
-  /// Period the header X would remove. Only the selected date, and only when
-  /// that date is a marked cycle day.
+  /// Period the header X would remove. Only when the selected date is inside
+  /// a marked cycle, and then the whole run that starts on that period.
   DateTime? get _removablePeriodStart {
     if (!_cycleDays.contains(_dateKey(_selectedDate))) return null;
     return _periodStartFor(_selectedDate);
   }
 
-  /// Drawn only for today, or for the selected date, and only when that day
-  /// is a marked cycle day. Other saved days stay hidden. Leaving a cycle
-  /// day for a date that is not marked hides that day.
+  /// Consecutive marked days that contain [day], such as the 2nd, 3rd, and 4th
+  /// when a cycle was started on the 2nd.
+  List<DateTime> _cycleRun(DateTime day) {
+    if (!_cycleDays.contains(_dateKey(day))) return const [];
+    final dates = <DateTime>[];
+    var cursor = _periodStartFor(day);
+    while (_cycleDays.contains(_dateKey(cursor))) {
+      dates.add(DateTime(cursor.year, cursor.month, cursor.day));
+      cursor = cursor.add(const Duration(days: 1));
+    }
+    return dates;
+  }
+
+  /// The full cycle that contains the selected date. Today uses the same rule
+  /// because today starts selected. A later date that is not part of the cycle
+  /// hides it. Starting a cycle on the 2nd still shows the 2nd, 3rd, and 4th.
   Set<String> get _visibleCycleDayKeys {
-    final keys = <String>{};
-    final todayKey = _dateKey(DateTime.now());
-    final selectedKey = _dateKey(_selectedDate);
-    if (_cycleDays.contains(todayKey)) keys.add(todayKey);
-    if (_cycleDays.contains(selectedKey)) keys.add(selectedKey);
-    return keys;
+    final anchor =
+        _cycleDays.contains(_dateKey(_selectedDate))
+            ? _selectedDate
+            : _isSameDay(_selectedDate, DateTime.now())
+            ? DateTime.now()
+            : null;
+    if (anchor == null) return {};
+    return {for (final day in _cycleRun(anchor)) _dateKey(day)};
   }
 
   List<DateTime> get _visibleCycleDates {
