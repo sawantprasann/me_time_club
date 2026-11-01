@@ -997,7 +997,8 @@ class _CalendarTabState extends State<CalendarTab> {
                     (_isCurrentMonth &&
                         widget.dailyPages.containsKey(dayNum)) ||
                     (_fetchedPages[dotDateKey] != null);
-                final hasCycle = _visibleCycleDayKeys.contains(dayKey);
+                final markedCycle = _cycleDays.contains(dayKey);
+                final showCycle = _visibleCycleDayKeys.contains(dayKey);
                 final isPredicted =
                     _nextPredictedDate != null &&
                     _nextPredictedDate!.year == _viewYear &&
@@ -1015,7 +1016,7 @@ class _CalendarTabState extends State<CalendarTab> {
                         color:
                             selected
                                 ? t.accent
-                                : hasCycle
+                                : showCycle
                                 ? t.cycleRose.withValues(alpha: 0.18)
                                 : today
                                 ? t.accent.withValues(alpha: 0.22)
@@ -1049,7 +1050,7 @@ class _CalendarTabState extends State<CalendarTab> {
                               13,
                               selected
                                   ? Colors.white
-                                  : hasCycle
+                                  : showCycle
                                   ? t.cycleRose
                                   : today
                                   ? t.accent
@@ -1063,8 +1064,8 @@ class _CalendarTabState extends State<CalendarTab> {
                               children: [
                                 if (hasTask) _dot(t.gold),
                                 if (hasPage) _dot(t.accent),
-                                if (hasCycle) _dot(t.cycleRose),
-                                if (isPredicted && !hasCycle) _predictedDot(),
+                                if (markedCycle) _dot(t.cycleRose),
+                                if (isPredicted && !markedCycle) _predictedDot(),
                               ],
                             ),
                           ],
@@ -1544,9 +1545,9 @@ class _CalendarTabState extends State<CalendarTab> {
                   icon:
                       removing != null
                           ? AppIcons.close(c: Colors.white, s: 14)
-                          : AppIcons.plus(c: Colors.white, s: 16),
-                  size: 36,
-                  color: t.cycleRose,
+                          : AppIcons.plus(c: Colors.white, s: 14),
+                  size: 30,
+                  color: t.accent,
                 ),
               ),
             ],
@@ -1668,7 +1669,7 @@ class _CalendarTabState extends State<CalendarTab> {
           height: 44,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: filled ? t.cycleRose : t.card,
+            color: filled ? t.accent : t.card,
             borderRadius: BorderRadius.circular(12),
             border: filled ? null : Border.all(color: t.border),
           ),
