@@ -92,7 +92,11 @@ void main() {
     expect(find.text('Close'), findsOneWidget);
 
     await tapChip(tester, 'I understand');
-    expect(find.text('1'), findsOneWidget);
+    expect(
+      find.text('1 mama is here with you — mostly i understand.'),
+      findsNothing,
+    );
+    expect(chipSelected(tester, 'I understand'), isFalse);
 
     await tapText(tester, 'Close');
     expect(find.byType(ChoiceChip), findsNothing);
@@ -141,12 +145,12 @@ void main() {
       expect(find.text('Another mother'), findsOneWidget);
       expect(find.text('Here for you'), findsOneWidget);
       expect(
-        find.text(
-          "1 mama is here with you — mostly i understand and i'm here.",
-        ),
+        find.text("1 mama is here with you — mostly i'm here."),
         findsOneWidget,
       );
-      expect(find.text('1'), findsNWidgets(2));
+      expect(find.text('1'), findsOneWidget);
+      expect(chipSelected(tester, 'I understand'), isFalse);
+      expect(chipSelected(tester, "I'm here"), isTrue);
       expect(find.textContaining('Anonymous:'), findsNothing);
       expect(
         tester.getTopLeft(find.text('Here for you')).dy,
@@ -163,14 +167,14 @@ void main() {
         lessThan(tester.getTopLeft(find.text('Respond')).dy),
       );
       expect(
-        tester.getTopLeft(find.text('I understand').first).dy,
+        tester.getTopLeft(find.text("I'm here").first).dy,
         lessThan(tester.getTopLeft(find.text('Here for you')).dy),
       );
     },
   );
 
   testWidgets(
-    'Feeling send waits for success and does not send a feeling twice',
+    'Feeling send waits for success and a second tap removes it',
     (tester) async {
       final completion = Completer<void>();
       final sent = <CircleResponseDraft>[];
@@ -208,7 +212,9 @@ void main() {
       expect(chipSelected(tester, "I'm here"), isTrue);
 
       await tapChip(tester, "I'm here");
-      expect(sent, hasLength(1));
+      await tester.pump();
+      expect(sent, hasLength(2));
+      expect(chipSelected(tester, "I'm here"), isFalse);
 
       await tapText(tester, 'Respond');
       expect(
@@ -246,11 +252,12 @@ void main() {
 
     await tapChip(tester, 'Holding you');
     await tester.pump();
-    expect(sent, isEmpty);
+    expect(sent.single.feelingKey, 'holding_you');
+    expect(chipSelected(tester, 'Holding you'), isFalse);
 
     await tapChip(tester, 'This feels heavy');
     await tester.pump();
-    expect(sent.single.feelingKey, 'this_feels_heavy');
+    expect(sent.last.feelingKey, 'this_feels_heavy');
     expect(chipSelected(tester, 'This feels heavy'), isTrue);
   });
 
@@ -274,7 +281,7 @@ void main() {
     expect(find.text('+1 more'), findsNothing);
   });
 
-  testWidgets('Comments show 10 at a time, then load more', (tester) async {
+  testWidgets('Comments show 2, then load more brings the next 10', (tester) async {
     await showCard(
       tester,
       replies: [
@@ -283,16 +290,15 @@ void main() {
       ],
     );
 
-    expect(find.text('Comment 0'), findsNothing);
-    expect(find.text('Comment 1'), findsNothing);
-    expect(find.text('Comment 2'), findsOneWidget);
-    expect(find.text('Comment 11'), findsOneWidget);
-    expect(find.text('Load more'), findsOneWidget);
-
-    await tapText(tester, 'Load more');
     expect(find.text('Comment 0'), findsOneWidget);
     expect(find.text('Comment 1'), findsOneWidget);
-    expect(find.text('Load more'), findsNothing);
+    expect(find.text('Comment 2'), findsNothing);
+    expect(find.text('Load 10 more comments'), findsOneWidget);
+
+    await tapText(tester, 'Load 10 more comments');
+    expect(find.text('Comment 2'), findsOneWidget);
+    expect(find.text('Comment 11'), findsOneWidget);
+    expect(find.text('Load 10 more comments'), findsNothing);
   });
 
   testWidgets('Failed replies retain the draft and can be retried', (

@@ -7,12 +7,13 @@ enum _ResponsePanel { feelings, reply }
 
 /// Post card for the circle.
 ///
-/// Feelings are grouped under the post. The latest [commentsPageSize]
-/// comments (10) are shown. Load more reveals the previous 10.
+/// Feelings are grouped under the post. The first [initialVisibleComments]
+/// comments are shown. Load more reveals the next [commentsPageSize].
 /// The API returns every comment, so paging stays on this card.
-/// Respond with feeling and Respond are separate panels. A person can
-/// leave each feeling once; chips they already sent start selected.
+/// Respond with feeling and Respond are separate panels. A chip they
+/// already sent starts selected, and tapping it again removes that feeling.
 class CirclePostCard extends StatefulWidget {
+  static const initialVisibleComments = 2;
   static const commentsPageSize = 10;
   static const visibleFeelingGroups = 4;
 
@@ -66,12 +67,15 @@ class _CirclePostCardState extends State<CirclePostCard> {
   }
 
   final _draft = TextEditingController();
+  final _replyFocus = FocusNode();
+  final _sendFocus = FocusNode(canRequestFocus: false, skipTraversal: true);
+  final _composerKey = GlobalKey();
   final Set<String> _selectedKeys = {};
   final Map<String, int> _localFeelingAdds = {};
   _ResponsePanel? _panel;
   bool _sending = false;
   bool _feelingsExpanded = false;
-  int _commentPages = 1;
+  int _extraComments = 0;
   String? _error;
 
   AppTokens get t => widget.t;
@@ -91,13 +95,15 @@ class _CirclePostCardState extends State<CirclePostCard> {
   @override
   void dispose() {
     _draft.dispose();
+    _replyFocus.dispose();
+    _sendFocus.dispose();
     super.dispose();
   }
 
   void _syncSelectionFromWidget() {
-    if (widget.myMoods.isEmpty && (widget.myMood == null || widget.myMood!.isEmpty)) {
-      return;
-    }
+    final fromServer = widget.myMoods.isNotEmpty ||
+        (widget.myMood != null && widget.myMood!.isNotEmpty);
+    if (!fromServer && widget.onSendReply == null) return;
     _selectedKeys
       ..clear()
       ..addAll(widget.myMoods);
@@ -107,9 +113,36 @@ class _CirclePostCardState extends State<CirclePostCard> {
   }
 
   void _togglePanel(_ResponsePanel panel) {
+    final opening = _panel != panel;
     setState(() {
       _panel = _panel == panel ? null : panel;
       _error = null;
+    });
+    if (opening) {
+      _revealComposer();
+      if (panel == _ResponsePanel.reply) _replyFocus.requestFocus();
+    }
+  }
+
+  void _revealComposer() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final target = _composerKey.currentContext;
+      if (target == null || !target.mounted) return;
+      final box = target.findRenderObject();
+      if (box is! RenderBox || !box.hasSize || !box.attached) return;
+      final scrollable = Scrollable.maybeOf(target);
+      final scrollBox = scrollable?.context.findRenderObject();
+      if (scrollBox is RenderBox && scrollBox.hasSize) {
+        final top = box.localToGlobal(Offset.zero, ancestor: scrollBox).dy;
+        final bottom = top + box.size.height;
+        if (top >= 0 && bottom <= scrollBox.size.height) return;
+      }
+      Scrollable.ensureVisible(
+        target,
+        alignment: 1,
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
+      );
     });
   }
 
@@ -122,9 +155,23 @@ class _CirclePostCardState extends State<CirclePostCard> {
   }
 
   List<CircleFeelingCount> get _feelingGroups {
-    final grouped = <String, CircleFeelingCount>{
-      for (final feeling in widget.feelings) feeling.key: feeling,
-    };
+    final mine = widget.myMoods.toSet();
+    final grouped = <String, CircleFeelingCount>{};
+    for (final feeling in widget.feelings) {
+      var count = feeling.count;
+      if (widget.onSendReply == null &&
+          mine.contains(feeling.key) &&
+          !_selectedKeys.contains(feeling.key)) {
+        count -= 1;
+      }
+      if (count > 0) {
+        grouped[feeling.key] = CircleFeelingCount(
+          key: feeling.key,
+          label: feeling.label,
+          count: count,
+        );
+      }
+    }
     if (widget.onSendReply == null) {
       for (final entry in _localFeelingAdds.entries) {
         final existing = grouped[entry.key];
@@ -167,30 +214,49 @@ class _CirclePostCardState extends State<CirclePostCard> {
     return '$_mamaCount $verb here with you — mostly $mostly.';
   }
 
+  int get _visibleCommentCount =>
+      CirclePostCard.initialVisibleComments + _extraComments;
+
   List<CircleReply> get _visibleComments {
     final all = widget.replies;
-    final window = _commentPages * CirclePostCard.commentsPageSize;
-    if (all.length <= window) return all;
-    return all.sublist(all.length - window);
+    if (all.length <= _visibleCommentCount) return all;
+    return all.sublist(0, _visibleCommentCount);
   }
 
-  bool get _hasMoreComments =>
-      widget.replies.length > _commentPages * CirclePostCard.commentsPageSize;
+  bool get _hasMoreComments => widget.replies.length > _visibleCommentCount;
+
+  int get _nextCommentBatch {
+    final remaining = widget.replies.length - _visibleCommentCount;
+    if (remaining <= 0) return 0;
+    return remaining < CirclePostCard.commentsPageSize
+        ? remaining
+        : CirclePostCard.commentsPageSize;
+  }
 
   Future<void> _send({String? feeling}) async {
     final text = feeling ?? _draft.text.trim();
     if (text.isEmpty || _sending) return;
 
     final feelingKey = _keyForLabel(feeling);
-    if (feelingKey != null && _selectedKeys.contains(feelingKey)) return;
+    final removing = feelingKey != null && _selectedKeys.contains(feelingKey);
 
     final sendReply = widget.onSendReply;
     if (sendReply == null) {
       if (feelingKey == null) return;
       setState(() {
         _error = null;
-        _selectedKeys.add(feelingKey);
-        _localFeelingAdds[feelingKey] = (_localFeelingAdds[feelingKey] ?? 0) + 1;
+        if (removing) {
+          _selectedKeys.remove(feelingKey);
+          final next = (_localFeelingAdds[feelingKey] ?? 1) - 1;
+          if (next <= 0) {
+            _localFeelingAdds.remove(feelingKey);
+          } else {
+            _localFeelingAdds[feelingKey] = next;
+          }
+        } else {
+          _selectedKeys.add(feelingKey);
+          _localFeelingAdds[feelingKey] = (_localFeelingAdds[feelingKey] ?? 0) + 1;
+        }
       });
       return;
     }
@@ -204,12 +270,17 @@ class _CirclePostCardState extends State<CirclePostCard> {
       if (!mounted) return;
       setState(() {
         if (feelingKey != null) {
-          _selectedKeys.add(feelingKey);
+          if (removing) {
+            _selectedKeys.remove(feelingKey);
+          } else {
+            _selectedKeys.add(feelingKey);
+          }
         } else {
           _draft.clear();
-          _panel = null;
+          _replyFocus.requestFocus();
         }
       });
+      if (feelingKey == null) _revealComposer();
     } catch (_) {
       if (mounted) {
         setState(() {
@@ -257,9 +328,9 @@ class _CirclePostCardState extends State<CirclePostCard> {
             if (presence != null) ...[
               Text(
                 presence,
-                style: AppTypography.cormorantItalic(16, t.muted, height: 1.45),
+                style: AppTypography.cormorantItalic(17, t.text, height: 1.7),
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 16),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
@@ -271,24 +342,11 @@ class _CirclePostCardState extends State<CirclePostCard> {
               ),
               const SizedBox(height: 16),
             ],
-            if (_hasMoreComments)
-              Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton(
-                  onPressed: () => setState(() => _commentPages += 1),
-                  style: TextButton.styleFrom(
-                    foregroundColor: t.accent,
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-                    minimumSize: const Size(0, 36),
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                  child: Text('Load more', style: AppTypography.lato700(13, t.accent)),
-                ),
-              ),
             for (final reply in comments) ...[
               _comment(reply),
               const SizedBox(height: 14),
             ],
+            if (_hasMoreComments) _loadMoreButton(),
           ],
           const SizedBox(height: 8),
           LayoutBuilder(
@@ -313,31 +371,39 @@ class _CirclePostCardState extends State<CirclePostCard> {
               );
             },
           ),
-          if (_panel != null) ...[
-            _divider(),
-            if (_panel == _ResponsePanel.feelings) ...[
-              Text(
-                'SEND A FEELING…',
-                style: AppTypography.lato400(10, t.muted).copyWith(letterSpacing: 1.3),
-              ),
-              const SizedBox(height: 14),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
+          if (_panel != null)
+            KeyedSubtree(
+              key: _composerKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  for (final entry in _feelingLabels.entries) _feelingChip(entry.key, entry.value),
+                  _divider(),
+                  if (_panel == _ResponsePanel.feelings) ...[
+                    Text(
+                      'SEND A FEELING…',
+                      style: AppTypography.lato400(10, t.muted).copyWith(letterSpacing: 1.3),
+                    ),
+                    const SizedBox(height: 14),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final entry in _feelingLabels.entries)
+                          _feelingChip(entry.key, entry.value),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    _replyField(hint: 'Or write a gentle response…'),
+                  ],
+                  if (_panel == _ResponsePanel.reply)
+                    _replyField(hint: 'Write a gentle response…'),
+                  if (_error != null) ...[
+                    const SizedBox(height: 10),
+                    Text(_error!, style: AppTypography.lato400(12, t.accent)),
+                  ],
                 ],
               ),
-              const SizedBox(height: 14),
-              _replyField(hint: 'Or write a gentle response…'),
-            ],
-            if (_panel == _ResponsePanel.reply)
-              _replyField(hint: 'Write a gentle response…'),
-            if (_error != null) ...[
-              const SizedBox(height: 10),
-              Text(_error!, style: AppTypography.lato400(12, t.accent)),
-            ],
-          ],
+            ),
         ],
       ),
     );
@@ -393,6 +459,27 @@ class _CirclePostCardState extends State<CirclePostCard> {
           border: Border.all(color: t.border),
         ),
         child: Text('+$hidden more', style: AppTypography.lato700(13, t.muted)),
+      ),
+    );
+  }
+
+  Widget _loadMoreButton() {
+    final next = _nextCommentBatch;
+    final label = next == 1 ? 'Load 1 more comment' : 'Load $next more comments';
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: OutlinedButton.icon(
+        onPressed: () => setState(() => _extraComments += next),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: t.accent,
+          backgroundColor: t.accent.withValues(alpha: 0.06),
+          side: BorderSide(color: t.accent.withValues(alpha: 0.35)),
+          shape: const StadiumBorder(),
+          minimumSize: const Size.fromHeight(44),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        ),
+        icon: Icon(Icons.expand_more_rounded, size: 18, color: t.accent),
+        label: Text(label, style: AppTypography.lato700(13, t.accent)),
       ),
     );
   }
@@ -469,7 +556,9 @@ class _CirclePostCardState extends State<CirclePostCard> {
     final canSend = widget.onSendReply != null && _draft.text.trim().isNotEmpty && !_sending;
     final input = TextField(
       controller: _draft,
-      enabled: !_sending,
+      focusNode: _replyFocus,
+      readOnly: _sending,
+      scrollPadding: const EdgeInsets.only(bottom: 96),
       minLines: 1,
       maxLines: 4,
       onChanged: (_) => setState(() => _error = null),
@@ -495,7 +584,13 @@ class _CirclePostCardState extends State<CirclePostCard> {
       ),
     );
     final send = FilledButton(
-      onPressed: canSend ? () => _send() : null,
+      focusNode: _sendFocus,
+      onPressed: canSend
+          ? () {
+              _replyFocus.requestFocus();
+              _send();
+            }
+          : null,
       style: FilledButton.styleFrom(
         backgroundColor: t.accent,
         foregroundColor: Colors.white,
