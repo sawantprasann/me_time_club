@@ -87,6 +87,15 @@ class _CircleTabState extends State<CircleTab> {
               }
             } catch (_) {}
 
+            final payload = item is Map
+                ? CirclePostPayload.fromJson(Map<String, dynamic>.from(item))
+                : const CirclePostPayload(
+                    comments: [],
+                    feelings: [],
+                    myMoods: [],
+                    mamaCount: 0,
+                  );
+
             return _Post(
               id: id,
               name: isAnon ? 'Anonymous' : author,
@@ -94,12 +103,10 @@ class _CircleTabState extends State<CircleTab> {
               isAnon: isAnon,
               time: timeString,
               myMood: item['my_mood'] as String?,
-              replies:
-                  (item['responses'] as List<dynamic>? ?? [])
-                      .whereType<Map<String, dynamic>>()
-                      .map(CircleReply.fromJson)
-                      .where((reply) => reply.body.trim().isNotEmpty)
-                      .toList(),
+              myMoods: payload.myMoods,
+              feelings: payload.feelings,
+              mamaCount: payload.mamaCount,
+              replies: payload.comments,
             );
           }).toList();
 
@@ -294,6 +301,9 @@ class _CircleTabState extends State<CircleTab> {
     replies: post.replies,
     moods: _moods,
     myMood: post.myMood,
+    myMoods: post.myMoods,
+    feelings: post.feelings,
+    mamaCount: post.mamaCount,
     onSendReply: (draft) async {
       if (post.id == null) return null;
       final updatedPost = await ApiService.respondToCirclePost(
@@ -303,23 +313,24 @@ class _CircleTabState extends State<CircleTab> {
         body: draft.feelingKey == null ? draft.body : null,
         anonymous: true,
       );
-      final rawResponses =
-          updatedPost['responses'] as List<dynamic>? ?? [];
-      final parsedReplies = rawResponses
-          .whereType<Map<String, dynamic>>()
-          .map(CircleReply.fromJson)
-          .where((reply) => reply.body.trim().isNotEmpty)
-          .toList();
+      final payload = CirclePostPayload.fromJson(updatedPost);
 
       if (mounted) {
         setState(() {
           post.myMood = updatedPost['my_mood'] as String?;
+          post.myMoods
+            ..clear()
+            ..addAll(payload.myMoods);
+          post.feelings
+            ..clear()
+            ..addAll(payload.feelings);
+          post.mamaCount = payload.mamaCount;
           post.replies
             ..clear()
-            ..addAll(parsedReplies);
+            ..addAll(payload.comments);
         });
       }
-      return parsedReplies;
+      return payload.comments;
     },
   );
 }
@@ -331,6 +342,9 @@ class _Post {
   final bool isAnon;
   final String time;
   String? myMood;
+  final List<String> myMoods;
+  final List<CircleFeelingCount> feelings;
+  int mamaCount;
   final List<CircleReply> replies;
 
   _Post({
@@ -340,6 +354,11 @@ class _Post {
     required this.isAnon,
     required this.time,
     this.myMood,
-    this.replies = const [],
-  });
+    List<String>? myMoods,
+    List<CircleFeelingCount>? feelings,
+    this.mamaCount = 0,
+    List<CircleReply>? replies,
+  }) : myMoods = myMoods ?? [],
+       feelings = feelings ?? [],
+       replies = replies ?? [];
 }

@@ -838,11 +838,30 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(24, 8, 24, 20),
-            child: CTAButton(
-              label: 'Complete Registration',
-              onTap: _registerUser,
-              loading: _loading,
-              t: t,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CTAButton(
+                  label: 'Complete Registration',
+                  onTap: _registerUser,
+                  loading: _loading,
+                  t: t,
+                ),
+                const SizedBox(height: 8),
+                GestureDetector(
+                  onTap: _loading ? null : widget.onNavigateToLogin,
+                  child: Padding(
+                    padding: const EdgeInsets.all(8),
+                    child: Text(
+                      'Already a member? Sign In',
+                      style: AppTypography.lato400(
+                        14,
+                        t.accent,
+                      ).copyWith(decoration: TextDecoration.underline),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
