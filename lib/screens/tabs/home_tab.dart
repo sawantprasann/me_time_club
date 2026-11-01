@@ -46,13 +46,7 @@ class _HomeTabState extends State<HomeTab> {
   final List<GentleRead> _gentleReadHistory = [];
   int _gentleReadIndex = 0;
   bool _gentleReadLoading = false;
-  int _gentleReadSwipes = 0;
-  static const int _swipesPerDay = 3;
-  GentleRead? get _currentGentleRead {
-    if (_gentleReadHistory.isEmpty) return null;
-    final index = _gentleReadIndex.clamp(0, _gentleReadHistory.length - 1);
-    return _gentleReadHistory[index];
-  }
+  static const int _readsPerDay = GentleReadPost.readsPerDay;
 
   // Answer fields — loaded from page, saved on change
   final _reflectionAnswerCtrl = TextEditingController();
@@ -83,7 +77,6 @@ class _HomeTabState extends State<HomeTab> {
   }
 
   String get _swipeDayKey => 'gentle_read_swipe_day_${widget.user.id ?? 0}';
-  String get _swipeCountKey => 'gentle_read_swipe_count_${widget.user.id ?? 0}';
   String get _historyKey => 'gentle_read_history_${widget.user.id ?? 0}';
   String get _indexKey => 'gentle_read_index_${widget.user.id ?? 0}';
 
@@ -94,32 +87,23 @@ class _HomeTabState extends State<HomeTab> {
     return '${now.year}-$month-$day';
   }
 
-  int get _swipesLeft =>
-      (_swipesPerDay - _gentleReadSwipes).clamp(0, _swipesPerDay);
-
   Future<void> _restoreGentleReads() async {
     final prefs = await SharedPreferences.getInstance();
     if (!mounted) return;
-    if (prefs.getString(_swipeDayKey) != _todayKey) {
-      await _loadGentleRead();
+    final sameDay = prefs.getString(_swipeDayKey) == _todayKey;
+    final restored =
+        sameDay ? _decodeHistory(prefs.getString(_historyKey)) : <GentleRead>[];
+    final storedIndex = sameDay ? (prefs.getInt(_indexKey) ?? 0) : 0;
+    if (restored.length >= _readsPerDay) {
+      setState(() {
+        _gentleReadHistory
+          ..clear()
+          ..addAll(restored.take(_readsPerDay));
+        _gentleReadIndex = storedIndex.clamp(0, _readsPerDay - 1);
+      });
       return;
     }
-
-    final restored = _decodeHistory(prefs.getString(_historyKey));
-    final storedSwipes = prefs.getInt(_swipeCountKey) ?? 0;
-    final storedIndex = prefs.getInt(_indexKey) ?? 0;
-    if (restored.isEmpty) {
-      await _loadGentleRead();
-      return;
-    }
-
-    setState(() {
-      _gentleReadSwipes = storedSwipes.clamp(0, _swipesPerDay);
-      _gentleReadHistory
-        ..clear()
-        ..addAll(restored);
-      _gentleReadIndex = storedIndex.clamp(0, restored.length - 1);
-    });
+    await _loadGentleReads(existing: restored, index: storedIndex);
   }
 
   List<GentleRead> _decodeHistory(String? raw) {
@@ -139,7 +123,6 @@ class _HomeTabState extends State<HomeTab> {
   Future<void> _persistGentleReads() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_swipeDayKey, _todayKey);
-    await prefs.setInt(_swipeCountKey, _gentleReadSwipes);
     await prefs.setInt(_indexKey, _gentleReadIndex);
     await prefs.setString(
       _historyKey,
@@ -228,30 +211,30 @@ class _HomeTabState extends State<HomeTab> {
     }
   }
 
-  Future<void> _loadGentleRead({bool another = false}) async {
-    if (another && _swipesLeft == 0) return;
+  Future<void> _loadGentleReads({
+    List<GentleRead> existing = const [],
+    int index = 0,
+  }) async {
     setState(() => _gentleReadLoading = true);
     try {
-      // A swipe may land on a read she has already seen.
-      final read = await ApiService.randomGentleRead(
-        token: widget.user.token ?? '',
-      );
+      final reads = [...existing];
+      while (reads.length < _readsPerDay) {
+        // A place in the row may repeat a read she has already seen.
+        final read = await ApiService.randomGentleRead(
+          token: widget.user.token ?? '',
+        );
+        if (read == null) break;
+        reads.add(read);
+      }
       if (!mounted) return;
       setState(() {
         _gentleReadLoading = false;
-        if (read == null) return;
-        if (!another) {
-          _gentleReadHistory
-            ..clear()
-            ..add(read);
-          _gentleReadIndex = 0;
-          return;
-        }
-        _gentleReadHistory.add(read);
-        _gentleReadIndex = _gentleReadHistory.length - 1;
-        _gentleReadSwipes++;
+        _gentleReadHistory
+          ..clear()
+          ..addAll(reads);
+        _gentleReadIndex = reads.isEmpty ? 0 : index.clamp(0, reads.length - 1);
       });
-      if (read != null) await _persistGentleReads();
+      if (reads.isNotEmpty) await _persistGentleReads();
     } catch (e) {
       if (e is UnauthorizedException) return;
       debugPrint('[GENTLE READ ERROR] $e');
@@ -259,24 +242,10 @@ class _HomeTabState extends State<HomeTab> {
     }
   }
 
-  void _goPrevGentleRead() {
-    if (_gentleReadLoading || _gentleReadIndex == 0) return;
-    setState(() {
-      _gentleReadIndex--;
-    });
+  void _onGentleReadPage(int index) {
+    if (index == _gentleReadIndex) return;
+    setState(() => _gentleReadIndex = index);
     unawaited(_persistGentleReads());
-  }
-
-  Future<void> _goNextGentleRead() async {
-    if (_gentleReadLoading) return;
-    if (_gentleReadIndex < _gentleReadHistory.length - 1) {
-      setState(() {
-        _gentleReadIndex++;
-      });
-      await _persistGentleReads();
-      return;
-    }
-    await _loadGentleRead(another: true);
   }
 
   String get _greeting {
@@ -560,9 +529,10 @@ class _HomeTabState extends State<HomeTab> {
   }
 
   Widget _buildGentleRead() {
-    final read = _currentGentleRead;
-    if (read == null && !_gentleReadLoading) return const SizedBox.shrink();
-    if (read == null) {
+    if (_gentleReadHistory.isEmpty && !_gentleReadLoading) {
+      return const SizedBox.shrink();
+    }
+    if (_gentleReadHistory.isEmpty) {
       return AppCard(
         t: t,
         margin: const EdgeInsets.fromLTRB(18, 18, 18, 0),
@@ -575,17 +545,16 @@ class _HomeTabState extends State<HomeTab> {
         ),
       );
     }
-    final atEnd = _gentleReadIndex >= _gentleReadHistory.length - 1;
-    final canGoNext = !atEnd || _swipesLeft > 0;
+    final index = _gentleReadIndex.clamp(0, _gentleReadHistory.length - 1);
     return GentleReadPost(
-      read: read,
+      read: _gentleReadHistory[index],
+      reads: _gentleReadHistory,
+      pageIndex: index,
+      onPageChanged: _onGentleReadPage,
       t: t,
       baseUri: Uri.parse(ApiService.serverHost),
       loading: _gentleReadLoading,
-      swipesRemaining: _swipesLeft,
       onOpenLink: _openGentleReadLink,
-      onPrevious: _gentleReadIndex > 0 ? _goPrevGentleRead : null,
-      onNext: canGoNext ? _goNextGentleRead : null,
     );
   }
 

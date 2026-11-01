@@ -47,7 +47,7 @@ void main() {
         ),
       );
       await tester.pump();
-      expect(find.textContaining('LITTLE READS'), findsOneWidget);
+      expect(find.text('GENTLE READ'), findsOneWidget);
       expect(
         find.text('A short moment of calm.'),
         hasText ? findsOneWidget : findsNothing,
@@ -177,8 +177,6 @@ void main() {
               t: AppTokens.day,
               baseUri: Uri.parse('https://api.example.com'),
               onOpenLink: (_) {},
-              swipesRemaining: 3,
-              onNext: () {},
             ),
           ),
         ),
@@ -189,7 +187,39 @@ void main() {
       tester.widget<AspectRatio>(find.byType(AspectRatio)).aspectRatio,
       4 / 5,
     );
-    expect(find.text('3 swipes left today'), findsOneWidget);
+    expect(find.byIcon(Icons.chevron_left_rounded), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Dots slide between the three reads', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: GentleReadPost(
+              read: const GentleRead(id: 5, title: 'First', body: 'One.'),
+              reads: const [
+                GentleRead(id: 5, title: 'First', body: 'One.'),
+                GentleRead(id: 6, title: 'Second', body: 'Two.'),
+                GentleRead(id: 7, title: 'Third', body: 'Three.'),
+              ],
+              t: AppTokens.day,
+              baseUri: Uri.parse('https://api.example.com'),
+              onOpenLink: (_) {},
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('GENTLE READ'), findsOneWidget);
+    expect(find.text('1 of 3 · tap dots to browse'), findsOneWidget);
+    expect(find.byIcon(Icons.chevron_right_rounded), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('gentle-read-dot-2')));
+    await tester.pumpAndSettle();
+    expect(find.text('3 of 3 · tap dots to browse'), findsOneWidget);
+    expect(find.text('Third'), findsWidgets);
     expect(tester.takeException(), isNull);
   });
 }
