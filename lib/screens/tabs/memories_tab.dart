@@ -102,18 +102,19 @@ class _MemoriesTabState extends State<MemoriesTab> {
   }
 
   void _saveMemory() async {
-    if (_caption.trim().isEmpty) return;
+    final caption = _caption.trim();
+    if (caption.isEmpty && _pickedImage == null) return;
     setState(() => _saving = true);
     try {
       final res = await ApiService.createMemory(
         token: widget.user.token ?? '',
-        title: _caption.trim(),
-        description: _caption.trim(),
+        title: caption,
+        description: caption,
         imagePath: _pickedImage?.path,
       );
       final newMemory = _Memory(
         id: res['id']?.toString() ?? '0',
-        caption: res['description']?.toString() ?? res['title']?.toString() ?? _caption.trim(),
+        caption: res['description']?.toString() ?? res['title']?.toString() ?? caption,
         photoUrl: res['photo_url']?.toString(),
         localPath: _pickedImage?.path,
         color: _palette[Random().nextInt(_palette.length)],
@@ -137,21 +138,27 @@ class _MemoriesTabState extends State<MemoriesTab> {
   }
 
   void _updateMemory(String id) async {
-    if (_editCaption.trim().isEmpty) return;
+    final caption = _editCaption.trim();
+    final idx = _memories.indexWhere((m) => m.id == id);
+    final existing = idx == -1 ? null : _memories[idx];
+    final hasPhoto = _editPickedImage != null ||
+        existing?.localPath != null ||
+        (existing?.photoUrl != null && existing!.photoUrl!.isNotEmpty);
+    if (caption.isEmpty && !hasPhoto) return;
     setState(() => _saving = true);
     try {
       final res = await ApiService.updateMemory(
         token: widget.user.token ?? '',
         memoryId: id,
-        title: _editCaption.trim(),
-        description: _editCaption.trim(),
+        title: caption,
+        description: caption,
         imagePath: _editPickedImage?.path,
       );
       if (mounted) {
         setState(() {
           final idx = _memories.indexWhere((m) => m.id == id);
           if (idx != -1) {
-            _memories[idx].caption = _editCaption.trim();
+            _memories[idx].caption = caption;
             final newUrl = res['photo_url']?.toString();
             if (newUrl != null) _memories[idx].photoUrl = newUrl;
           }
@@ -459,7 +466,7 @@ class _MemoriesTabState extends State<MemoriesTab> {
   // ─── Composer card ──────────────────────────────────────────────────────────
 
   Widget _buildComposer() {
-    final canSave = _caption.trim().isNotEmpty;
+    final canSave = _caption.trim().isNotEmpty || _pickedImage != null;
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
       decoration: BoxDecoration(
@@ -661,7 +668,7 @@ class _MemoriesTabState extends State<MemoriesTab> {
                   errorBuilder: (_, __, ___) => _photoErrorBox(),
                 ),
 
-              // Caption with left accent bar
+              if (m.caption.trim().isNotEmpty)
               IntrinsicHeight(
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -704,7 +711,10 @@ class _MemoriesTabState extends State<MemoriesTab> {
   }
 
   Widget _buildEditCard(_Memory m) {
-    final canUpdate = _editCaption.trim().isNotEmpty;
+    final hasPhoto = _editPickedImage != null ||
+        m.localPath != null ||
+        (m.photoUrl != null && m.photoUrl!.isNotEmpty);
+    final canUpdate = _editCaption.trim().isNotEmpty || hasPhoto;
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(

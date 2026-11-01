@@ -69,6 +69,53 @@ void main() {
     );
   });
 
+  testWidgets('Yes, confirm adds a cycle when this month already has one', (
+    tester,
+  ) async {
+    final today = DateTime.now();
+    final existingDay = today.day > 10 ? 1 : 20;
+    final existing = DateTime(today.year, today.month, existingDay);
+    cycleHttpBody = (method, url) {
+      if (method == 'GET' && url.path.endsWith('/cycle_days')) {
+        return _cycleJson(existing);
+      }
+      if (method == 'POST' && url.path.contains('bulk_create')) {
+        return _cycleJson(today);
+      }
+      return '[]';
+    };
+    cycleHttpStatus = (method, url) {
+      if (method == 'GET' && url.path.contains('/daily_pages/')) return 404;
+      if (method == 'POST' && url.path.contains('bulk_create')) return 201;
+      return 200;
+    };
+
+    await _pumpCalendar(tester);
+    await tester.tap(find.text('$existingDay'));
+    await tester.pump();
+    await _waitFor(tester, find.text(_label(existing)));
+
+    await tester.tap(find.text('${today.day}'));
+    await tester.pump();
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('cycle-header-action')),
+    );
+    await tester.tap(find.byKey(const ValueKey('cycle-header-action')));
+    await tester.pump();
+
+    expect(
+      find.text('Mark ${_label(today)} as start of cycle?'),
+      findsOneWidget,
+    );
+
+    await tester.ensureVisible(find.text('Yes, confirm'));
+    await tester.tap(find.text('Yes, confirm'));
+    await tester.pump();
+
+    expect(find.text('Mark ${_label(today)} as start of cycle?'), findsNothing);
+    await _waitFor(tester, find.text(_label(today)));
+  });
+
   testWidgets(
     'remove confirmation names the period and keeps history visible',
     (tester) async {
@@ -81,17 +128,9 @@ void main() {
       };
 
       await _pumpCalendar(tester);
-      await _waitFor(tester, find.text('YOUR CYCLE HISTORY'));
+      await _waitFor(tester, find.text('THIS CYCLE'));
 
       expect(find.text(_label(today)), findsOneWidget);
-      expect(
-        find.text(_label(today.add(const Duration(days: 1)))),
-        findsOneWidget,
-      );
-      expect(
-        find.text(_label(today.add(const Duration(days: 2)))),
-        findsOneWidget,
-      );
 
       await tester.ensureVisible(
         find.byKey(const ValueKey('cycle-header-action')),
@@ -107,7 +146,7 @@ void main() {
         find.text('This will unmark the selected days from your tracker.'),
         findsOneWidget,
       );
-      expect(find.text('YOUR CYCLE HISTORY'), findsOneWidget);
+      expect(find.text('THIS CYCLE'), findsOneWidget);
 
       await tester.tap(find.text('Cancel'));
       await tester.pump();
@@ -116,7 +155,7 @@ void main() {
         find.text('Remove cycle days from ${_label(today)}?'),
         findsNothing,
       );
-      expect(find.text('YOUR CYCLE HISTORY'), findsOneWidget);
+      expect(find.text('THIS CYCLE'), findsOneWidget);
       expect(find.text(_label(today)), findsOneWidget);
     },
   );

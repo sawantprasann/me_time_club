@@ -228,14 +228,6 @@ class _CalendarTabState extends State<CalendarTab> {
     _nextPredictedDate = latestStart?.add(const Duration(days: 30));
   }
 
-  /// Returns true if the given month (year+month) already has an actual cycle day.
-  bool _monthHasCycleEntry(int year, int month) {
-    return _cycleDays.any((k) {
-      final p = k.split('-');
-      return int.parse(p[0]) == year && int.parse(p[1]) == month;
-    });
-  }
-
   /// Fetch tasks for the currently selected day from the server.
   /// Results are cached in [_tasks] under [_taskKey] so re-selecting the same
   /// day does not fire a duplicate network call.
@@ -534,13 +526,13 @@ class _CalendarTabState extends State<CalendarTab> {
   List<DateTime> get _visibleCycleDates {
     final dates =
         _visibleCycleDayKeys.map((key) {
-          final parts = key.split('-');
-          return DateTime(
-            int.parse(parts[0]),
-            int.parse(parts[1]),
-            int.parse(parts[2]),
-          );
-        }).toList()
+            final parts = key.split('-');
+            return DateTime(
+              int.parse(parts[0]),
+              int.parse(parts[1]),
+              int.parse(parts[2]),
+            );
+          }).toList()
           ..sort();
     return dates;
   }
@@ -598,7 +590,6 @@ class _CalendarTabState extends State<CalendarTab> {
   Future<void> _confirmAddCycle() async {
     if (_cycleBusy) return;
     final base = _selectedDate;
-    if (_monthHasCycleEntry(base.year, base.month)) return;
     final localKeys = <String>[];
     final paddedKeys = <String>[];
     for (int i = 0; i < 3; i++) {
@@ -1654,6 +1645,7 @@ class _CalendarTabState extends State<CalendarTab> {
   }) {
     return GestureDetector(
       onTap: onTap,
+      behavior: HitTestBehavior.opaque,
       child: AnimatedOpacity(
         duration: const Duration(milliseconds: 150),
         opacity: onTap == null ? 0.55 : 1,
