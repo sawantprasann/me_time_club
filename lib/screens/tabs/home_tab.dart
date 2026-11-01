@@ -1,4 +1,8 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../theme/tokens.dart';
 import '../../icons/app_icons.dart';
@@ -35,12 +39,15 @@ class HomeTab extends StatefulWidget {
 class _HomeTabState extends State<HomeTab> {
   String? _mood;
   String _freeText = '';
+  final _checkInNoteKey = GlobalKey<VoiceTextAreaState>();
   DailyPageContent? _page;
   bool _loading = false;
   bool _checkingExisting = false;
   final List<GentleRead> _gentleReadHistory = [];
   int _gentleReadIndex = 0;
   bool _gentleReadLoading = false;
+  int _gentleReadSwipes = 0;
+  static const int _swipesPerDay = 3;
   GentleRead? get _currentGentleRead {
     if (_gentleReadHistory.isEmpty) return null;
     final index = _gentleReadIndex.clamp(0, _gentleReadHistory.length - 1);
@@ -72,7 +79,72 @@ class _HomeTabState extends State<HomeTab> {
     if (!widget.hasCheckedToday && _page == null) {
       _checkExistingPage();
     }
-    _loadGentleRead();
+    _restoreGentleReads();
+  }
+
+  String get _swipeDayKey => 'gentle_read_swipe_day_${widget.user.id ?? 0}';
+  String get _swipeCountKey => 'gentle_read_swipe_count_${widget.user.id ?? 0}';
+  String get _historyKey => 'gentle_read_history_${widget.user.id ?? 0}';
+  String get _indexKey => 'gentle_read_index_${widget.user.id ?? 0}';
+
+  String get _todayKey {
+    final now = DateTime.now();
+    final month = now.month.toString().padLeft(2, '0');
+    final day = now.day.toString().padLeft(2, '0');
+    return '${now.year}-$month-$day';
+  }
+
+  int get _swipesLeft =>
+      (_swipesPerDay - _gentleReadSwipes).clamp(0, _swipesPerDay);
+
+  Future<void> _restoreGentleReads() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    if (prefs.getString(_swipeDayKey) != _todayKey) {
+      await _loadGentleRead();
+      return;
+    }
+
+    final restored = _decodeHistory(prefs.getString(_historyKey));
+    final storedSwipes = prefs.getInt(_swipeCountKey) ?? 0;
+    final storedIndex = prefs.getInt(_indexKey) ?? 0;
+    if (restored.isEmpty) {
+      await _loadGentleRead();
+      return;
+    }
+
+    setState(() {
+      _gentleReadSwipes = storedSwipes.clamp(0, _swipesPerDay);
+      _gentleReadHistory
+        ..clear()
+        ..addAll(restored);
+      _gentleReadIndex = storedIndex.clamp(0, restored.length - 1);
+    });
+  }
+
+  List<GentleRead> _decodeHistory(String? raw) {
+    if (raw == null || raw.isEmpty) return const [];
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return const [];
+      return [
+        for (final item in decoded)
+          if (item is Map) GentleRead.fromJson(Map<String, dynamic>.from(item)),
+      ];
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  Future<void> _persistGentleReads() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_swipeDayKey, _todayKey);
+    await prefs.setInt(_swipeCountKey, _gentleReadSwipes);
+    await prefs.setInt(_indexKey, _gentleReadIndex);
+    await prefs.setString(
+      _historyKey,
+      jsonEncode(_gentleReadHistory.map((read) => read.toJson()).toList()),
+    );
   }
 
   @override
@@ -106,9 +178,10 @@ class _HomeTabState extends State<HomeTab> {
       nightReflectionAnswer: _nightReflectionAnswerCtrl.text,
     ).then((json) {
       if (json == null || !mounted) return;
-      // Use the server's response to keep _page + _dailyPages in sync
+      // The server adds reflection_followup only after the first answer is saved.
       final updated = DailyPageContent.fromJson(json);
-      _page = updated;
+      setState(() => _page = updated);
+      _syncAnswerControllers();
       widget.onSavePage(now.day, updated);
     });
   }
@@ -156,14 +229,12 @@ class _HomeTabState extends State<HomeTab> {
   }
 
   Future<void> _loadGentleRead({bool another = false}) async {
+    if (another && _swipesLeft == 0) return;
     setState(() => _gentleReadLoading = true);
     try {
+      // A swipe may land on a read she has already seen.
       final read = await ApiService.randomGentleRead(
         token: widget.user.token ?? '',
-        excludeIds:
-            another
-                ? _gentleReadHistory.map((item) => item.id).toList()
-                : const [],
       );
       if (!mounted) return;
       setState(() {
@@ -176,16 +247,11 @@ class _HomeTabState extends State<HomeTab> {
           _gentleReadIndex = 0;
           return;
         }
-        final existing = _gentleReadHistory.indexWhere(
-          (item) => item.id == read.id,
-        );
-        if (existing >= 0) {
-          _gentleReadIndex = existing;
-        } else {
-          _gentleReadHistory.add(read);
-          _gentleReadIndex = _gentleReadHistory.length - 1;
-        }
+        _gentleReadHistory.add(read);
+        _gentleReadIndex = _gentleReadHistory.length - 1;
+        _gentleReadSwipes++;
       });
+      if (read != null) await _persistGentleReads();
     } catch (e) {
       if (e is UnauthorizedException) return;
       debugPrint('[GENTLE READ ERROR] $e');
@@ -198,6 +264,7 @@ class _HomeTabState extends State<HomeTab> {
     setState(() {
       _gentleReadIndex--;
     });
+    unawaited(_persistGentleReads());
   }
 
   Future<void> _goNextGentleRead() async {
@@ -206,6 +273,7 @@ class _HomeTabState extends State<HomeTab> {
       setState(() {
         _gentleReadIndex++;
       });
+      await _persistGentleReads();
       return;
     }
     await _loadGentleRead(another: true);
@@ -247,16 +315,26 @@ class _HomeTabState extends State<HomeTab> {
   }
 
   void _generate() async {
+    if (_loading) return;
+    _loading = true;
     FocusManager.instance.primaryFocus?.unfocus();
-    setState(() => _loading = true);
+    setState(() {});
     try {
+      // The recognizer often delivers the voice note after the mic already
+      // looks finished. Wait for that text before asking for a page.
+      final note =
+          (await _checkInNoteKey.currentState?.finishListening())?.trim() ??
+          _freeText.trim();
+      if (!mounted) return;
+      if (note != _freeText) setState(() => _freeText = note);
+
       final now = DateTime.now();
       final dateKey =
           '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
       final result = await ApiService.generateDailyPage(
         token: widget.user.token ?? '',
         mood: _mood,
-        freeText: _freeText,
+        freeText: note,
         dateKey: dateKey,
       );
 
@@ -331,131 +409,151 @@ class _HomeTabState extends State<HomeTab> {
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(18, 10, 18, 14),
+      padding: const EdgeInsets.only(top: 10, bottom: 14),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Date header
-          _buildDateHeader(),
-          const SizedBox(height: 20),
-          if (_checkingExisting)
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.only(top: 60),
-                child: CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(t.accent),
-                ),
+          Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.pagePadding,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Date header
+                _buildDateHeader(),
+                const SizedBox(height: 20),
+                if (_checkingExisting)
+                  Center(
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 60),
+                      child: CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation<Color>(t.accent),
+                      ),
+                    ),
+                  )
+                else ...[
+                  if (_page == null) ...[
+                    // Mood selector
+                    _buildMoodSelector(),
+                    const SizedBox(height: 16),
+                    // Free text box
+                    _buildFreeTextBox(),
+                    const SizedBox(height: 4),
+                    Center(
+                      child: Text(
+                        'Tap the mic — one hand is enough ✦',
+                        style: AppTypography.lato400(11, t.muted),
+                      ),
+                    ),
+                    // Open Daily Page button
+                    CTAButton(
+                      label: 'Open My Daily Page',
+                      loading: _loading,
+                      disabled: _loading,
+                      onTap: _generate,
+                      t: t,
+                      icon: AppIcons.bloom(c: Colors.white, s: 20),
+                    ),
+                    const SizedBox(height: 10),
+                  ],
+                  // Daily page content
+                  if (_page != null) ...[
+                    _buildBackBar(),
+                    _buildChamomileWelcome(),
+                    _DailyPageView(
+                      page: _page!,
+                      t: t,
+                      mood: _mood,
+                      reflectionAnswerCtrl: _reflectionAnswerCtrl,
+                      reflectionFollowupAnswerCtrl:
+                          _reflectionFollowupAnswerCtrl,
+                      nightReflectionAnswerCtrl: _nightReflectionAnswerCtrl,
+                      onSaveAnswers: _saveAnswers,
+                    ),
+                  ],
+                ],
+              ],
+            ),
+          ),
+          if (!_checkingExisting) _buildGentleRead(),
+          if (!_checkingExisting && _page != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.pagePadding,
               ),
-            )
-          else ...[
-            if (_page == null) ...[
-              // Mood selector
-              _buildMoodSelector(),
-              const SizedBox(height: 16),
-              // Free text box
-              _buildFreeTextBox(),
-              const SizedBox(height: 4),
-              Center(
-                child: Text(
-                  'Tap the mic — one hand is enough ✦',
-                  style: AppTypography.lato400(11, t.muted),
-                ),
-              ),
-              // Open Daily Page button
-              CTAButton(
-                label: 'Open My Daily Page',
-                loading: _loading,
-                disabled: _loading,
-                onTap: _generate,
-                t: t,
-                icon: AppIcons.bloom(c: Colors.white, s: 20),
-              ),
-              const SizedBox(height: 24),
-            ],
-            // Daily page content
-            if (_page != null) ...[
-              _buildBackBar(),
-              _buildChamomileWelcome(),
-              _DailyPageView(
-                page: _page!,
-                t: t,
-                mood: _mood,
-                reflectionAnswerCtrl: _reflectionAnswerCtrl,
-                reflectionFollowupAnswerCtrl: _reflectionFollowupAnswerCtrl,
-                nightReflectionAnswerCtrl: _nightReflectionAnswerCtrl,
-                onSaveAnswers: _saveAnswers,
-                gentleRead: _buildGentleRead(),
-              ),
-              DailyPageFeedback(
-                user: widget.user,
-                page: _page!,
-                t: t,
-                mood: _mood,
-              ),
-              const SizedBox(height: 18),
-              // Action buttons: Back to check-in & New check-in
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+              child: Column(
                 children: [
-                  GestureDetector(
-                    onTap: _backToCheckIn,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 10,
-                      ),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: t.border),
-                        color: t.card,
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.arrow_back_rounded,
-                            size: 14,
-                            color: t.accent,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Back to check-in',
-                            style: AppTypography.lato700(13, t.accent),
-                          ),
-                        ],
-                      ),
-                    ),
+                  DailyPageFeedback(
+                    user: widget.user,
+                    page: _page!,
+                    t: t,
+                    mood: _mood,
                   ),
-                  const SizedBox(width: 12),
-                  GestureDetector(
-                    onTap: _newCheckIn,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 10,
-                      ),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: t.border),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          AppIcons.refresh(c: t.muted, s: 14),
-                          const SizedBox(width: 8),
-                          Text(
-                            'New check-in',
-                            style: AppTypography.lato400(13, t.muted),
+                  const SizedBox(height: 18),
+                  // Action buttons: Back to check-in & New check-in
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      GestureDetector(
+                        onTap: _backToCheckIn,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 10,
                           ),
-                        ],
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: t.border),
+                            color: t.card,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.arrow_back_rounded,
+                                size: 14,
+                                color: t.accent,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Back to check-in',
+                                style: AppTypography.lato700(13, t.accent),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
-                    ),
+                      const SizedBox(width: 12),
+                      GestureDetector(
+                        onTap: _newCheckIn,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 10,
+                          ),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: t.border),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              AppIcons.refresh(c: t.muted, s: 14),
+                              const SizedBox(width: 8),
+                              Text(
+                                'New check-in',
+                                style: AppTypography.lato400(13, t.muted),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ],
-            if (_page == null) _buildGentleRead(),
-          ],
+            ),
         ],
       ),
     );
@@ -477,15 +575,17 @@ class _HomeTabState extends State<HomeTab> {
         ),
       );
     }
-    final canBrowse = read.total > 1;
+    final atEnd = _gentleReadIndex >= _gentleReadHistory.length - 1;
+    final canGoNext = !atEnd || _swipesLeft > 0;
     return GentleReadPost(
       read: read,
       t: t,
       baseUri: Uri.parse(ApiService.serverHost),
       loading: _gentleReadLoading,
+      swipesRemaining: _swipesLeft,
       onOpenLink: _openGentleReadLink,
-      onPrevious: canBrowse && _gentleReadIndex > 0 ? _goPrevGentleRead : null,
-      onNext: canBrowse ? _goNextGentleRead : null,
+      onPrevious: _gentleReadIndex > 0 ? _goPrevGentleRead : null,
+      onNext: canGoNext ? _goNextGentleRead : null,
     );
   }
 
@@ -597,11 +697,7 @@ class _HomeTabState extends State<HomeTab> {
           const SizedBox(height: 6),
           Text(
             textToShow,
-            style: AppTypography.cormorantItalic(
-              18,
-              t.text,
-              height: 1.65,
-            ),
+            style: AppTypography.cormorantItalic(18, t.text, height: 1.65),
           ),
         ],
       ),
@@ -610,6 +706,7 @@ class _HomeTabState extends State<HomeTab> {
 
   Widget _buildFreeTextBox() {
     return VoiceTextArea(
+      key: _checkInNoteKey,
       value: _freeText,
       onChange: (v) => setState(() => _freeText = v),
       placeholder:
@@ -620,7 +717,7 @@ class _HomeTabState extends State<HomeTab> {
   }
 }
 
-/// Renders the Chamomile daily page with Gentle Reads above Fun Moment.
+/// Renders the Chamomile daily page. Gentle Reads sits below this, full width.
 class _DailyPageView extends StatelessWidget {
   final DailyPageContent page;
   final AppTokens t;
@@ -629,7 +726,6 @@ class _DailyPageView extends StatelessWidget {
   final TextEditingController reflectionFollowupAnswerCtrl;
   final TextEditingController nightReflectionAnswerCtrl;
   final VoidCallback onSaveAnswers;
-  final Widget gentleRead;
 
   const _DailyPageView({
     required this.page,
@@ -639,7 +735,6 @@ class _DailyPageView extends StatelessWidget {
     required this.reflectionFollowupAnswerCtrl,
     required this.nightReflectionAnswerCtrl,
     required this.onSaveAnswers,
-    required this.gentleRead,
   });
 
   @override
@@ -667,19 +762,22 @@ class _DailyPageView extends StatelessWidget {
                 controller: reflectionAnswerCtrl,
                 hint: 'Your reflection…',
               ),
-              const SizedBox(height: 14),
-              Text(
-                page.reflectionFollowup,
-                style: AppTypography.lato400(
-                  12,
-                  t.muted,
-                ).copyWith(fontStyle: FontStyle.italic),
-              ),
-              const SizedBox(height: 8),
-              _answerField(
-                controller: reflectionFollowupAnswerCtrl,
-                hint: 'Your answer…',
-              ),
+              if (page.reflectionAnswer.trim().isNotEmpty &&
+                  page.reflectionFollowup.trim().isNotEmpty) ...[
+                const SizedBox(height: 14),
+                Text(
+                  page.reflectionFollowup,
+                  style: AppTypography.lato400(
+                    12,
+                    t.muted,
+                  ).copyWith(fontStyle: FontStyle.italic),
+                ),
+                const SizedBox(height: 8),
+                _answerField(
+                  controller: reflectionFollowupAnswerCtrl,
+                  hint: 'Your answer…',
+                ),
+              ],
             ],
           ),
         ),
@@ -694,7 +792,6 @@ class _DailyPageView extends StatelessWidget {
         _buildFunMoment(),
         // 7. Night Reflection — dark card
         _buildNightReflection(),
-        gentleRead,
       ],
     );
   }
@@ -768,15 +865,10 @@ class _DailyPageView extends StatelessWidget {
     bool isBright = false,
   }) {
     final night = t == AppTokens.night;
-    final alphaStart = isBright
-        ? (night ? 0.22 : 0.16)
-        : (night ? 0.14 : 0.07);
-    final alphaEnd = isBright
-        ? (night ? 0.12 : 0.08)
-        : (night ? 0.06 : 0.025);
-    final borderAlpha = isBright
-        ? (night ? 0.45 : 0.38)
-        : (night ? 0.28 : 0.24);
+    final alphaStart = isBright ? (night ? 0.22 : 0.16) : (night ? 0.14 : 0.07);
+    final alphaEnd = isBright ? (night ? 0.12 : 0.08) : (night ? 0.06 : 0.025);
+    final borderAlpha =
+        isBright ? (night ? 0.45 : 0.38) : (night ? 0.28 : 0.24);
     final barAlpha = isBright ? 0.70 : 0.46;
 
     return Container(

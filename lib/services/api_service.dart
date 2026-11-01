@@ -783,9 +783,9 @@ class ApiService {
     }
   }
 
-  /// Loads one published gentle read at random.
-  /// [excludeIds] are skipped when another read is still available, so
-  /// Prev and Next do not walk through the library in order.
+  /// Loads one gentle read at random.
+  /// Leave [excludeIds] empty when a repeat is allowed. Ids in [excludeIds]
+  /// are skipped only when another read is still available.
   static Future<GentleRead?> randomGentleRead({
     required String token,
     List<int> excludeIds = const [],
@@ -1466,7 +1466,8 @@ class ApiService {
         final decoded = jsonDecode(response.body);
         if (decoded is List) {
           return decoded;
-        } else if (decoded is Map<String, dynamic> && decoded['posts'] is List) {
+        } else if (decoded is Map<String, dynamic> &&
+            decoded['posts'] is List) {
           return decoded['posts'] as List<dynamic>;
         }
         return [];
@@ -1611,9 +1612,7 @@ class ApiService {
     bool anonymous = true,
   }) async {
     final url = '$apiBase/circle_posts/$postId/respond';
-    final Map<String, dynamic> requestBody = {
-      'anonymous': anonymous,
-    };
+    final Map<String, dynamic> requestBody = {'anonymous': anonymous};
     if (moodKey != null && moodKey.isNotEmpty) {
       requestBody['mood_key'] = moodKey;
     }

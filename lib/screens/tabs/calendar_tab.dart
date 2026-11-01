@@ -1239,7 +1239,9 @@ class _CalendarTabState extends State<CalendarTab> {
             if (_pageExpanded) ...[
               const SizedBox(height: 14),
               _expandedSection('REFLECTION', page.reflection),
-              _expandedSection('FOLLOWUP', page.reflectionFollowup),
+              if (page.reflectionAnswer.trim().isNotEmpty &&
+                  page.reflectionFollowup.trim().isNotEmpty)
+                _expandedSection('FOLLOWUP', page.reflectionFollowup),
               _expandedSection('FEELING', page.emotionalFeeling),
               _expandedSection('NEED', page.emotionalNeed),
               _expandedSection('RESPONSE', page.emotionalResponse),

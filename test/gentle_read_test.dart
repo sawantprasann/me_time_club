@@ -125,6 +125,7 @@ void main() {
       );
       expect(find.byIcon(Icons.link_rounded), findsNothing);
       expect(find.text('Read more'), findsOneWidget);
+      await tester.ensureVisible(find.text('Read more'));
       await tester.tap(find.text('Read more'));
       await tester.pump();
       expect(find.text('Show less'), findsOneWidget);
@@ -132,4 +133,34 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('A photo uses the Instagram portrait shape', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: GentleReadPost(
+              read: const GentleRead(
+                id: 5,
+                body: 'A quiet line.',
+                imageUrl: '/uploads/read.png',
+              ),
+              t: AppTokens.day,
+              baseUri: Uri.parse('https://api.example.com'),
+              onOpenLink: (_) {},
+              swipesRemaining: 3,
+              onNext: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(
+      tester.widget<AspectRatio>(find.byType(AspectRatio)).aspectRatio,
+      4 / 5,
+    );
+    expect(find.text('3 swipes left today'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }

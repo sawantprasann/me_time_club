@@ -7,28 +7,28 @@ import 'package:flutter/material.dart';
 class AppIcons {
   // ── Navigation Icons ──────────────────────────────
 
-  /// House outline — bottom nav Home
+  /// House with a door notch — bottom nav Home
   static Widget home({required Color c, double s = 20}) => SizedBox(
     width: s,
     height: s,
     child: CustomPaint(painter: _HomePainter(c)),
   );
 
-  /// Calendar grid with dots — bottom nav Calendar
+  /// Calendar with one row of dots — bottom nav Calendar
   static Widget calendar({required Color c, double s = 20}) => SizedBox(
     width: s,
     height: s,
     child: CustomPaint(painter: _CalendarPainter(c)),
   );
 
-  /// Heart-pin / location drop — bottom nav Memories
+  /// Map pin — bottom nav Memories
   static Widget memories({required Color c, double s = 20}) => SizedBox(
     width: s,
     height: s,
     child: CustomPaint(painter: _MemoriesPainter(c)),
   );
 
-  /// Notebook outline — bottom nav + Tasks
+  /// Lined notebook — bottom nav Journal and task markers
   static Widget journal({required Color c, double s = 20}) => SizedBox(
     width: s,
     height: s,
@@ -241,7 +241,23 @@ class AppIcons {
 
 // ═══════════════════════════════════════════════════════
 // PAINTERS — CustomPaint implementations for each icon
+// Nav icons follow the design's 24×24 stroke paths.
 // ═══════════════════════════════════════════════════════
+
+void _inViewBox(Canvas canvas, Size size, void Function() draw) {
+  canvas.save();
+  canvas.scale(size.width / 24);
+  draw();
+  canvas.restore();
+}
+
+Paint _navStroke(Color color, double width) =>
+    Paint()
+      ..color = color
+      ..strokeWidth = width
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
 
 class _HomePainter extends CustomPainter {
   final Color color;
@@ -249,30 +265,36 @@ class _HomePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final p =
-        Paint()
-          ..color = color
-          ..strokeWidth = 1.5
-          ..style = PaintingStyle.stroke
-          ..strokeCap = StrokeCap.round;
-    final s = size.width;
-    // Roof
-    canvas.drawLine(Offset(s * 0.1, s * 0.45), Offset(s * 0.5, s * 0.12), p);
-    canvas.drawLine(Offset(s * 0.5, s * 0.12), Offset(s * 0.9, s * 0.45), p);
-    // Walls
-    final wall =
-        Path()
-          ..moveTo(s * 0.2, s * 0.45)
-          ..lineTo(s * 0.2, s * 0.85)
-          ..lineTo(s * 0.8, s * 0.85)
-          ..lineTo(s * 0.8, s * 0.45);
-    canvas.drawPath(wall, p);
-    // Door
-    canvas.drawRect(Rect.fromLTWH(s * 0.38, s * 0.58, s * 0.24, s * 0.27), p);
+    _inViewBox(canvas, size, () {
+      final house =
+          Path()
+            ..moveTo(3, 11.5)
+            ..lineTo(12, 3)
+            ..lineTo(21, 11.5)
+            ..lineTo(21, 21)
+            ..arcToPoint(
+              const Offset(20, 22),
+              radius: const Radius.circular(1),
+              clockwise: true,
+            )
+            ..lineTo(15, 22)
+            ..lineTo(15, 17)
+            ..lineTo(9, 17)
+            ..lineTo(9, 22)
+            ..lineTo(4, 22)
+            ..arcToPoint(
+              const Offset(3, 21),
+              radius: const Radius.circular(1),
+              clockwise: true,
+            )
+            ..close();
+      canvas.drawPath(house, _navStroke(color, 1.6));
+    });
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _HomePainter oldDelegate) =>
+      oldDelegate.color != color;
 }
 
 class _CalendarPainter extends CustomPainter {
@@ -281,34 +303,31 @@ class _CalendarPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final p =
-        Paint()
-          ..color = color
-          ..strokeWidth = 1.5
-          ..style = PaintingStyle.stroke
-          ..strokeCap = StrokeCap.round;
-    final s = size.width;
-    final r = RRect.fromRectAndRadius(
-      Rect.fromLTWH(s * 0.1, s * 0.15, s * 0.8, s * 0.75),
-      const Radius.circular(3),
-    );
-    canvas.drawRRect(r, p);
-    canvas.drawLine(Offset(s * 0.1, s * 0.38), Offset(s * 0.9, s * 0.38), p);
-    // Calendar pins
-    canvas.drawLine(Offset(s * 0.35, s * 0.08), Offset(s * 0.35, s * 0.22), p);
-    canvas.drawLine(Offset(s * 0.65, s * 0.08), Offset(s * 0.65, s * 0.22), p);
-    // Dots
-    final dp =
-        Paint()
-          ..color = color
-          ..style = PaintingStyle.fill;
-    canvas.drawCircle(Offset(s * 0.35, s * 0.55), s * 0.04, dp);
-    canvas.drawCircle(Offset(s * 0.55, s * 0.55), s * 0.04, dp);
-    canvas.drawCircle(Offset(s * 0.35, s * 0.72), s * 0.04, dp);
+    _inViewBox(canvas, size, () {
+      final p = _navStroke(color, 1.6);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          const Rect.fromLTWH(3, 4, 18, 18),
+          const Radius.circular(3),
+        ),
+        p,
+      );
+      canvas.drawLine(const Offset(3, 9), const Offset(21, 9), p);
+      canvas.drawLine(const Offset(8, 2), const Offset(8, 6), p);
+      canvas.drawLine(const Offset(16, 2), const Offset(16, 6), p);
+      final dots =
+          Paint()
+            ..color = color
+            ..style = PaintingStyle.fill;
+      canvas.drawCircle(const Offset(8, 14), 1.2, dots);
+      canvas.drawCircle(const Offset(12, 14), 1.2, dots);
+      canvas.drawCircle(const Offset(16, 14), 1.2, dots);
+    });
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _CalendarPainter oldDelegate) =>
+      oldDelegate.color != color;
 }
 
 class _MemoriesPainter extends CustomPainter {
@@ -317,26 +336,27 @@ class _MemoriesPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final p =
-        Paint()
-          ..color = color
-          ..strokeWidth = 1.5
-          ..style = PaintingStyle.stroke
-          ..strokeCap = StrokeCap.round;
-    final s = size.width;
-    // Heart shape at top of pin
-    final path =
-        Path()
-          ..moveTo(s * 0.5, s * 0.92)
-          ..lineTo(s * 0.25, s * 0.55)
-          ..cubicTo(s * 0.05, s * 0.25, s * 0.25, s * 0.05, s * 0.5, s * 0.3)
-          ..cubicTo(s * 0.75, s * 0.05, s * 0.95, s * 0.25, s * 0.75, s * 0.55)
-          ..close();
-    canvas.drawPath(path, p);
+    _inViewBox(canvas, size, () {
+      final pin =
+          Path()
+            ..moveTo(12, 21)
+            ..cubicTo(12, 21, 4, 15.5, 4, 9.5)
+            ..arcTo(
+              Rect.fromCircle(center: const Offset(12, 9.5), radius: 8),
+              pi,
+              pi,
+              false,
+            )
+            ..cubicTo(20, 15.5, 12, 21, 12, 21)
+            ..close();
+      canvas.drawPath(pin, _navStroke(color, 1.6));
+      canvas.drawCircle(const Offset(12, 9.5), 2.5, _navStroke(color, 1.4));
+    });
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _MemoriesPainter oldDelegate) =>
+      oldDelegate.color != color;
 }
 
 class _JournalPainter extends CustomPainter {
@@ -345,29 +365,24 @@ class _JournalPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final p =
-        Paint()
-          ..color = color
-          ..strokeWidth = 1.5
-          ..style = PaintingStyle.stroke
-          ..strokeCap = StrokeCap.round;
-    final s = size.width;
-    final r = RRect.fromRectAndRadius(
-      Rect.fromLTWH(s * 0.2, s * 0.08, s * 0.65, s * 0.84),
-      const Radius.circular(3),
-    );
-    canvas.drawRRect(r, p);
-    // Spine
-    canvas.drawLine(Offset(s * 0.2, s * 0.08), Offset(s * 0.2, s * 0.92), p);
-    canvas.drawLine(Offset(s * 0.15, s * 0.08), Offset(s * 0.15, s * 0.92), p);
-    // Lines
-    canvas.drawLine(Offset(s * 0.35, s * 0.3), Offset(s * 0.7, s * 0.3), p);
-    canvas.drawLine(Offset(s * 0.35, s * 0.45), Offset(s * 0.7, s * 0.45), p);
-    canvas.drawLine(Offset(s * 0.35, s * 0.6), Offset(s * 0.6, s * 0.6), p);
+    _inViewBox(canvas, size, () {
+      final p = _navStroke(color, 1.6);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          const Rect.fromLTWH(4, 2, 16, 20),
+          const Radius.circular(2),
+        ),
+        p,
+      );
+      canvas.drawLine(const Offset(8, 7), const Offset(16, 7), p);
+      canvas.drawLine(const Offset(8, 11), const Offset(16, 11), p);
+      canvas.drawLine(const Offset(8, 15), const Offset(13, 15), p);
+    });
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _JournalPainter oldDelegate) =>
+      oldDelegate.color != color;
 }
 
 class _CirclePainter extends CustomPainter {
@@ -376,29 +391,15 @@ class _CirclePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final p =
-        Paint()
-          ..color = color
-          ..strokeWidth = 1.5
-          ..style = PaintingStyle.stroke;
-    final s = size.width;
-    p.strokeCap = StrokeCap.round;
-    canvas.drawCircle(Offset(s * 0.5, s * 0.5), s * 0.43, p);
-    canvas.drawCircle(Offset(s * 0.5, s * 0.5), s * 0.14, p);
-    for (var i = 0; i < 4; i++) {
-      final angle = i * pi / 2;
-      canvas.drawLine(
-        Offset(
-          s * 0.5 + cos(angle) * s * 0.31,
-          s * 0.5 + sin(angle) * s * 0.31,
-        ),
-        Offset(
-          s * 0.5 + cos(angle) * s * 0.43,
-          s * 0.5 + sin(angle) * s * 0.43,
-        ),
-        p,
-      );
-    }
+    _inViewBox(canvas, size, () {
+      canvas.drawCircle(const Offset(12, 12), 9, _navStroke(color, 1.6));
+      canvas.drawCircle(const Offset(12, 12), 3, _navStroke(color, 1.4));
+      final ticks = _navStroke(color, 1.4);
+      canvas.drawLine(const Offset(12, 3), const Offset(12, 6), ticks);
+      canvas.drawLine(const Offset(12, 18), const Offset(12, 21), ticks);
+      canvas.drawLine(const Offset(3, 12), const Offset(6, 12), ticks);
+      canvas.drawLine(const Offset(18, 12), const Offset(21, 12), ticks);
+    });
   }
 
   @override
@@ -412,25 +413,21 @@ class _MePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final p =
-        Paint()
-          ..color = color
-          ..strokeWidth = 1.5
-          ..style = PaintingStyle.stroke;
-    final s = size.width;
-    // Head
-    canvas.drawCircle(Offset(s * 0.5, s * 0.28), s * 0.18, p);
-    // Shoulders
-    final body =
-        Path()
-          ..moveTo(s * 0.15, s * 0.92)
-          ..quadraticBezierTo(s * 0.15, s * 0.6, s * 0.5, s * 0.58)
-          ..quadraticBezierTo(s * 0.85, s * 0.6, s * 0.85, s * 0.92);
-    canvas.drawPath(body, p);
+    _inViewBox(canvas, size, () {
+      final p = _navStroke(color, 1.6);
+      canvas.drawCircle(const Offset(12, 8), 4, p);
+      final shoulders =
+          Path()
+            ..moveTo(4, 20)
+            ..cubicTo(4, 16, 7.6, 13, 12, 13)
+            ..cubicTo(16.4, 13, 20, 16, 20, 20);
+      canvas.drawPath(shoulders, p);
+    });
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _MePainter oldDelegate) =>
+      oldDelegate.color != color;
 }
 
 class _BloomPainter extends CustomPainter {
