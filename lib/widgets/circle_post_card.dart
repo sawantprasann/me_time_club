@@ -477,23 +477,20 @@ class _CirclePostCardState extends State<CirclePostCard> {
   Widget _commentLinks() {
     final more = _hasMoreComments;
     final less = _extraComments > 0;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (more)
-            _commentLink(
-              _loadMoreLabel,
-              onTap: () => setState(() => _extraComments += _nextCommentBatch),
-            ),
-          if (less)
-            _commentLink(
-              'Show less ↑',
-              onTap: () => setState(() => _extraComments = 0),
-            ),
-        ],
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (more)
+          _commentLink(
+            _loadMoreLabel,
+            onTap: () => setState(() => _extraComments += _nextCommentBatch),
+          ),
+        if (less)
+          _commentLink(
+            'Show less ↑',
+            onTap: () => setState(() => _extraComments = 0),
+          ),
+      ],
     );
   }
 
@@ -502,8 +499,14 @@ class _CirclePostCardState extends State<CirclePostCard> {
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6),
-        child: Text(label, style: AppTypography.lato400(16, t.accent)),
+        padding: const EdgeInsets.fromLTRB(0, 10, 0, 6),
+        child: Text(
+          label,
+          style: AppTypography.lato600(12, t.accent).copyWith(
+            decoration: TextDecoration.underline,
+            decorationColor: t.accent.withValues(alpha: 0.314),
+          ),
+        ),
       ),
     );
   }
