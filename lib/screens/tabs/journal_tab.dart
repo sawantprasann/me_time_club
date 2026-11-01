@@ -647,77 +647,94 @@ class _JournalTabState extends State<JournalTab> {
           final task = e.value;
           return Padding(
             padding: const EdgeInsets.only(bottom: 8),
-            child: Row(
-              children: [
-                GestureDetector(
-                  onTap: () async {
-                    final newDone = !task.done;
-                    setState(() {
-                      _tasks[i] = _TaskItem(
-                        id: task.id,
-                        text: task.text,
-                        done: newDone,
-                      );
-                    });
-                    if (task.id != null) {
-                      try {
-                        await ApiService.updateTask(
-                          token: widget.user.token ?? '',
-                          taskId: task.id!,
-                          completed: newDone,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: t.accent.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: t.accent.withValues(alpha: 0.22)),
+              ),
+              child: Row(
+                children: [
+                  GestureDetector(
+                    onTap: () async {
+                      final newDone = !task.done;
+                      setState(() {
+                        _tasks[i] = _TaskItem(
+                          id: task.id,
+                          text: task.text,
+                          done: newDone,
                         );
-                      } catch (err) {
-                        debugPrint('[JOURNAL TASK UPDATE API ERROR] $err');
+                      });
+                      if (task.id != null) {
+                        try {
+                          await ApiService.updateTask(
+                            token: widget.user.token ?? '',
+                            taskId: task.id!,
+                            completed: newDone,
+                          );
+                        } catch (err) {
+                          debugPrint('[JOURNAL TASK UPDATE API ERROR] $err');
+                        }
                       }
-                    }
-                  },
-                  child: Container(
-                    width: 20,
-                    height: 20,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: task.done ? t.accent : t.border,
-                        width: 2,
+                    },
+                    child: Container(
+                      width: 20,
+                      height: 20,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: task.done ? t.accent : t.accent.withValues(alpha: 0.45),
+                          width: 2,
+                        ),
+                        color: task.done ? t.accent : Colors.transparent,
                       ),
-                      color: task.done ? t.accent : Colors.transparent,
-                    ),
-                    child:
-                        task.done
-                            ? AppIcons.check(c: Colors.white, s: 12)
-                            : null,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    task.text,
-                    style: AppTypography.lato400(14, t.text).copyWith(
-                      decoration: task.done ? TextDecoration.lineThrough : null,
-                      color: task.done ? t.muted : t.text,
+                      child:
+                          task.done
+                              ? AppIcons.check(c: Colors.white, s: 12)
+                              : null,
                     ),
                   ),
-                ),
-                GestureDetector(
-                  onTap: () async {
-                    final removedTask = _tasks[i];
-                    setState(() {
-                      _tasks.removeAt(i);
-                    });
-                    if (removedTask.id != null) {
-                      try {
-                        await ApiService.deleteTask(
-                          token: widget.user.token ?? '',
-                          taskId: removedTask.id!,
-                        );
-                      } catch (err) {
-                        debugPrint('[JOURNAL TASK DELETE API ERROR] $err');
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      task.text,
+                      style: AppTypography.lato400(14, t.text).copyWith(
+                        decoration: task.done ? TextDecoration.lineThrough : null,
+                        color: task.done ? t.muted : t.text,
+                      ),
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () async {
+                      final removedTask = _tasks[i];
+                      setState(() {
+                        _tasks.removeAt(i);
+                      });
+                      if (removedTask.id != null) {
+                        try {
+                          await ApiService.deleteTask(
+                            token: widget.user.token ?? '',
+                            taskId: removedTask.id!,
+                          );
+                        } catch (err) {
+                          debugPrint('[JOURNAL TASK DELETE API ERROR] $err');
+                        }
                       }
-                    }
-                  },
-                  child: AppIcons.close(c: t.muted, s: 14),
-                ),
-              ],
+                    },
+                    child: Container(
+                      width: 22,
+                      height: 22,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: t.accent.withValues(alpha: 0.14),
+                        shape: BoxShape.circle,
+                      ),
+                      child: AppIcons.close(c: t.accent, s: 12),
+                    ),
+                  ),
+                ],
+              ),
             ),
           );
         }),

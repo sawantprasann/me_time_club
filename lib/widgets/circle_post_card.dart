@@ -569,13 +569,15 @@ class _CirclePostCardState extends State<CirclePostCard> {
               _send(feeling: feeling);
             },
       showCheckmark: false,
-      labelStyle: AppTypography.lato700(12, selected ? t.accent : t.text),
+      labelStyle: AppTypography.lato600(12, selected ? t.accent : t.text),
+      labelPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      padding: EdgeInsets.zero,
       backgroundColor: t.bg,
-      selectedColor: t.accent.withValues(alpha: 0.10),
-      side: BorderSide(color: selected ? t.accent : t.border, width: 1.2),
-      shape: const StadiumBorder(),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      selectedColor: t.accent.withValues(alpha: 0.133),
+      side: BorderSide(color: selected ? t.accent : t.border, width: selected ? 1.5 : 1),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      visualDensity: VisualDensity.compact,
     );
   }
 
