@@ -301,20 +301,25 @@ void main() {
       ],
     );
 
-    expect(find.text('Comment 0'), findsOneWidget);
-    expect(find.text('Comment 1'), findsOneWidget);
-    expect(find.text('Comment 2'), findsNothing);
+    expect(find.text('Comment 11'), findsOneWidget);
+    expect(find.text('Comment 10'), findsOneWidget);
+    expect(find.text('Comment 9'), findsNothing);
     expect(find.text('Load 10 more responses...'), findsOneWidget);
     expect(find.text('Show less ↑'), findsNothing);
+    expect(
+      tester.getTopLeft(find.text('Comment 11')).dy,
+      lessThan(tester.getTopLeft(find.text('Comment 10')).dy),
+    );
 
     await tapText(tester, 'Load 10 more responses...');
-    expect(find.text('Comment 2'), findsOneWidget);
-    expect(find.text('Comment 11'), findsOneWidget);
+    expect(find.text('Comment 9'), findsOneWidget);
+    expect(find.text('Comment 0'), findsOneWidget);
     expect(find.text('Load 10 more responses...'), findsNothing);
     expect(find.text('Show less ↑'), findsOneWidget);
 
     await tapText(tester, 'Show less ↑');
-    expect(find.text('Comment 2'), findsNothing);
+    expect(find.text('Comment 9'), findsNothing);
+    expect(find.text('Comment 11'), findsOneWidget);
     expect(find.text('Load 10 more responses...'), findsOneWidget);
     expect(find.text('Show less ↑'), findsNothing);
   });
@@ -329,12 +334,18 @@ void main() {
       ],
     );
 
-    expect(find.text('Third'), findsNothing);
+    expect(find.text('Third'), findsOneWidget);
+    expect(find.text('Second'), findsOneWidget);
+    expect(find.text('First'), findsNothing);
     expect(find.text('Load 1 more response...'), findsOneWidget);
     expect(find.text('Show less ↑'), findsNothing);
+    expect(
+      tester.getTopLeft(find.text('Third')).dy,
+      lessThan(tester.getTopLeft(find.text('Second')).dy),
+    );
 
     await tapText(tester, 'Load 1 more response...');
-    expect(find.text('Third'), findsOneWidget);
+    expect(find.text('First'), findsOneWidget);
     expect(find.text('Load 1 more response...'), findsNothing);
     expect(find.text('Show less ↑'), findsOneWidget);
   });
@@ -354,15 +365,45 @@ void main() {
     expect(find.text('Show less ↑'), findsNothing);
 
     await tapText(tester, 'Load 10 more responses...');
-    expect(find.text('Comment 11'), findsOneWidget);
-    expect(find.text('Comment 12'), findsNothing);
+    expect(find.text('Comment 13'), findsOneWidget);
+    expect(find.text('Comment 2'), findsOneWidget);
+    expect(find.text('Comment 1'), findsNothing);
     expect(find.text('Load 2 more responses...'), findsOneWidget);
     expect(find.text('Show less ↑'), findsOneWidget);
 
     await tapText(tester, 'Load 2 more responses...');
-    expect(find.text('Comment 13'), findsOneWidget);
+    expect(find.text('Comment 0'), findsOneWidget);
     expect(find.textContaining('Load '), findsNothing);
     expect(find.text('Show less ↑'), findsOneWidget);
+  });
+
+  testWidgets('A comment just sent is shown above the older ones', (tester) async {
+    await showCard(
+      tester,
+      replies: const [
+        CircleReply(author: 'A Mum', body: 'Older note'),
+        CircleReply(author: 'A Mum', body: 'Newer note'),
+      ],
+    );
+    expect(
+      tester.getTopLeft(find.text('Newer note')).dy,
+      lessThan(tester.getTopLeft(find.text('Older note')).dy),
+    );
+
+    await showCard(
+      tester,
+      replies: const [
+        CircleReply(author: 'A Mum', body: 'Older note'),
+        CircleReply(author: 'A Mum', body: 'Newer note'),
+        CircleReply(author: 'A Mum', body: 'Just sent'),
+      ],
+    );
+    expect(find.text('Just sent'), findsOneWidget);
+    expect(find.text('Older note'), findsNothing);
+    expect(
+      tester.getTopLeft(find.text('Just sent')).dy,
+      lessThan(tester.getTopLeft(find.text('Newer note')).dy),
+    );
   });
 
   testWidgets('Sending a reply keeps the text field focused', (tester) async {

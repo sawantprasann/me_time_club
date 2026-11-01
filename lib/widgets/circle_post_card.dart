@@ -7,8 +7,9 @@ enum _ResponsePanel { feelings, reply }
 
 /// Post card for the circle.
 ///
-/// Feelings are grouped under the post. The first [initialVisibleComments]
-/// comments are shown. Load more reveals the next [commentsPageSize].
+/// Feelings are grouped under the post. Comments arrive oldest first and
+/// are shown newest first. The latest [initialVisibleComments] comments
+/// are shown. Load more reveals the next [commentsPageSize] older ones.
 /// The API returns every comment, so paging stays on this card.
 /// Respond with feeling and Respond are separate panels. A chip they
 /// already sent starts selected, and tapping it again removes that feeling.
@@ -217,8 +218,10 @@ class _CirclePostCardState extends State<CirclePostCard> {
   int get _visibleCommentCount =>
       CirclePostCard.initialVisibleComments + _extraComments;
 
+  List<CircleReply> get _commentsNewestFirst => widget.replies.reversed.toList();
+
   List<CircleReply> get _visibleComments {
-    final all = widget.replies;
+    final all = _commentsNewestFirst;
     if (all.length <= _visibleCommentCount) return all;
     return all.sublist(0, _visibleCommentCount);
   }
