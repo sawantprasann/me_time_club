@@ -10,7 +10,7 @@
             ActionType = "Xcode.IDEStandardExecutionActionsCore.ExecutionActionType.ShellScriptAction">
             <ActionContent
                title = "Run Prepare Flutter Framework Script"
-               scriptText = "/bin/sh &quot;$FLUTTER_ROOT/packages/flutter_tools/bin/xcode_backend.sh&quot; prepare&#10;">
+               scriptText = "if [ -z &quot;$FLUTTER_ROOT&quot; ] &amp;&amp; [ -n &quot;$SRCROOT&quot; ] &amp;&amp; [ -f &quot;$SRCROOT/Flutter/flutter_export_environment.sh&quot; ]; then&#10;  . &quot;$SRCROOT/Flutter/flutter_export_environment.sh&quot;&#10;fi&#10;if [ -z &quot;$FLUTTER_ROOT&quot; ]; then&#10;  export PATH=&quot;$PATH:/opt/homebrew/bin:$HOME/flutter/bin:$HOME/development/flutter/bin&quot;&#10;  FLUTTER_BIN=&quot;$(command -v flutter || true)&quot;&#10;  if [ -n &quot;$FLUTTER_BIN&quot; ]; then&#10;    FLUTTER_BIN=&quot;$(readlink -f &quot;$FLUTTER_BIN&quot;)&quot;&#10;    FLUTTER_ROOT=&quot;$(cd &quot;$(dirname &quot;$FLUTTER_BIN&quot;)/..&quot; &amp;&amp; pwd)&quot;&#10;    export FLUTTER_ROOT&#10;  fi&#10;fi&#10;if [ -z &quot;$FLUTTER_ROOT&quot; ] || [ ! -f &quot;$FLUTTER_ROOT/packages/flutter_tools/bin/xcode_backend.sh&quot; ]; then&#10;  echo &quot;error: Flutter SDK was not found for this Xcode build. In the app folder run: flutter pub get&quot; &gt;&amp;2&#10;  exit 1&#10;fi&#10;/bin/sh &quot;$FLUTTER_ROOT/packages/flutter_tools/bin/xcode_backend.sh&quot; prepare&#10;">
                <EnvironmentBuildable>
                   <BuildableReference
                      BuildableIdentifier = "primary"
