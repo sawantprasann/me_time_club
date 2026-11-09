@@ -17,8 +17,10 @@ dependencies:
   http_parser: ^4.0.0
   shared_preferences: ^2.5.3
   url_launcher: ^6.3.2
-  firebase_core: ^5.1.0
-  firebase_auth: ^7.0.1
+  # Stay on Firebase iOS SDK 12. google_sign_in_ios 6.3 needs that SDK;
+  # Firebase 13 conflicts with GoogleSignIn 9 on iOS.
+  firebase_core: ^4.15.2
+  firebase_auth: ^6.7.1
   google_sign_in: ^7.2.0
   sign_in_with_apple: ^8.2.0
   crypto: ^3.0.8
