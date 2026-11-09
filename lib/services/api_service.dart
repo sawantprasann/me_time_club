@@ -29,10 +29,21 @@ MediaType _imageMediaType(String path) {
 
 class ApiException implements Exception {
   final String message;
-  ApiException(this.message);
+  final String? code;
+  ApiException(this.message, {this.code});
 
   @override
   String toString() => message;
+}
+
+class FirebaseLoginResult {
+  final UserProfile user;
+  final bool profileComplete;
+
+  const FirebaseLoginResult({
+    required this.user,
+    required this.profileComplete,
+  });
 }
 
 class SessionExpiredException extends ApiException {
@@ -249,6 +260,70 @@ class ApiService {
             'An unexpected error occurred during login.';
         throw ApiException(errorMsg);
       }
+    } on http.ClientException catch (e) {
+      print('[API ERROR] ClientException: ${e.message}');
+      throw ApiException(
+        'Network error: Please check your internet connection.',
+      );
+    } catch (e) {
+      print('[API ERROR] Exception: ${e.toString()}');
+      if (e is ApiException) rethrow;
+      throw ApiException('An unexpected error occurred: ${e.toString()}');
+    }
+  }
+
+  /// Signs in with a Firebase ID token from Google or Apple.
+  /// Throws [ApiException] with code `name_required` when Apple did not send a name.
+  static Future<FirebaseLoginResult> loginWithFirebase({
+    required String idToken,
+    String? name,
+  }) async {
+    final url = '$baseUrl/firebase';
+    final requestBody = <String, dynamic>{'id_token': idToken};
+    if (name != null && name.trim().isNotEmpty) {
+      requestBody['name'] = name.trim();
+    }
+
+    print('[API REQUEST] POST $url');
+
+    try {
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {
+          'accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode(requestBody),
+      );
+
+      print('[API RESPONSE] ${response.statusCode} POST $url');
+      print('[API RESPONSE BODY] ${response.body}');
+
+      final decoded = jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        String? token;
+        final authHeader =
+            response.headers['Authorization'] ??
+            response.headers['authorization'];
+        if (authHeader != null && authHeader.startsWith('Bearer ')) {
+          token = authHeader.substring(7).trim();
+        }
+        if (token == null || token.isEmpty) {
+          token = decoded['token'] as String?;
+        }
+        if (token == null) {
+          throw ApiException('No token returned in response.');
+        }
+        final userJson = decoded['user'] as Map<String, dynamic>;
+        return FirebaseLoginResult(
+          user: UserProfile.fromJson({...userJson, 'token': token}),
+          profileComplete: decoded['profile_complete'] == true,
+        );
+      }
+
+      final errorMsg =
+          decoded['error'] as String? ?? 'Could not sign in with that account.';
+      throw ApiException(errorMsg, code: decoded['code'] as String?);
     } on http.ClientException catch (e) {
       print('[API ERROR] ClientException: ${e.message}');
       throw ApiException(

@@ -3,15 +3,19 @@ import '../../theme/tokens.dart';
 import '../../services/api_service.dart';
 import '../../widgets/shared_widgets.dart';
 import '../../widgets/app_logo.dart';
+import '../../widgets/social_sign_in_buttons.dart';
+import '../../models/user_profile.dart';
 
 class LoginScreen extends StatefulWidget {
   final Function(dynamic) onLoginSuccess;
+  final void Function(UserProfile user) onNeedsOnboarding;
   final VoidCallback onNavigateToRegister;
   final String? initialMessage;
 
   const LoginScreen({
     super.key,
     required this.onLoginSuccess,
+    required this.onNeedsOnboarding,
     required this.onNavigateToRegister,
     this.initialMessage,
   });
@@ -136,6 +140,47 @@ class _LoginScreenState extends State<LoginScreen> {
                         height: 1.5,
                         color: const Color(0xFFB8706A).withValues(alpha: 0.5),
                       ),
+
+                      SocialSignInButtons(
+                        enabled: !_loading,
+                        onSuccess: (user, profileComplete) {
+                          if (profileComplete) {
+                            widget.onLoginSuccess(user);
+                          } else {
+                            widget.onNeedsOnboarding(user);
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 18),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Divider(
+                              color: const Color(
+                                0xFFE8DDD5,
+                              ).withValues(alpha: 0.25),
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            child: Text(
+                              'or email',
+                              style: AppTypography.lato400(
+                                12,
+                                const Color(0xFF8A7D76),
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: Divider(
+                              color: const Color(
+                                0xFFE8DDD5,
+                              ).withValues(alpha: 0.25),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 18),
 
                       // Card wrapper for inputs
                       Container(
