@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "899718977367",
+    "project_id": "me-time-club",
+    "storage_bucket": "me-time-club.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:899718977367:android:d5bd45f687ac4b92bd9012",
+        "android_client_info": {
+          "package_name": "com.metimeclub.meTimeClub"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCL5ZJB4kt-FfMIGBCvVOUdKwWVUhhjirI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
