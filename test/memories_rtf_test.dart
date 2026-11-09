@@ -1,91 +1,61 @@
+import 'dart:typed_data';
+
 import 'package:flutter_test/flutter_test.dart';
-import 'package:me_time_club/services/memories_rtf.dart';
+import 'package:image/image.dart' as img;
+import 'package:me_time_club/services/memories_docx.dart';
 
 void main() {
-  final exportedAt = DateTime(2026, 11, 9);
-
-  test('filename matches the Google Docs download name', () {
+  test('filename is a Word file Google Docs can open with photos', () {
     expect(
-      memoriesExportFilename(exportedAt),
-      'MeTimeClub_Memories_2026-11-09.rtf',
+      memoriesExportFilename(DateTime(2026, 11, 9)),
+      'MeTimeClub_Memories_2026-11-09.docx',
     );
   });
 
-  test('writes every moment oldest first, with photo links', () {
-    final rtf = buildMemoriesRtf(
-      memories: [
-        MemoryExportItem(
-          title: 'Newer day',
-          description: 'Newer day',
-          createdAt: DateTime(2026, 11, 9),
-          photoUrl: '/uploads/memories/new.jpg',
-          childAge: '2 years',
-          tags: 'park',
-        ),
-        const MemoryExportItem(
-          description: 'First steps',
-          dateKey: '2026-03-01',
-          createdAt: null,
-          photoUrl: 'https://cdn.example.com/old.jpg',
-        ),
-      ],
-      exportedAt: exportedAt,
-      serverHost: 'http://139.59.23.15/',
+  test('document shows the photo and caption, not the image address', () {
+    final photo = img.encodeJpg(
+      img.fill(img.Image(width: 8, height: 4), color: img.ColorRgb8(180, 112, 106)),
+      quality: 80,
     );
+    final docx = buildMemoriesDocx([
+      MemoryCardExport(
+        caption: 'We sat in the sun.',
+        accentHex: 'B8706A',
+        photoJpeg: photo,
+        photoWidth: 8,
+        photoHeight: 4,
+      ),
+      const MemoryCardExport(caption: 'Just words', accentHex: '7A9E8E'),
+    ]);
 
-    expect(rtf.startsWith(r'{\rtf1\ansi'), isTrue);
-    expect(rtf.contains('Your Moments'), isTrue);
-    expect(rtf.contains('2 moments'), isTrue);
-    expect(rtf.contains('Exported November 9, 2026'), isTrue);
-    expect(rtf.indexOf('First steps'), lessThan(rtf.indexOf('Newer day')));
-    expect(rtf.contains('March 1, 2026'), isTrue);
-    expect(rtf.contains('November 9, 2026'), isTrue);
-    expect(rtf.contains('http://139.59.23.15/uploads/memories/new.jpg'), isTrue);
-    expect(rtf.contains('https://cdn.example.com/old.jpg'), isTrue);
-    expect(rtf.contains('Age: 2 years'), isTrue);
-    expect(rtf.contains('Tags: park'), isTrue);
-    expect(rtf.endsWith('}'), isTrue);
+    final xml = String.fromCharCodes(docx);
+    expect(xml.contains('Your Moments'), isTrue);
+    expect(xml.contains('We sat in the sun.'), isTrue);
+    expect(xml.contains('Just words'), isTrue);
+    expect(xml.contains('word/media/image1.jpg'), isTrue);
+    expect(xml.contains('uploads/'), isFalse);
+    expect(docx[0], 0x50);
+    expect(docx[1], 0x4B);
   });
 
-  test('shows a distinct title and caption once each', () {
-    final rtf = buildMemoriesRtf(
-      memories: const [
-        MemoryExportItem(title: 'Park', description: 'We sat in the sun.'),
-      ],
-      exportedAt: exportedAt,
-      serverHost: 'http://example.com',
-    );
+  test('keeps screen order and the card accent color', () {
+    final docx = String.fromCharCodes(buildMemoriesDocx(const [
+      MemoryCardExport(caption: 'Newest', accentHex: 'B8706A'),
+      MemoryCardExport(caption: 'Older', accentHex: '7A9E8E'),
+    ]));
 
-    expect(rtf.contains('Park'), isTrue);
-    expect(rtf.contains('We sat in the sun.'), isTrue);
-    expect('Park'.allMatches(rtf).length, 1);
+    expect(docx.indexOf('Newest'), lessThan(docx.indexOf('Older')));
+    expect(docx.contains('B8706A'), isTrue);
+    expect(docx.contains('7A9E8E'), isTrue);
   });
 
-  test('escapes RTF special characters and emoji', () {
-    final rtf = buildMemoriesRtf(
-      memories: const [
-        MemoryExportItem(description: 'a\\b {c}\nsecond 🌸'),
-      ],
-      exportedAt: exportedAt,
-      serverHost: 'http://example.com',
-    );
+  test('crops a portrait photo to the wide memory-card shape', () {
+    final source = img.encodePng(img.Image(width: 20, height: 40));
+    final prepared = prepareMemoryPhoto(Uint8List.fromList(source));
 
-    expect(rtf.contains(r'a\\b \{c\}'), isTrue);
-    expect(rtf.contains(r'\line '), isTrue);
-    expect(rtf.contains('🌸'), isFalse);
-    expect(rtf.contains(r'\u'), isTrue);
-  });
-
-  test('omits empty photo, age, and tag lines', () {
-    final rtf = buildMemoriesRtf(
-      memories: const [MemoryExportItem(description: 'Just words')],
-      exportedAt: exportedAt,
-      serverHost: 'http://example.com',
-    );
-
-    expect(rtf.contains('Photo'), isFalse);
-    expect(rtf.contains('Age:'), isFalse);
-    expect(rtf.contains('Tags:'), isFalse);
-    expect(rtf.contains('1 moment'), isTrue);
+    expect(prepared, isNotNull);
+    expect(prepared!.width / prepared.height, closeTo(2, 0.05));
+    expect(prepared.bytes[0], 0xFF);
+    expect(prepared.bytes[1], 0xD8);
   });
 }

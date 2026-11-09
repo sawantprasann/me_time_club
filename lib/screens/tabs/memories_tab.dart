@@ -2,12 +2,13 @@ import 'dart:io';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import '../../theme/tokens.dart';
 import '../../icons/app_icons.dart';
 import '../../models/user_profile.dart';
 import '../../services/api_service.dart';
-import '../../services/memories_rtf.dart';
+import '../../services/memories_docx.dart';
 import '../../widgets/voice_text_input.dart';
 
 class MemoriesTab extends StatefulWidget {
@@ -304,26 +305,24 @@ class _MemoriesTabState extends State<MemoriesTab> {
 
     setState(() => _exporting = true);
     try {
-      final rtf = buildMemoriesRtf(
-        memories: _memories
-            .map(
-              (m) => MemoryExportItem(
-                title: m.title ?? m.caption,
-                description: m.description ?? m.caption,
-                photoUrl: m.photoUrl,
-                dateKey: m.dateKey,
-                createdAt: m.date,
-                tags: m.tags,
-                childAge: m.childAge,
-              ),
-            )
-            .toList(),
-        exportedAt: now,
-        serverHost: ApiService.serverHost,
-      );
+      final cards = <MemoryCardExport>[];
+      for (final memory in _memories) {
+        final raw = await _photoBytes(memory);
+        final photo = raw == null ? null : prepareMemoryPhoto(raw);
+        cards.add(
+          MemoryCardExport(
+            caption: memory.caption,
+            accentHex: _hexColor(memory.color),
+            photoJpeg: photo?.bytes,
+            photoWidth: photo?.width ?? 0,
+            photoHeight: photo?.height ?? 0,
+          ),
+        );
+      }
+      final bytes = buildMemoriesDocx(cards);
 
       final file = File('${Directory.systemTemp.path}/$name');
-      await file.writeAsString(rtf, flush: true);
+      await file.writeAsBytes(bytes, flush: true);
 
       await const MethodChannel('me_time_club/save_file').invokeMethod<bool>(
         'saveFile',
@@ -332,7 +331,7 @@ class _MemoriesTabState extends State<MemoriesTab> {
 
       if (!mounted) return;
       final where = Platform.isIOS
-          ? 'Find it in the Files app, under On My iPhone, Me Time Club.'
+          ? 'The Files app will open to it. It is under Browse, On My iPhone, Me Time Club.'
           : 'Find it in your Downloads folder.';
       _showSuccess('Downloaded $name. $where');
     } catch (e) {
@@ -341,6 +340,31 @@ class _MemoriesTabState extends State<MemoriesTab> {
     } finally {
       if (mounted) setState(() => _exporting = false);
     }
+  }
+
+  Future<Uint8List?> _photoBytes(_Memory memory) async {
+    try {
+      if (memory.localPath != null) {
+        final local = File(memory.localPath!);
+        if (await local.exists()) return await local.readAsBytes();
+      }
+      final url = memory.photoUrl;
+      if (url == null || url.isEmpty) return null;
+      final full = url.startsWith('http') ? url : '${ApiService.serverHost}$url';
+      final response = await http.get(Uri.parse(full));
+      if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
+        return response.bodyBytes;
+      }
+    } catch (e) {
+      debugPrint('[EXPORT PHOTO] $e');
+    }
+    return null;
+  }
+
+  String _hexColor(Color color) {
+    int channel(double value) => (value * 255).round().clamp(0, 255);
+    final channels = [channel(color.r), channel(color.g), channel(color.b)];
+    return channels.map((n) => n.toRadixString(16).padLeft(2, '0')).join().toUpperCase();
   }
 
   void _showSuccess(String msg) {
