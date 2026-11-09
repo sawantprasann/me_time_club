@@ -1,8 +1,8 @@
 import 'dart:io';
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:share_plus/share_plus.dart';
 import '../../theme/tokens.dart';
 import '../../icons/app_icons.dart';
 import '../../models/user_profile.dart';
@@ -274,17 +274,20 @@ class _MemoriesTabState extends State<MemoriesTab> {
       final file = File('${Directory.systemTemp.path}/$name');
       await file.writeAsString(rtf, flush: true);
 
-      final result = await SharePlus.instance.share(
-        ShareParams(
-          files: [XFile(file.path, mimeType: 'application/rtf', name: name)],
-          fileNameOverrides: [name],
-          title: 'Your Moments',
-          subject: name,
-          sharePositionOrigin: origin,
-        ),
-      );
+      final shared = await const MethodChannel('me_time_club/share_file')
+          .invokeMethod<bool>('shareFile', {
+        'path': file.path,
+        'name': name,
+        if (origin != null)
+          'origin': {
+            'x': origin.left,
+            'y': origin.top,
+            'w': origin.width,
+            'h': origin.height,
+          },
+      });
 
-      if (!mounted || result.status == ShareResultStatus.dismissed) return;
+      if (!mounted || shared != true) return;
       _showSuccess('Saved $name. Open it in Google Docs to import your moments.');
     } catch (e) {
       debugPrint('[EXPORT MEMORIES ERROR] $e');
