@@ -28,6 +28,10 @@
 	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>LSSupportsOpeningDocumentsInPlace</key>
+	<true/>
+	<key>UIFileSharingEnabled</key>
+	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>Me Time Club uses your camera for profile and memory photos</string>
 	<key>NSMicrophoneUsageDescription</key>

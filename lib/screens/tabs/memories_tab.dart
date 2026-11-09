@@ -237,22 +237,73 @@ class _MemoriesTabState extends State<MemoriesTab> {
         ),
       );
 
-  Future<void> _downloadAllAsRtf(BuildContext buttonContext) async {
+  Future<void> _downloadAllAsRtf() async {
     if (_exporting || _loading) return;
     if (_memories.isEmpty) {
       _showError('No moments to download yet.');
       return;
     }
 
-    final box = buttonContext.findRenderObject() as RenderBox?;
-    final origin = (box != null && box.hasSize)
-        ? box.localToGlobal(Offset.zero) & box.size
-        : null;
+    final now = DateTime.now();
+    final name = memoriesExportFilename(now);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: t.card,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Download file', style: AppTypography.playfair(20, t.text)),
+              const SizedBox(height: 16),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                decoration: BoxDecoration(
+                  color: t.bg,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: t.border),
+                ),
+                child: Text(name, style: AppTypography.lato400(14, t.text)),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.of(ctx).pop(false),
+                    child: Text('Cancel', style: AppTypography.lato700(14, t.muted)),
+                  ),
+                  const SizedBox(width: 4),
+                  TextButton(
+                    onPressed: () => Navigator.of(ctx).pop(true),
+                    style: TextButton.styleFrom(
+                      backgroundColor: t.text,
+                      foregroundColor: t.card,
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    child: Text(
+                      'Download file',
+                      style: AppTypography.lato700(14, t.card),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (confirmed != true || !mounted) return;
 
     setState(() => _exporting = true);
     try {
-      final now = DateTime.now();
-      final name = memoriesExportFilename(now);
       final rtf = buildMemoriesRtf(
         memories: _memories
             .map(
@@ -274,21 +325,16 @@ class _MemoriesTabState extends State<MemoriesTab> {
       final file = File('${Directory.systemTemp.path}/$name');
       await file.writeAsString(rtf, flush: true);
 
-      final shared = await const MethodChannel('me_time_club/share_file')
-          .invokeMethod<bool>('shareFile', {
-        'path': file.path,
-        'name': name,
-        if (origin != null)
-          'origin': {
-            'x': origin.left,
-            'y': origin.top,
-            'w': origin.width,
-            'h': origin.height,
-          },
-      });
+      await const MethodChannel('me_time_club/save_file').invokeMethod<bool>(
+        'saveFile',
+        {'path': file.path, 'name': name},
+      );
 
-      if (!mounted || shared != true) return;
-      _showSuccess('Saved $name. Open it in Google Docs to import your moments.');
+      if (!mounted) return;
+      final where = Platform.isIOS
+          ? 'Find it in the Files app, under On My iPhone, Me Time Club.'
+          : 'Find it in your Downloads folder.';
+      _showSuccess('Downloaded $name. $where');
     } catch (e) {
       debugPrint('[EXPORT MEMORIES ERROR] $e');
       if (mounted) _showError('Could not download moments: $e');
@@ -382,11 +428,8 @@ class _MemoriesTabState extends State<MemoriesTab> {
               if (!_adding)
                 Row(
                   children: [
-                    Builder(
-                      builder: (buttonContext) => GestureDetector(
-                        onTap: _exporting || _loading
-                            ? null
-                            : () => _downloadAllAsRtf(buttonContext),
+                    GestureDetector(
+                        onTap: _exporting || _loading ? null : _downloadAllAsRtf,
                         child: Container(
                           width: 36,
                           height: 36,
@@ -413,7 +456,6 @@ class _MemoriesTabState extends State<MemoriesTab> {
                                   ),
                           ),
                         ),
-                      ),
                     ),
                     const SizedBox(width: 8),
                     GestureDetector(
