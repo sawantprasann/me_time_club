@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../icons/app_icons.dart';
 import '../models/circle_response.dart';
 import '../theme/tokens.dart';
 import 'shared_widgets.dart';
@@ -29,6 +30,9 @@ class CirclePostCard extends StatefulWidget {
   final List<String> myMoods;
   final String? myMood;
   final int? mamaCount;
+  final bool mine;
+  final VoidCallback? onDeletePost;
+  final Future<void> Function(CircleReply reply)? onDeleteComment;
   final Future<dynamic> Function(CircleResponseDraft)? onSendReply;
 
   const CirclePostCard({
@@ -43,6 +47,9 @@ class CirclePostCard extends StatefulWidget {
     this.myMoods = const [],
     this.myMood,
     this.mamaCount,
+    this.mine = false,
+    this.onDeletePost,
+    this.onDeleteComment,
     this.onSendReply,
   });
 
@@ -315,13 +322,17 @@ class _CirclePostCardState extends State<CirclePostCard> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Expanded(
                 child: Text(widget.author, style: AppTypography.lato700(13, t.accent)),
               ),
               const SizedBox(width: 12),
               Text(widget.time, style: AppTypography.lato400(12, t.muted)),
+              if (widget.mine && widget.onDeletePost != null) ...[
+                const SizedBox(width: 8),
+                _removeButton('Remove post', widget.onDeletePost!),
+              ],
             ],
           ),
           const SizedBox(height: 16),
@@ -514,6 +525,8 @@ class _CirclePostCardState extends State<CirclePostCard> {
   }
 
   Widget _comment(CircleReply reply) {
+    final canRemove =
+        reply.mine && reply.id != null && widget.onDeleteComment != null;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -530,7 +543,21 @@ class _CirclePostCardState extends State<CirclePostCard> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(reply.author, style: AppTypography.lato700(13, t.accent)),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      reply.author,
+                      style: AppTypography.lato700(13, t.accent),
+                    ),
+                  ),
+                  if (canRemove)
+                    _removeButton(
+                      'Remove comment',
+                      () => widget.onDeleteComment!(reply),
+                    ),
+                ],
+              ),
               const SizedBox(height: 2),
               Text(
                 reply.body,
@@ -540,6 +567,26 @@ class _CirclePostCardState extends State<CirclePostCard> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _removeButton(String label, VoidCallback onTap) {
+    return Semantics(
+      button: true,
+      label: label,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          width: 22,
+          height: 22,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: t.accent.withValues(alpha: 0.14),
+            shape: BoxShape.circle,
+          ),
+          child: AppIcons.close(c: t.accent, s: 12),
+        ),
+      ),
     );
   }
 

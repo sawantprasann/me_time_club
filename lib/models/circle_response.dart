@@ -67,8 +67,8 @@ class CircleReply {
       id: json['id'] as int?,
       author:
           json['anonymous'] == true
-              ? 'Anonymous'
-              : (json['author'] as String? ?? 'Anonymous'),
+              ? 'a mama'
+              : (json['author'] as String? ?? 'a mama'),
       body: json['text'] as String? ?? json['body'] as String? ?? '',
       kind: json['kind'] as String?,
       moodKey: json['mood_key'] as String?,

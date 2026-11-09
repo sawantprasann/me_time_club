@@ -2,12 +2,12 @@ import 'dart:io';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:gal/gal.dart';
-import 'package:http/http.dart' as http;
+import 'package:share_plus/share_plus.dart';
 import '../../theme/tokens.dart';
 import '../../icons/app_icons.dart';
 import '../../models/user_profile.dart';
 import '../../services/api_service.dart';
+import '../../services/memories_rtf.dart';
 import '../../widgets/voice_text_input.dart';
 
 class MemoriesTab extends StatefulWidget {
@@ -24,6 +24,7 @@ class _MemoriesTabState extends State<MemoriesTab> {
   bool _loading = false;
   bool _adding = false;
   bool _saving = false;
+  bool _exporting = false;
 
   // Composer state
   String _caption = '';
@@ -64,7 +65,12 @@ class _MemoriesTabState extends State<MemoriesTab> {
         return _Memory(
           id: item['id'].toString(),
           caption: item['description']?.toString() ?? item['title']?.toString() ?? '',
+          title: item['title']?.toString(),
+          description: item['description']?.toString(),
           photoUrl: item['photo_url']?.toString(),
+          dateKey: item['date_key']?.toString(),
+          tags: item['tags']?.toString(),
+          childAge: item['child_age']?.toString(),
           color: _palette[Random().nextInt(_palette.length)],
           date: date,
         );
@@ -115,7 +121,12 @@ class _MemoriesTabState extends State<MemoriesTab> {
       final newMemory = _Memory(
         id: res['id']?.toString() ?? '0',
         caption: res['description']?.toString() ?? res['title']?.toString() ?? caption,
+        title: res['title']?.toString() ?? caption,
+        description: res['description']?.toString() ?? caption,
         photoUrl: res['photo_url']?.toString(),
+        dateKey: res['date_key']?.toString(),
+        tags: res['tags']?.toString(),
+        childAge: res['child_age']?.toString(),
         localPath: _pickedImage?.path,
         color: _palette[Random().nextInt(_palette.length)],
         date: DateTime.now(),
@@ -159,8 +170,12 @@ class _MemoriesTabState extends State<MemoriesTab> {
           final idx = _memories.indexWhere((m) => m.id == id);
           if (idx != -1) {
             _memories[idx].caption = caption;
+            _memories[idx].title = res['title']?.toString() ?? caption;
+            _memories[idx].description = res['description']?.toString() ?? caption;
             final newUrl = res['photo_url']?.toString();
-            if (newUrl != null) _memories[idx].photoUrl = newUrl;
+            if (newUrl != null && newUrl.isNotEmpty) {
+              _memories[idx].photoUrl = newUrl;
+            }
           }
           _editingId = null;
           _editCaption = '';
@@ -222,7 +237,62 @@ class _MemoriesTabState extends State<MemoriesTab> {
         ),
       );
 
-  bool _downloading = false;
+  Future<void> _downloadAllAsRtf(BuildContext buttonContext) async {
+    if (_exporting || _loading) return;
+    if (_memories.isEmpty) {
+      _showError('No moments to download yet.');
+      return;
+    }
+
+    final box = buttonContext.findRenderObject() as RenderBox?;
+    final origin = (box != null && box.hasSize)
+        ? box.localToGlobal(Offset.zero) & box.size
+        : null;
+
+    setState(() => _exporting = true);
+    try {
+      final now = DateTime.now();
+      final name = memoriesExportFilename(now);
+      final rtf = buildMemoriesRtf(
+        memories: _memories
+            .map(
+              (m) => MemoryExportItem(
+                title: m.title ?? m.caption,
+                description: m.description ?? m.caption,
+                photoUrl: m.photoUrl,
+                dateKey: m.dateKey,
+                createdAt: m.date,
+                tags: m.tags,
+                childAge: m.childAge,
+              ),
+            )
+            .toList(),
+        exportedAt: now,
+        serverHost: ApiService.serverHost,
+      );
+
+      final file = File('${Directory.systemTemp.path}/$name');
+      await file.writeAsString(rtf, flush: true);
+
+      final result = await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(file.path, mimeType: 'application/rtf', name: name)],
+          fileNameOverrides: [name],
+          title: 'Your Moments',
+          subject: name,
+          sharePositionOrigin: origin,
+        ),
+      );
+
+      if (!mounted || result.status == ShareResultStatus.dismissed) return;
+      _showSuccess('Saved $name. Open it in Google Docs to import your moments.');
+    } catch (e) {
+      debugPrint('[EXPORT MEMORIES ERROR] $e');
+      if (mounted) _showError('Could not download moments: $e');
+    } finally {
+      if (mounted) setState(() => _exporting = false);
+    }
+  }
 
   void _showSuccess(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -246,83 +316,6 @@ class _MemoriesTabState extends State<MemoriesTab> {
     );
   }
 
-  Future<void> _downloadMemoryImage(_Memory m) async {
-    final hasPhoto =
-        m.localPath != null || (m.photoUrl != null && m.photoUrl!.isNotEmpty);
-    if (!hasPhoto) {
-      _showError('This moment does not have a photo to download.');
-      return;
-    }
-
-    if (_downloading) return;
-    setState(() => _downloading = true);
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Row(
-          children: [
-            SizedBox(
-              width: 18,
-              height: 18,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: Colors.white,
-              ),
-            ),
-            SizedBox(width: 12),
-            Text('Saving photo to gallery…'),
-          ],
-        ),
-        duration: Duration(seconds: 2),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-
-    try {
-      if (m.localPath != null) {
-        await Gal.putImage(m.localPath!);
-      } else if (m.photoUrl != null && m.photoUrl!.isNotEmpty) {
-        final fullUrl = m.photoUrl!.startsWith('http')
-            ? m.photoUrl!
-            : '${ApiService.serverHost}${m.photoUrl}';
-        final token = widget.user.token ?? '';
-        final response = await http.get(
-          Uri.parse(fullUrl),
-          headers: token.isNotEmpty ? {'Authorization': 'Bearer $token'} : null,
-        );
-        if (response.statusCode == 200) {
-          final timestamp = DateTime.now().millisecondsSinceEpoch;
-          await Gal.putImageBytes(
-            response.bodyBytes,
-            name: 'metime_memory_${m.id}_$timestamp',
-          );
-        } else {
-          throw Exception('Failed to download photo (HTTP ${response.statusCode})');
-        }
-      }
-
-      if (mounted) {
-        _showSuccess('Photo saved to your gallery!');
-      }
-    } on GalException catch (e) {
-      debugPrint('[DOWNLOAD MEMORY ERROR] GalException: ${e.type}');
-      if (mounted) {
-        if (e.type == GalExceptionType.accessDenied) {
-          _showError('Photo library access was denied. Please allow access in settings.');
-        } else {
-          _showError('Failed to save photo: ${e.type.message}');
-        }
-      }
-    } catch (e) {
-      debugPrint('[DOWNLOAD MEMORY ERROR] $e');
-      if (mounted) {
-        _showError('Could not save photo: $e');
-      }
-    } finally {
-      if (mounted) setState(() => _downloading = false);
-    }
-  }
-
   void _showActionsMenu(_Memory m) {
     showModalBottomSheet(
       context: context,
@@ -344,27 +337,6 @@ class _MemoriesTabState extends State<MemoriesTab> {
               ),
             ),
             const SizedBox(height: 16),
-            if (m.localPath != null ||
-                (m.photoUrl != null && m.photoUrl!.isNotEmpty))
-              ListTile(
-                leading: Icon(
-                  Icons.file_download_outlined,
-                  color: t.accent,
-                  size: 20,
-                ),
-                title: Text(
-                  'Download Photo',
-                  style: AppTypography.lato700(14, t.text),
-                ),
-                subtitle: Text(
-                  'Save to your device gallery',
-                  style: AppTypography.lato400(11, t.muted),
-                ),
-                onTap: () {
-                  Navigator.of(ctx).pop();
-                  _downloadMemoryImage(m);
-                },
-              ),
             ListTile(
               leading: AppIcons.pen(c: t.accent, s: 18),
               title: Text('Edit Moment', style: AppTypography.lato700(14, t.text)),
@@ -405,17 +377,55 @@ class _MemoriesTabState extends State<MemoriesTab> {
             children: [
               Text('Your Moments', style: AppTypography.playfair(22, t.text)),
               if (!_adding)
-                GestureDetector(
-                  onTap: () => setState(() => _adding = true),
-                  child: Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: t.accent,
-                      borderRadius: BorderRadius.circular(12),
+                Row(
+                  children: [
+                    Builder(
+                      builder: (buttonContext) => GestureDetector(
+                        onTap: _exporting || _loading
+                            ? null
+                            : () => _downloadAllAsRtf(buttonContext),
+                        child: Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: t.green,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Center(
+                            child: _exporting
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                        Colors.white,
+                                      ),
+                                    ),
+                                  )
+                                : const Icon(
+                                    Icons.file_download_outlined,
+                                    color: Colors.white,
+                                    size: 18,
+                                  ),
+                          ),
+                        ),
+                      ),
                     ),
-                    child: Center(child: AppIcons.plus(c: Colors.white, s: 16)),
-                  ),
+                    const SizedBox(width: 8),
+                    GestureDetector(
+                      onTap: () => setState(() => _adding = true),
+                      child: Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: t.accent,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Center(child: AppIcons.plus(c: Colors.white, s: 16)),
+                      ),
+                    ),
+                  ],
                 ),
             ],
           ),
@@ -892,16 +902,26 @@ class _MemoriesTabState extends State<MemoriesTab> {
 class _Memory {
   final String id;
   String caption;
+  String? title;
+  String? description;
   String? photoUrl;
   String? localPath; // local file path for immediate display before server URL loads
+  String? dateKey;
+  String? tags;
+  String? childAge;
   final Color color;
   final DateTime date;
 
   _Memory({
     required this.id,
     required this.caption,
+    this.title,
+    this.description,
     this.photoUrl,
     this.localPath,
+    this.dateKey,
+    this.tags,
+    this.childAge,
     required this.color,
     required this.date,
   });

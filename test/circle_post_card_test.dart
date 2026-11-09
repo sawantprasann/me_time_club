@@ -501,10 +501,49 @@ void main() {
           'author': 'Private name',
           'body': 'Hello',
         }).author,
-        'Anonymous',
+        'a mama',
       );
     },
   );
+
+  testWidgets('Own posts and comments use the task remove button', (
+    tester,
+  ) async {
+    var removedPost = false;
+    CircleReply? removedComment;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: CirclePostCard(
+              t: AppTokens.day,
+              author: 'A Mum',
+              body: 'Some days I just need a moment to breathe.',
+              time: 'Just now',
+              mine: true,
+              onDeletePost: () => removedPost = true,
+              onDeleteComment: (reply) async => removedComment = reply,
+              replies: const [
+                CircleReply(id: 4, author: 'A Mum', body: 'My note', mine: true),
+                CircleReply(author: 'Another mother', body: 'Held', mine: false),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.bySemanticsLabel('Remove post'), findsOneWidget);
+    expect(find.bySemanticsLabel('Remove comment'), findsOneWidget);
+
+    await tester.tap(find.bySemanticsLabel('Remove post'));
+    await tester.pump();
+    expect(removedPost, isTrue);
+
+    await tester.tap(find.bySemanticsLabel('Remove comment'));
+    await tester.pump();
+    expect(removedComment?.body, 'My note');
+  });
 
   test('post payload keeps feelings out of the comment list', () {
     final payload = CirclePostPayload.fromJson({

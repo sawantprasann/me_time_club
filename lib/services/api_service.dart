@@ -1658,6 +1658,71 @@ class ApiService {
     }
   }
 
+  /// Deletes one of the current user's circle posts.
+  static Future<void> deleteCirclePost({
+    required String token,
+    required String postId,
+  }) async {
+    final url = '$apiBase/circle_posts/$postId';
+
+    print('[API REQUEST] DELETE $url');
+
+    try {
+      final response = await _client.delete(
+        Uri.parse(url),
+        headers: {'accept': '*/*', 'Authorization': 'Bearer $token'},
+      );
+
+      print('[API RESPONSE] ${response.statusCode} DELETE $url');
+
+      if (response.statusCode != 200 && response.statusCode != 204) {
+        throw ApiException('Failed to delete post.');
+      }
+    } on http.ClientException catch (e) {
+      print('[API ERROR] ClientException: ${e.message}');
+      throw ApiException(
+        'Network error: Please check your internet connection.',
+      );
+    } catch (e) {
+      print('[API ERROR] Exception: ${e.toString()}');
+      if (e is ApiException) rethrow;
+      throw ApiException('An unexpected error occurred: ${e.toString()}');
+    }
+  }
+
+  /// Deletes one of the current user's written comments.
+  static Future<void> deleteCircleComment({
+    required String token,
+    required String postId,
+    required int commentId,
+  }) async {
+    final url = '$apiBase/circle_posts/$postId/comments/$commentId';
+
+    print('[API REQUEST] DELETE $url');
+
+    try {
+      final response = await _client.delete(
+        Uri.parse(url),
+        headers: {'accept': '*/*', 'Authorization': 'Bearer $token'},
+      );
+
+      print('[API RESPONSE] ${response.statusCode} DELETE $url');
+
+      if (response.statusCode != 200 && response.statusCode != 204) {
+        throw ApiException('Failed to delete comment.');
+      }
+    } on http.ClientException catch (e) {
+      print('[API ERROR] ClientException: ${e.message}');
+      throw ApiException(
+        'Network error: Please check your internet connection.',
+      );
+    } catch (e) {
+      print('[API ERROR] Exception: ${e.toString()}');
+      if (e is ApiException) rethrow;
+      throw ApiException('An unexpected error occurred: ${e.toString()}');
+    }
+  }
+
   /// Gets the user's profile.
   static Future<Map<String, dynamic>> getProfile({
     required String token,
