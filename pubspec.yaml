@@ -35,6 +35,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/
+    - ios/Runner/GoogleService-Info.plist
 
 flutter_launcher_icons:
   android: "launcher_icon"

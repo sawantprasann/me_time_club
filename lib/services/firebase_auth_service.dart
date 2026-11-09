@@ -4,6 +4,8 @@ import 'dart:math';
 import 'package:crypto/crypto.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
@@ -50,9 +52,20 @@ class FirebaseAuthService {
   }
 
   static Future<FirebaseIdentity> _google() async {
+    final clientId = await _iosGoogleClientId();
+    if (defaultTargetPlatform == TargetPlatform.iOS && clientId == null) {
+      throw FirebaseAuthException(
+        code: 'missing-client-id',
+        message:
+            'Google sign-in is missing its iOS client ID. In Firebase, turn on Google under Authentication, download GoogleService-Info.plist again, and rebuild.',
+      );
+    }
+
     final google = GoogleSignIn.instance;
     if (!_googleReady) {
-      await google.initialize();
+      await google.initialize(
+        clientId: defaultTargetPlatform == TargetPlatform.iOS ? clientId : null,
+      );
       _googleReady = true;
     }
 
@@ -131,6 +144,20 @@ class FirebaseAuthService {
       idToken: idToken,
       name: (name == null || name.isEmpty) ? null : name,
     );
+  }
+
+  static Future<String?> _iosGoogleClientId() async {
+    if (defaultTargetPlatform != TargetPlatform.iOS) return null;
+    try {
+      final raw = await rootBundle.loadString(
+        'ios/Runner/GoogleService-Info.plist',
+      );
+      return RegExp(
+        r'<key>CLIENT_ID</key>\s*<string>([^<]+)</string>',
+      ).firstMatch(raw)?.group(1);
+    } catch (_) {
+      return null;
+    }
   }
 
   static String _randomNonce([int length = 32]) {
