@@ -294,9 +294,7 @@ class DailyPageContent {
       id: parsedId,
       openingThought: content['opening_thought'] as String? ?? '',
       reflection: content['reflection'] as String? ?? '',
-      reflectionFollowup:
-          content['reflection_followup'] as String? ??
-          'Do you know what is behind this feeling?',
+      reflectionFollowup: content['reflection_followup'] as String? ?? '',
       emotionalFeeling: feeling,
       emotionalNeed: need,
       emotionalResponse: responseVal,

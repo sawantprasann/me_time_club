@@ -128,6 +128,15 @@ class AppTypography {
         height: height,
       );
 
+  /// Lato 600 — Text links
+  static TextStyle lato600(double size, Color color, {double? height}) =>
+      GoogleFonts.lato(
+        fontSize: size,
+        fontWeight: FontWeight.w600,
+        color: color,
+        height: height,
+      );
+
   /// Lato 700 — Section labels (UPPERCASE), chip selected
   static TextStyle lato700(
     double size,

@@ -14,7 +14,7 @@ final Map<String, DailyPageContent> _fallbackDB = {
         'You are growing a universe inside you — and the universe is taking its time, as all sacred things do.',
     reflection:
         'What part of waiting feels the heaviest today — and what part feels the most wonder?',
-    reflectionFollowup: 'Do you know what is behind this feeling?',
+    reflectionFollowup: '',
     emotionalFeeling:
         'You may be carrying a quiet mix of excitement and exhaustion — the kind that no one sees because you\'re still showing up.',
     emotionalNeed:
@@ -36,7 +36,7 @@ final Map<String, DailyPageContent> _fallbackDB = {
         'You are someone\'s entire world right now — and you don\'t have to be perfect to be everything.',
     reflection:
         'When was the last time you did something just for yourself — even for thirty seconds?',
-    reflectionFollowup: 'Do you know what is behind this feeling?',
+    reflectionFollowup: '',
     emotionalFeeling:
         'You may be carrying an invisible weight — the love that is so fierce it frightens you, mixed with an exhaustion that has no bottom.',
     emotionalNeed:
@@ -58,7 +58,7 @@ final Map<String, DailyPageContent> _fallbackDB = {
         'Some days you lead, some days you follow — and some days you just survive. All three count.',
     reflection:
         'What part of you existed before motherhood that you\'d like to visit today, even just in your mind?',
-    reflectionFollowup: 'Do you know what is behind this feeling?',
+    reflectionFollowup: '',
     emotionalFeeling:
         'You might be carrying the weight of being "on" all the time — the constant vigilance that no one else seems to notice.',
     emotionalNeed:
@@ -80,7 +80,7 @@ final Map<String, DailyPageContent> _fallbackDB = {
         'You are raising a tiny revolutionary who has opinions about socks — and somehow, you are the steady ground beneath all that glorious chaos.',
     reflection:
         'Where in your day do you lose yourself — and where, even briefly, do you find yourself again?',
-    reflectionFollowup: 'Do you know what is behind this feeling?',
+    reflectionFollowup: '',
     emotionalFeeling:
         'You might be carrying the paradox of loving the person who exhausts you most — and feeling guilty about both the love and the exhaustion.',
     emotionalNeed:
@@ -102,7 +102,7 @@ final Map<String, DailyPageContent> _fallbackDB = {
         'They\'re starting to carry their own stories now — and you\'re learning that letting go is its own kind of holding on.',
     reflection:
         'What are you grieving about the stage that just ended — and what are you quietly excited about in the one beginning?',
-    reflectionFollowup: 'Do you know what is behind this feeling?',
+    reflectionFollowup: '',
     emotionalFeeling:
         'You may be feeling the strange ache of being needed less — not because they love you less, but because you did your job so well they\'re ready to try the world.',
     emotionalNeed:
@@ -124,7 +124,7 @@ final Map<String, DailyPageContent> _fallbackDB = {
         'You have loved this person through every version of themselves — and the hardest part is realising they\'re becoming someone you\'ll have to get to know all over again.',
     reflection:
         'What conversation have you been avoiding — with your child, with yourself — that might change something if you had it?',
-    reflectionFollowup: 'Do you know what is behind this feeling?',
+    reflectionFollowup: '',
     emotionalFeeling:
         'You may be carrying the quiet loneliness of a mother whose child is growing away — not because something is wrong, but because everything is going exactly right.',
     emotionalNeed:

@@ -9,6 +9,9 @@ Future<void> showCard(
   WidgetTester tester, {
   Future<void> Function(CircleResponseDraft)? onSend,
   List<CircleReply> replies = const [],
+  List<CircleFeelingCount> feelings = const [],
+  List<String> myMoods = const [],
+  int? mamaCount,
   AppTokens? tokens,
   double textScale = 1,
 }) async {
@@ -24,6 +27,9 @@ Future<void> showCard(
               body: 'Some days I just need a moment to breathe.',
               time: '2h ago',
               replies: replies,
+              feelings: feelings,
+              myMoods: myMoods,
+              mamaCount: mamaCount,
               onSendReply: onSend,
             ),
           ),
@@ -39,33 +45,77 @@ Future<void> tapText(WidgetTester tester, String text) async {
   await tester.pump();
 }
 
+Finder chipFinder(String label) {
+  return find.byWidgetPredicate((widget) {
+    if (widget is! ChoiceChip) return false;
+    final child = widget.label;
+    if (child is! Text) return false;
+    return child.data == label || child.data == '$label ✓';
+  });
+}
+
+Future<void> tapChip(WidgetTester tester, String label) async {
+  final chip = chipFinder(label);
+  await tester.ensureVisible(chip);
+  await tester.tap(chip);
+  await tester.pump();
+}
+
+String hintText(WidgetTester tester) {
+  return tester.widget<TextField>(find.byType(TextField)).decoration!.hintText!;
+}
+
+bool chipSelected(WidgetTester tester, String label) {
+  return tester.widget<ChoiceChip>(chipFinder(label)).selected;
+}
+
 void main() {
-  testWidgets('Response panels switch, close, and preserve the draft', (
+  testWidgets('Response panels are exclusive and keep a written draft', (
     tester,
   ) async {
     await showCard(tester);
     expect(find.byType(TextField), findsNothing);
-    await tapText(tester, 'Respond');
-    await tester.enterText(find.byType(TextField), 'My written draft');
-    await tapText(tester, 'Respond with feeling');
-    expect(find.text('Holding you'), findsOneWidget);
-    expect(find.byType(TextField), findsNothing);
-    expect(find.text('Send'), findsNothing);
-    await tapText(tester, 'I understand');
-    expect(find.byType(TextField), findsNothing);
-    expect(
-      find.textContaining('Anonymous:  I understand', findRichText: true),
-      findsOneWidget,
-    );
     expect(find.byType(ChoiceChip), findsNothing);
-    expect(find.text('Respond with feeling'), findsOneWidget);
-    expect(find.byType(TextField), findsNothing);
+
+    await tapText(tester, 'Respond');
+    expect(hintText(tester), 'Write a gentle response…');
+    await tester.enterText(find.byType(TextField), 'My written draft');
+    await tester.pump();
+
+    await tapText(tester, 'Respond with feeling');
+    expect(find.byType(ChoiceChip), findsNWidgets(7));
+    expect(find.text('TAP TO SELECT · TAP AGAIN TO REMOVE'), findsOneWidget);
+    expect(hintText(tester), 'Or write a gentle response…');
     expect(
-      find.textContaining('Anonymous:  I understand', findRichText: true),
+      tester.widget<TextField>(find.byType(TextField)).controller!.text,
+      'My written draft',
+    );
+    expect(find.text('Respond'), findsOneWidget);
+    expect(find.text('Close'), findsOneWidget);
+
+    await tapChip(tester, 'I understand');
+    expect(
+      find.text('1 mama is here with you — mostly i understand.'),
       findsOneWidget,
     );
+    expect(chipSelected(tester, 'I understand'), isTrue);
+    expect(find.text('Close'), findsOneWidget);
+
+    await tapChip(tester, 'I understand');
+    expect(
+      find.text('1 mama is here with you — mostly i understand.'),
+      findsNothing,
+    );
+    expect(chipSelected(tester, 'I understand'), isFalse);
+
+    await tapText(tester, 'Close');
+    expect(find.byType(ChoiceChip), findsNothing);
+    expect(find.byType(TextField), findsNothing);
+
     await tapText(tester, 'Respond');
-    expect(find.text('Holding you'), findsNothing);
+    expect(hintText(tester), 'Write a gentle response…');
+    expect(find.text('TAP TO SELECT · TAP AGAIN TO REMOVE'), findsNothing);
+    expect(find.byType(ChoiceChip), findsNothing);
     expect(
       tester.widget<TextField>(find.byType(TextField)).controller!.text,
       'My written draft',
@@ -90,7 +140,7 @@ void main() {
   });
 
   testWidgets(
-    'Selected feelings appear once below the post alongside existing replies',
+    'Selected feelings stay unique and sit above written comments',
     (tester) async {
       await showCard(
         tester,
@@ -99,36 +149,22 @@ void main() {
         ],
       );
       await tapText(tester, 'Respond with feeling');
-      await tapText(tester, 'I understand');
-      expect(find.byType(ChoiceChip), findsNothing);
-      await tapText(tester, 'Respond with feeling');
-      await tapText(tester, 'I understand');
-      await tapText(tester, 'Respond with feeling');
-      await tapText(tester, "I'm here");
+      await tapChip(tester, 'I understand');
+      await tapChip(tester, 'I understand');
+      await tapChip(tester, "I'm here");
+
+      expect(find.text('Another mother'), findsOneWidget);
+      expect(find.text('Here for you'), findsOneWidget);
       expect(
-        find.textContaining('Anonymous:  I understand', findRichText: true),
+        find.text("1 mama is here with you — mostly i'm here."),
         findsOneWidget,
       );
+      expect(find.text('1'), findsOneWidget);
+      expect(chipSelected(tester, 'I understand'), isFalse);
+      expect(chipSelected(tester, "I'm here"), isTrue);
+      expect(find.textContaining('Anonymous:'), findsNothing);
       expect(
-        find.textContaining("Anonymous:  I'm here", findRichText: true),
-        findsOneWidget,
-      );
-      expect(
-        find.textContaining(
-          'Another mother:  Here for you',
-          findRichText: true,
-        ),
-        findsOneWidget,
-      );
-      expect(find.text('BE THE FIRST TO RESPOND GENTLY…'), findsNothing);
-      expect(find.byType(TextField), findsNothing);
-      expect(find.byType(ChoiceChip), findsNothing);
-      final response = find.textContaining(
-        'Anonymous:  I understand',
-        findRichText: true,
-      );
-      expect(
-        tester.getTopLeft(response).dy,
+        tester.getTopLeft(find.text('Here for you')).dy,
         greaterThan(
           tester
               .getTopLeft(
@@ -138,14 +174,18 @@ void main() {
         ),
       );
       expect(
-        tester.getTopLeft(response).dy,
-        lessThan(tester.getTopLeft(find.text('Respond with feeling')).dy),
+        tester.getTopLeft(find.text('Here for you')).dy,
+        lessThan(tester.getTopLeft(find.text('Respond')).dy),
+      );
+      expect(
+        tester.getTopLeft(find.text("I'm here").first).dy,
+        lessThan(tester.getTopLeft(find.text('Here for you')).dy),
       );
     },
   );
 
   testWidgets(
-    'Feeling send waits for success and prevents duplicate submission',
+    'Feeling send waits for success and a second tap removes it',
     (tester) async {
       final completion = Completer<void>();
       final sent = <CircleResponseDraft>[];
@@ -157,7 +197,7 @@ void main() {
         },
       );
       await tapText(tester, 'Respond with feeling');
-      await tapText(tester, "I'm here");
+      await tapChip(tester, "I'm here");
       expect(sent.single.toJson(), {
         'circle_response': {
           'body': "I'm here",
@@ -165,20 +205,28 @@ void main() {
           'anonymous': true,
         },
       });
-      expect(find.byType(TextField), findsNothing);
-      expect(find.text('Send'), findsNothing);
-      expect(find.byType(ChoiceChip), findsNothing);
       expect(
         tester
             .widget<OutlinedButton>(
-              find.widgetWithText(OutlinedButton, 'Respond with feeling'),
+              find.widgetWithText(OutlinedButton, 'Close'),
             )
             .onPressed,
         isNull,
       );
+      expect(
+        tester.widget<ChoiceChip>(find.widgetWithText(ChoiceChip, 'Holding you')).onSelected,
+        isNull,
+      );
+
       completion.complete();
       await tester.pump();
-      expect(find.byType(TextField), findsNothing);
+      expect(chipSelected(tester, "I'm here"), isTrue);
+
+      await tapChip(tester, "I'm here");
+      await tester.pump();
+      expect(sent, hasLength(2));
+      expect(chipSelected(tester, "I'm here"), isFalse);
+
       await tapText(tester, 'Respond');
       expect(
         tester.widget<TextField>(find.byType(TextField)).controller!.text,
@@ -186,6 +234,208 @@ void main() {
       );
     },
   );
+
+  testWidgets('A feeling the user already sent starts selected', (tester) async {
+    final sent = <CircleResponseDraft>[];
+    await showCard(
+      tester,
+      myMoods: const ['holding_you'],
+      feelings: const [
+        CircleFeelingCount(key: 'holding_you', label: 'Holding you', count: 3),
+        CircleFeelingCount(key: 'i_understand', label: 'I understand', count: 2),
+      ],
+      mamaCount: 9,
+      onSend: (draft) async {
+        sent.add(draft);
+      },
+    );
+
+    expect(
+      find.text('9 mamas are here with you — mostly holding you and i understand.'),
+      findsOneWidget,
+    );
+    expect(find.text('3'), findsOneWidget);
+    expect(find.text('2'), findsOneWidget);
+
+    await tapText(tester, 'Respond with feeling');
+    expect(chipSelected(tester, 'Holding you'), isTrue);
+    expect(chipSelected(tester, 'I understand'), isFalse);
+
+    await tapChip(tester, 'Holding you');
+    await tester.pump();
+    expect(sent.single.feelingKey, 'holding_you');
+    expect(chipSelected(tester, 'Holding you'), isFalse);
+
+    await tapChip(tester, 'This feels heavy');
+    await tester.pump();
+    expect(sent.last.feelingKey, 'this_feels_heavy');
+    expect(chipSelected(tester, 'This feels heavy'), isTrue);
+  });
+
+  testWidgets('More than four feelings collapse behind + more', (tester) async {
+    await showCard(
+      tester,
+      mamaCount: 9,
+      feelings: const [
+        CircleFeelingCount(key: 'holding_you', label: 'Holding you', count: 3),
+        CircleFeelingCount(key: 'i_understand', label: 'I understand', count: 2),
+        CircleFeelingCount(key: 'youre_doing_okay', label: "You're doing okay", count: 2),
+        CircleFeelingCount(key: 'im_here', label: "I'm here", count: 1),
+        CircleFeelingCount(key: 'take_a_breath', label: 'Take a breath', count: 1),
+      ],
+    );
+
+    expect(find.text('Take a breath'), findsNothing);
+    expect(find.text('+1 more'), findsOneWidget);
+    await tapText(tester, '+1 more');
+    expect(find.text('Take a breath'), findsOneWidget);
+    expect(find.text('+1 more'), findsNothing);
+  });
+
+  testWidgets('Comments show 2, then load more brings the next 10', (tester) async {
+    await showCard(
+      tester,
+      replies: [
+        for (var i = 0; i < 12; i++)
+          CircleReply(author: 'A Mum', body: 'Comment $i'),
+      ],
+    );
+
+    expect(find.text('Comment 11'), findsOneWidget);
+    expect(find.text('Comment 10'), findsOneWidget);
+    expect(find.text('Comment 9'), findsNothing);
+    expect(find.text('Load 10 more responses...'), findsOneWidget);
+    expect(find.text('Show less ↑'), findsNothing);
+    expect(
+      tester.getTopLeft(find.text('Comment 11')).dy,
+      lessThan(tester.getTopLeft(find.text('Comment 10')).dy),
+    );
+
+    await tapText(tester, 'Load 10 more responses...');
+    expect(find.text('Comment 9'), findsOneWidget);
+    expect(find.text('Comment 0'), findsOneWidget);
+    expect(find.text('Load 10 more responses...'), findsNothing);
+    expect(find.text('Show less ↑'), findsOneWidget);
+
+    await tapText(tester, 'Show less ↑');
+    expect(find.text('Comment 9'), findsNothing);
+    expect(find.text('Comment 11'), findsOneWidget);
+    expect(find.text('Load 10 more responses...'), findsOneWidget);
+    expect(find.text('Show less ↑'), findsNothing);
+  });
+
+  testWidgets('One hidden comment uses the singular load more label', (tester) async {
+    await showCard(
+      tester,
+      replies: const [
+        CircleReply(author: 'A Mum', body: 'First'),
+        CircleReply(author: 'A Mum', body: 'Second'),
+        CircleReply(author: 'A Mum', body: 'Third'),
+      ],
+    );
+
+    expect(find.text('Third'), findsOneWidget);
+    expect(find.text('Second'), findsOneWidget);
+    expect(find.text('First'), findsNothing);
+    expect(find.text('Load 1 more response...'), findsOneWidget);
+    expect(find.text('Show less ↑'), findsNothing);
+    expect(
+      tester.getTopLeft(find.text('Third')).dy,
+      lessThan(tester.getTopLeft(find.text('Second')).dy),
+    );
+
+    await tapText(tester, 'Load 1 more response...');
+    expect(find.text('First'), findsOneWidget);
+    expect(find.text('Load 1 more response...'), findsNothing);
+    expect(find.text('Show less ↑'), findsOneWidget);
+  });
+
+  testWidgets('Show less appears only after the last comment batch', (
+    tester,
+  ) async {
+    await showCard(
+      tester,
+      replies: [
+        for (var i = 0; i < 14; i++)
+          CircleReply(author: 'A Mum', body: 'Comment $i'),
+      ],
+    );
+
+    expect(find.text('Load 10 more responses...'), findsOneWidget);
+    expect(find.text('Show less ↑'), findsNothing);
+
+    await tapText(tester, 'Load 10 more responses...');
+    expect(find.text('Comment 13'), findsOneWidget);
+    expect(find.text('Comment 2'), findsOneWidget);
+    expect(find.text('Comment 1'), findsNothing);
+    expect(find.text('Load 2 more responses...'), findsOneWidget);
+    expect(find.text('Show less ↑'), findsNothing);
+
+    await tapText(tester, 'Load 2 more responses...');
+    expect(find.text('Comment 0'), findsOneWidget);
+    expect(find.textContaining('Load '), findsNothing);
+    expect(find.text('Show less ↑'), findsOneWidget);
+  });
+
+  testWidgets('A comment just sent is shown above the older ones', (tester) async {
+    await showCard(
+      tester,
+      replies: const [
+        CircleReply(author: 'A Mum', body: 'Older note'),
+        CircleReply(author: 'A Mum', body: 'Newer note'),
+      ],
+    );
+    expect(
+      tester.getTopLeft(find.text('Newer note')).dy,
+      lessThan(tester.getTopLeft(find.text('Older note')).dy),
+    );
+
+    await showCard(
+      tester,
+      replies: const [
+        CircleReply(author: 'A Mum', body: 'Older note'),
+        CircleReply(author: 'A Mum', body: 'Newer note'),
+        CircleReply(author: 'A Mum', body: 'Just sent'),
+      ],
+    );
+    expect(find.text('Just sent'), findsOneWidget);
+    expect(find.text('Older note'), findsNothing);
+    expect(
+      tester.getTopLeft(find.text('Just sent')).dy,
+      lessThan(tester.getTopLeft(find.text('Newer note')).dy),
+    );
+  });
+
+  testWidgets('Sending a reply keeps the text field focused', (tester) async {
+    final completion = Completer<void>();
+    await showCard(
+      tester,
+      onSend: (_) => completion.future,
+    );
+    await tapText(tester, 'Respond');
+    await tester.tap(find.byType(TextField));
+    await tester.pump();
+    await tester.showKeyboard(find.byType(TextField));
+    await tester.enterText(find.byType(TextField), 'Here with you');
+    await tester.pump();
+    expect(tester.testTextInput.isVisible, isTrue);
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Send'));
+    await tester.pump();
+    expect(tester.testTextInput.isVisible, isTrue);
+    expect(
+      tester.widget<TextField>(find.byType(TextField)).controller!.text,
+      'Here with you',
+    );
+
+    completion.complete();
+    await tester.pump();
+    expect(tester.testTextInput.isVisible, isTrue);
+    expect(
+      tester.widget<TextField>(find.byType(TextField)).controller!.text,
+      isEmpty,
+    );
+  });
 
   testWidgets('Failed replies retain the draft and can be retried', (
     tester,
@@ -210,18 +460,16 @@ void main() {
   });
 
   testWidgets(
-    'Replies stay visible and only the seven feeling responses are offered',
+    'Written comments stay visible and only the seven feelings are offered',
     (tester) async {
       await showCard(
         tester,
         replies: const [CircleReply(author: 'Anonymous', body: 'I understand')],
       );
-      expect(
-        find.textContaining('Anonymous:  I understand', findRichText: true),
-        findsOneWidget,
-      );
+      expect(find.text('I understand'), findsOneWidget);
       await tapText(tester, 'Respond with feeling');
       expect(find.byType(ChoiceChip), findsNWidgets(7));
+      expect(find.text('I understand'), findsNWidgets(2));
       expect(find.textContaining('Heart'), findsNothing);
       expect(find.textContaining('Hug'), findsNothing);
       expect(find.textContaining('Leaf'), findsNothing);
@@ -237,7 +485,7 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     await showCard(tester, tokens: AppTokens.night, textScale: 1.6);
     await tapText(tester, 'Respond with feeling');
-    await tapText(tester, 'Take a breath');
+    await tapChip(tester, 'Take a breath');
     expect(tester.takeException(), isNull);
   });
 
@@ -253,8 +501,74 @@ void main() {
           'author': 'Private name',
           'body': 'Hello',
         }).author,
-        'Anonymous',
+        'a mama',
       );
     },
   );
+
+  testWidgets('Own posts and comments use the task remove button', (
+    tester,
+  ) async {
+    var removedPost = false;
+    CircleReply? removedComment;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: CirclePostCard(
+              t: AppTokens.day,
+              author: 'A Mum',
+              body: 'Some days I just need a moment to breathe.',
+              time: 'Just now',
+              mine: true,
+              onDeletePost: () => removedPost = true,
+              onDeleteComment: (reply) async => removedComment = reply,
+              replies: const [
+                CircleReply(id: 4, author: 'A Mum', body: 'My note', mine: true),
+                CircleReply(author: 'Another mother', body: 'Held', mine: false),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.bySemanticsLabel('Remove post'), findsOneWidget);
+    expect(find.bySemanticsLabel('Remove comment'), findsOneWidget);
+
+    await tester.tap(find.bySemanticsLabel('Remove post'));
+    await tester.pump();
+    expect(removedPost, isTrue);
+
+    await tester.tap(find.bySemanticsLabel('Remove comment'));
+    await tester.pump();
+    expect(removedComment?.body, 'My note');
+  });
+
+  test('post payload keeps feelings out of the comment list', () {
+    final payload = CirclePostPayload.fromJson({
+      'mama_count': 2,
+      'my_moods': ['holding_you', 'im_here'],
+      'feelings': [
+        {'key': 'holding_you', 'label': 'Holding you', 'count': 2},
+      ],
+      'comments': [
+        {'author': 'A Mum', 'text': 'You are held.', 'kind': 'text'},
+      ],
+      'responses': [
+        {
+          'kind': 'mood',
+          'mood_key': 'holding_you',
+          'text': 'Holding you',
+          'mine': true,
+        },
+        {'kind': 'text', 'text': 'You are held.', 'author': 'A Mum'},
+      ],
+    });
+
+    expect(payload.comments.map((comment) => comment.body), ['You are held.']);
+    expect(payload.myMoods, ['holding_you', 'im_here']);
+    expect(payload.feelings.single.count, 2);
+    expect(payload.mamaCount, 2);
+  });
 }

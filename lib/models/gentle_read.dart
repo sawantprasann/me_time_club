@@ -27,7 +27,7 @@ class GentleRead {
       imageUrl: _urlValue(json['image_url'] ?? json['image']),
       imageAlt: _optionalString(json['image_alt']),
       linkUrl: _urlValue(json['link_url'] ?? json['link']),
-      linkLabel: _optionalString(json['link_label']),
+      linkLabel: _optionalString(json['link_label'] ?? json['link_text']),
       total: json['total'] as int? ?? 1,
     );
   }
@@ -40,5 +40,18 @@ class GentleRead {
   static String? _urlValue(Object? value) {
     if (value is Map) return _optionalString(value['url']);
     return _optionalString(value);
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'title': title,
+      'body': body,
+      'image_url': imageUrl,
+      'image_alt': imageAlt,
+      'link': linkUrl,
+      'link_text': linkLabel,
+      'total': total,
+    };
   }
 }

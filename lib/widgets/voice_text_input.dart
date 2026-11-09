@@ -136,17 +136,48 @@ class VoiceTextArea extends StatefulWidget {
   });
 
   @override
-  State<VoiceTextArea> createState() => _VoiceTextAreaState();
+  State<VoiceTextArea> createState() => VoiceTextAreaState();
 }
 
-class _VoiceTextAreaState extends State<VoiceTextArea> {
+class VoiceTextAreaState extends State<VoiceTextArea> {
   late final TextEditingController _controller;
+  final _speechKey = GlobalKey<SpeechButtonState>();
 
   @override
   void initState() {
     super.initState();
     _controller = TextEditingController(text: widget.value);
-    _controller.selection = TextSelection.collapsed(offset: widget.value.length);
+    _controller.selection = TextSelection.collapsed(
+      offset: widget.value.length,
+    );
+  }
+
+  /// Text already in the field when this utterance started.
+  /// Partials replace the spoken part instead of appending onto themselves.
+  String? _speechBase;
+
+  /// Stops the mic, waits for the transcript, and returns the field text.
+  Future<String> finishListening() async {
+    await _speechKey.currentState?.finishListening();
+    return _controller.text.trim();
+  }
+
+  void _applySpoken(String transcript, {required bool done}) {
+    final spoken = transcript.trim();
+    _speechBase ??= _controller.text;
+    final base = _speechBase!;
+    final next =
+        spoken.isEmpty
+            ? base
+            : (base.trim().isEmpty ? spoken : '${base.trimRight()} $spoken');
+    if (_controller.text != next) {
+      _controller.value = TextEditingValue(
+        text: next,
+        selection: TextSelection.collapsed(offset: next.length),
+      );
+      widget.onChange(next);
+    }
+    if (done) _speechBase = null;
   }
 
   @override
@@ -155,6 +186,7 @@ class _VoiceTextAreaState extends State<VoiceTextArea> {
     // Only sync when the parent programmatically changes the value
     // (e.g., clearing after submit). Do NOT update during normal typing.
     if (widget.value != _controller.text) {
+      _speechBase = null;
       _controller.text = widget.value;
       _controller.selection = TextSelection.collapsed(offset: widget.value.length);
     }
@@ -203,11 +235,11 @@ class _VoiceTextAreaState extends State<VoiceTextArea> {
           bottom: 10,
           right: 10,
           child: SpeechButton(
-            onResult: (transcript) {
-              final newVal = widget.value.isEmpty
-                  ? transcript
-                  : '${widget.value} $transcript';
-              widget.onChange(newVal);
+            key: _speechKey,
+            onPartial: (transcript) => _applySpoken(transcript, done: false),
+            onResult: (transcript) => _applySpoken(transcript, done: true),
+            onListeningChanged: (listening) {
+              if (listening) _speechBase = null;
             },
             t: t,
             size: widget.micSize,

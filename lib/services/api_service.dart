@@ -783,9 +783,9 @@ class ApiService {
     }
   }
 
-  /// Loads one published gentle read at random.
-  /// [excludeIds] are skipped when another read is still available, so
-  /// Prev and Next do not walk through the library in order.
+  /// Loads one gentle read at random.
+  /// Leave [excludeIds] empty when a repeat is allowed. Ids in [excludeIds]
+  /// are skipped only when another read is still available.
   static Future<GentleRead?> randomGentleRead({
     required String token,
     List<int> excludeIds = const [],
@@ -1466,7 +1466,8 @@ class ApiService {
         final decoded = jsonDecode(response.body);
         if (decoded is List) {
           return decoded;
-        } else if (decoded is Map<String, dynamic> && decoded['posts'] is List) {
+        } else if (decoded is Map<String, dynamic> &&
+            decoded['posts'] is List) {
           return decoded['posts'] as List<dynamic>;
         }
         return [];
@@ -1611,9 +1612,7 @@ class ApiService {
     bool anonymous = true,
   }) async {
     final url = '$apiBase/circle_posts/$postId/respond';
-    final Map<String, dynamic> requestBody = {
-      'anonymous': anonymous,
-    };
+    final Map<String, dynamic> requestBody = {'anonymous': anonymous};
     if (moodKey != null && moodKey.isNotEmpty) {
       requestBody['mood_key'] = moodKey;
     }
@@ -1647,6 +1646,71 @@ class ApiService {
               ? decoded['error'].toString()
               : 'Failed to send response.';
       throw ApiException(errorMsg);
+    } on http.ClientException catch (e) {
+      print('[API ERROR] ClientException: ${e.message}');
+      throw ApiException(
+        'Network error: Please check your internet connection.',
+      );
+    } catch (e) {
+      print('[API ERROR] Exception: ${e.toString()}');
+      if (e is ApiException) rethrow;
+      throw ApiException('An unexpected error occurred: ${e.toString()}');
+    }
+  }
+
+  /// Deletes one of the current user's circle posts.
+  static Future<void> deleteCirclePost({
+    required String token,
+    required String postId,
+  }) async {
+    final url = '$apiBase/circle_posts/$postId';
+
+    print('[API REQUEST] DELETE $url');
+
+    try {
+      final response = await _client.delete(
+        Uri.parse(url),
+        headers: {'accept': '*/*', 'Authorization': 'Bearer $token'},
+      );
+
+      print('[API RESPONSE] ${response.statusCode} DELETE $url');
+
+      if (response.statusCode != 200 && response.statusCode != 204) {
+        throw ApiException('Failed to delete post.');
+      }
+    } on http.ClientException catch (e) {
+      print('[API ERROR] ClientException: ${e.message}');
+      throw ApiException(
+        'Network error: Please check your internet connection.',
+      );
+    } catch (e) {
+      print('[API ERROR] Exception: ${e.toString()}');
+      if (e is ApiException) rethrow;
+      throw ApiException('An unexpected error occurred: ${e.toString()}');
+    }
+  }
+
+  /// Deletes one of the current user's written comments.
+  static Future<void> deleteCircleComment({
+    required String token,
+    required String postId,
+    required int commentId,
+  }) async {
+    final url = '$apiBase/circle_posts/$postId/comments/$commentId';
+
+    print('[API REQUEST] DELETE $url');
+
+    try {
+      final response = await _client.delete(
+        Uri.parse(url),
+        headers: {'accept': '*/*', 'Authorization': 'Bearer $token'},
+      );
+
+      print('[API RESPONSE] ${response.statusCode} DELETE $url');
+
+      if (response.statusCode != 200 && response.statusCode != 204) {
+        throw ApiException('Failed to delete comment.');
+      }
     } on http.ClientException catch (e) {
       print('[API ERROR] ClientException: ${e.message}');
       throw ApiException(

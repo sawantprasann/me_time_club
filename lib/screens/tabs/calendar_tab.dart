@@ -32,6 +32,9 @@ class _CalendarTabState extends State<CalendarTab> {
   late int _viewMonth;
   int _sel = 1;
   bool _pageExpanded = false;
+  bool _tasksExpanded = false;
+  static const _taskPageSize = 10;
+  int _extraTasks = 0;
 
   // Tasks: key = "$year-$month-$day" (local cache key)
   final Map<String, List<_TaskItem>> _tasks = {};
@@ -47,6 +50,9 @@ class _CalendarTabState extends State<CalendarTab> {
   bool _cycleDaysLoaded = false;
   // Predicted next period start — computed after any cycle change
   DateTime? _nextPredictedDate;
+  // Inline confirmation before marking or unmarking a 3-day period.
+  _CyclePrompt _cyclePrompt = _CyclePrompt.none;
+  bool _cycleBusy = false;
 
   // Cache fetched daily pages by date key YYYY-MM-DD
   final Map<String, DailyPageContent?> _fetchedPages = {};
@@ -76,7 +82,8 @@ class _CalendarTabState extends State<CalendarTab> {
   void didUpdateWidget(covariant CalendarTab oldWidget) {
     super.didUpdateWidget(oldWidget);
     final becameActive = widget.isActive && !oldWidget.isActive;
-    final refreshChanged = widget.refreshTrigger != null &&
+    final refreshChanged =
+        widget.refreshTrigger != null &&
         widget.refreshTrigger != oldWidget.refreshTrigger;
     if (becameActive || (widget.isActive && refreshChanged)) {
       _loadMonthData(forceRefreshCycle: true);
@@ -221,14 +228,6 @@ class _CalendarTabState extends State<CalendarTab> {
     _nextPredictedDate = latestStart?.add(const Duration(days: 30));
   }
 
-  /// Returns true if the given month (year+month) already has an actual cycle day.
-  bool _monthHasCycleEntry(int year, int month) {
-    return _cycleDays.any((k) {
-      final p = k.split('-');
-      return int.parse(p[0]) == year && int.parse(p[1]) == month;
-    });
-  }
-
   /// Fetch tasks for the currently selected day from the server.
   /// Results are cached in [_tasks] under [_taskKey] so re-selecting the same
   /// day does not fire a duplicate network call.
@@ -309,6 +308,9 @@ class _CalendarTabState extends State<CalendarTab> {
     setState(() {
       _sel = dayNum;
       _pageExpanded = false;
+      _tasksExpanded = false;
+      _extraTasks = 0;
+      _cyclePrompt = _CyclePrompt.none;
     });
     _fetchDailyPageForSelected();
     _loadTasksForSelected();
@@ -328,6 +330,71 @@ class _CalendarTabState extends State<CalendarTab> {
 
   List<_TaskItem> get _currentTasks => _tasks[_taskKey] ?? [];
 
+  int get _visibleTaskCount => _taskPageSize + _extraTasks;
+
+  List<_TaskItem> get _visibleTasks {
+    final tasks = _currentTasks;
+    if (tasks.length <= _visibleTaskCount) return tasks;
+    return tasks.sublist(0, _visibleTaskCount);
+  }
+
+  bool get _hasMoreTasks => _currentTasks.length > _visibleTaskCount;
+
+  bool get _onLastTaskBatch =>
+      !_hasMoreTasks && _currentTasks.length > _taskPageSize;
+
+  int get _nextTaskBatch {
+    final remaining = _currentTasks.length - _visibleTaskCount;
+    if (remaining <= 0) return 0;
+    return remaining < _taskPageSize ? remaining : _taskPageSize;
+  }
+
+  void _revealAddedTasks(int total) {
+    final hidden = total - _visibleTaskCount;
+    if (hidden > 0) _extraTasks += hidden;
+  }
+
+  String get _loadMoreTasksLabel {
+    final next = _nextTaskBatch;
+    final noun = next == 1 ? 'task' : 'tasks';
+    return 'Load $next more $noun...';
+  }
+
+  Widget _taskPageLinks() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (_hasMoreTasks)
+          _taskPageLink(
+            _loadMoreTasksLabel,
+            onTap: () => setState(() => _extraTasks += _nextTaskBatch),
+          ),
+        if (_onLastTaskBatch)
+          _taskPageLink(
+            'Show less ↑',
+            onTap: () => setState(() => _extraTasks = 0),
+          ),
+      ],
+    );
+  }
+
+  Widget _taskPageLink(String label, {required VoidCallback onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(0, 4, 0, 6),
+        child: Text(
+          label,
+          style: AppTypography.lato600(12, t.accent).copyWith(
+            decoration: TextDecoration.underline,
+            decorationColor: t.accent.withValues(alpha: 0.314),
+          ),
+        ),
+      ),
+    );
+  }
+
   void _prevMonth() {
     setState(() {
       if (_viewMonth == 1) {
@@ -338,6 +405,9 @@ class _CalendarTabState extends State<CalendarTab> {
       }
       _sel = 1;
       _pageExpanded = false;
+      _tasksExpanded = false;
+      _extraTasks = 0;
+      _cyclePrompt = _CyclePrompt.none;
       // Do NOT clear cycle days — they are loaded once for all months.
       _tasks.clear();
       _fetchedPages.clear();
@@ -355,6 +425,9 @@ class _CalendarTabState extends State<CalendarTab> {
       }
       _sel = 1;
       _pageExpanded = false;
+      _tasksExpanded = false;
+      _extraTasks = 0;
+      _cyclePrompt = _CyclePrompt.none;
       // Do NOT clear cycle days — they are loaded once for all months.
       _tasks.clear();
       _fetchedPages.clear();
@@ -380,117 +453,252 @@ class _CalendarTabState extends State<CalendarTab> {
 
       if (mounted) {
         setState(() {
+          _tasksExpanded = true;
           _tasks[_taskKey] = [
             ..._currentTasks,
             _TaskItem(id: createdId, text: taskText, done: false),
           ];
+          _revealAddedTasks(_tasks[_taskKey]!.length);
         });
       }
     } catch (e) {
       debugPrint('[CALENDAR TASK API ERROR] $e');
       if (mounted) {
         setState(() {
+          _tasksExpanded = true;
           _tasks[_taskKey] = [
             ..._currentTasks,
             _TaskItem(text: taskText, done: false),
           ];
+          _revealAddedTasks(_tasks[_taskKey]!.length);
         });
       }
     }
   }
 
-  Future<void> _markCycleDay() async {
-    final base = DateTime(_viewYear, _viewMonth, _sel);
-    final localKey = _dateKey(base);
+  DateTime get _selectedDate => DateTime(_viewYear, _viewMonth, _sel);
 
-    if (_cycleDays.contains(localKey)) {
-      // Unmark this day AND remove all 3 days of the period that started here.
-      // Find the start of the period this day belongs to.
-      DateTime start = base;
-      while (_cycleDays.contains(
-        _dateKey(start.subtract(const Duration(days: 1))),
-      )) {
-        start = start.subtract(const Duration(days: 1));
-      }
-      // Collect up to 3 days from start
-      final toRemove = <String>[];
-      final idsToDelete = <String>[];
-      for (int i = 0; i < 3; i++) {
-        final d = start.add(Duration(days: i));
-        final lk = _dateKey(d);
-        if (_cycleDays.contains(lk)) {
-          toRemove.add(lk);
-          final pk =
-              '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
-          final id = _cycleDayIds[pk];
-          if (id != null) idsToDelete.add(id);
-        }
-      }
+  bool _isSameDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
+
+  String _paddedDateKey(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  String _formatCycleLabel(DateTime d) =>
+      '${d.day} ${_shortMonths[d.month - 1]}';
+
+  /// First day of the 3-day period that contains [day].
+  DateTime _periodStartFor(DateTime day) {
+    var start = DateTime(day.year, day.month, day.day);
+    while (_cycleDays.contains(
+      _dateKey(start.subtract(const Duration(days: 1))),
+    )) {
+      start = start.subtract(const Duration(days: 1));
+    }
+    return start;
+  }
+
+  bool _isCycleStart(DateTime day) {
+    if (!_cycleDays.contains(_dateKey(day))) return false;
+    final prev = day.subtract(const Duration(days: 1));
+    return !_cycleDays.contains(_dateKey(prev));
+  }
+
+  /// Period the header X would remove. Only when the selected date is inside
+  /// a marked cycle, and then the whole run that starts on that period.
+  DateTime? get _removablePeriodStart {
+    if (!_cycleDays.contains(_dateKey(_selectedDate))) return null;
+    return _periodStartFor(_selectedDate);
+  }
+
+  /// Consecutive marked days that contain [day], such as the 2nd, 3rd, and 4th
+  /// when a cycle was started on the 2nd.
+  List<DateTime> _cycleRun(DateTime day) {
+    if (!_cycleDays.contains(_dateKey(day))) return const [];
+    final dates = <DateTime>[];
+    var cursor = _periodStartFor(day);
+    while (_cycleDays.contains(_dateKey(cursor))) {
+      dates.add(DateTime(cursor.year, cursor.month, cursor.day));
+      cursor = cursor.add(const Duration(days: 1));
+    }
+    return dates;
+  }
+
+  /// The full cycle that contains the selected date. Today uses the same rule
+  /// because today starts selected. A later date that is not part of the cycle
+  /// hides it. Starting a cycle on the 2nd still shows the 2nd, 3rd, and 4th.
+  Set<String> get _visibleCycleDayKeys {
+    final anchor =
+        _cycleDays.contains(_dateKey(_selectedDate))
+            ? _selectedDate
+            : _isSameDay(_selectedDate, DateTime.now())
+            ? DateTime.now()
+            : null;
+    if (anchor == null) return {};
+    return {for (final day in _cycleRun(anchor)) _dateKey(day)};
+  }
+
+  List<DateTime> get _visibleCycleDates {
+    final dates =
+        _visibleCycleDayKeys.map((key) {
+            final parts = key.split('-');
+            return DateTime(
+              int.parse(parts[0]),
+              int.parse(parts[1]),
+              int.parse(parts[2]),
+            );
+          }).toList()
+          ..sort();
+    return dates;
+  }
+
+  List<DateTime> get _cycleHistoryDates {
+    final dates =
+        _cycleDays.map((k) {
+            final p = k.split('-');
+            return DateTime(int.parse(p[0]), int.parse(p[1]), int.parse(p[2]));
+          }).toList()
+          ..sort();
+    return dates;
+  }
+
+  void _onCycleHeaderTap() {
+    if (_cycleBusy) return;
+    if (_removablePeriodStart != null) {
       setState(() {
-        for (final k in toRemove) {
-          _cycleDays.remove(k);
-        }
-        _computePredicted();
+        _cyclePrompt =
+            _cyclePrompt == _CyclePrompt.remove
+                ? _CyclePrompt.none
+                : _CyclePrompt.remove;
       });
-      for (final id in idsToDelete) {
-        try {
-          await ApiService.deleteCycleDay(
-            token: widget.user.token ?? '',
-            cycleDayId: id,
-          );
-        } catch (e) {
-          debugPrint('[CYCLE DELETE ERROR] $e');
-        }
+      return;
+    }
+    setState(() {
+      _cyclePrompt =
+          _cyclePrompt == _CyclePrompt.add
+              ? _CyclePrompt.none
+              : _CyclePrompt.add;
+    });
+  }
+
+  void _focusCycleDay(DateTime day) {
+    if (_cycleBusy) return;
+    final monthChanged = day.year != _viewYear || day.month != _viewMonth;
+    setState(() {
+      _viewYear = day.year;
+      _viewMonth = day.month;
+      _sel = day.day;
+      _pageExpanded = false;
+      _tasksExpanded = false;
+      _extraTasks = 0;
+      _cyclePrompt = _CyclePrompt.remove;
+      if (monthChanged) {
+        _tasks.clear();
+        _fetchedPages.clear();
       }
-    } else {
-      // Guard: only one period start per calendar month
-      if (_monthHasCycleEntry(_viewYear, _viewMonth)) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text(
-                'You\'ve already logged a period this month.',
-              ),
-              backgroundColor: t.cycleRose,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-        }
+    });
+    if (monthChanged) _loadMonthData();
+    _fetchDailyPageForSelected();
+    _loadTasksForSelected();
+  }
+
+  Future<void> _confirmAddCycle() async {
+    if (_cycleBusy) return;
+    final base = _selectedDate;
+    final localKeys = <String>[];
+    final paddedKeys = <String>[];
+    for (int i = 0; i < 3; i++) {
+      final d = base.add(Duration(days: i));
+      localKeys.add(_dateKey(d));
+      paddedKeys.add(_paddedDateKey(d));
+    }
+
+    setState(() {
+      _cycleBusy = true;
+      _cycleDays.addAll(localKeys);
+      _computePredicted();
+      _cyclePrompt = _CyclePrompt.none;
+    });
+
+    try {
+      final results = await ApiService.bulkCreateCycleDays(
+        token: widget.user.token ?? '',
+        dateKeys: paddedKeys,
+      );
+      if (!mounted) return;
+      if (results.isEmpty) {
+        setState(() {
+          _cycleDays.removeAll(localKeys);
+          _computePredicted();
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Couldn\'t save these cycle days. Try again.'),
+            backgroundColor: t.cycleRose,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
         return;
       }
-
-      // Mark 3 consecutive days from the selected day
-      final localKeys = <String>[];
-      final paddedKeys = <String>[];
-      for (int i = 0; i < 3; i++) {
-        final d = base.add(Duration(days: i));
-        localKeys.add(_dateKey(d));
-        paddedKeys.add(
-          '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}',
-        );
-      }
       setState(() {
-        _cycleDays.addAll(localKeys);
+        for (final r in results) {
+          final dk = r['date_key'] as String;
+          _cycleDayIds[dk] = r['id'].toString();
+        }
+      });
+    } catch (e) {
+      debugPrint('[CYCLE MARK ERROR] $e');
+      if (!mounted) return;
+      setState(() {
+        _cycleDays.removeAll(localKeys);
         _computePredicted();
       });
+    } finally {
+      if (mounted) setState(() => _cycleBusy = false);
+    }
+  }
 
-      try {
-        final results = await ApiService.bulkCreateCycleDays(
-          token: widget.user.token ?? '',
-          dateKeys: paddedKeys,
-        );
-        if (mounted) {
-          setState(() {
-            for (final r in results) {
-              final dk = r['date_key'] as String;
-              _cycleDayIds[dk] = r['id'].toString();
-            }
-          });
-        }
-      } catch (e) {
-        debugPrint('[CYCLE MARK ERROR] $e');
+  Future<void> _confirmRemoveCycle() async {
+    if (_cycleBusy) return;
+    final start = _removablePeriodStart;
+    if (start == null) return;
+    final toRemove = <String>[];
+    final idsToDelete = <String>[];
+    for (int i = 0; i < 3; i++) {
+      final d = start.add(Duration(days: i));
+      final lk = _dateKey(d);
+      if (_cycleDays.contains(lk)) {
+        toRemove.add(lk);
+        final id = _cycleDayIds[_paddedDateKey(d)];
+        if (id != null) idsToDelete.add(id);
       }
     }
+
+    setState(() {
+      _cycleBusy = true;
+      _cycleDays.removeAll(toRemove);
+      for (final d in [
+        start,
+        start.add(const Duration(days: 1)),
+        start.add(const Duration(days: 2)),
+      ]) {
+        _cycleDayIds.remove(_paddedDateKey(d));
+      }
+      _computePredicted();
+      _cyclePrompt = _CyclePrompt.none;
+    });
+
+    for (final id in idsToDelete) {
+      try {
+        await ApiService.deleteCycleDay(
+          token: widget.user.token ?? '',
+          cycleDayId: id,
+        );
+      } catch (e) {
+        debugPrint('[CYCLE DELETE ERROR] $e');
+      }
+    }
+    if (mounted) setState(() => _cycleBusy = false);
   }
 
   String _dateKey(DateTime d) => '${d.year}-${d.month}-${d.day}';
@@ -599,6 +807,8 @@ class _CalendarTabState extends State<CalendarTab> {
       _viewYear = nextYear;
       _sel = 1;
       _pageExpanded = false;
+      _tasksExpanded = false;
+      _extraTasks = 0;
       _tasks.clear();
       _fetchedPages.clear();
     });
@@ -787,7 +997,8 @@ class _CalendarTabState extends State<CalendarTab> {
                     (_isCurrentMonth &&
                         widget.dailyPages.containsKey(dayNum)) ||
                     (_fetchedPages[dotDateKey] != null);
-                final hasCycle = _cycleDays.contains(dayKey);
+                final markedCycle = _cycleDays.contains(dayKey);
+                final showCycle = _visibleCycleDayKeys.contains(dayKey);
                 final isPredicted =
                     _nextPredictedDate != null &&
                     _nextPredictedDate!.year == _viewYear &&
@@ -805,7 +1016,7 @@ class _CalendarTabState extends State<CalendarTab> {
                         color:
                             selected
                                 ? t.accent
-                                : hasCycle
+                                : showCycle
                                 ? t.cycleRose.withValues(alpha: 0.18)
                                 : today
                                 ? t.accent.withValues(alpha: 0.22)
@@ -839,7 +1050,7 @@ class _CalendarTabState extends State<CalendarTab> {
                               13,
                               selected
                                   ? Colors.white
-                                  : hasCycle
+                                  : showCycle
                                   ? t.cycleRose
                                   : today
                                   ? t.accent
@@ -853,8 +1064,8 @@ class _CalendarTabState extends State<CalendarTab> {
                               children: [
                                 if (hasTask) _dot(t.gold),
                                 if (hasPage) _dot(t.accent),
-                                if (hasCycle) _dot(t.cycleRose),
-                                if (isPredicted && !hasCycle) _predictedDot(),
+                                if (markedCycle) _dot(t.cycleRose),
+                                if (isPredicted && !markedCycle) _predictedDot(),
                               ],
                             ),
                           ],
@@ -928,18 +1139,20 @@ class _CalendarTabState extends State<CalendarTab> {
     final name = widget.user.name.trim();
     final firstName = name.isEmpty ? '' : name.split(RegExp(r'\s+')).first;
     final now = DateTime.now();
-    final greeting = now.hour < 12
-        ? 'Good morning'
-        : (now.hour < 17 ? 'Good afternoon' : 'Good evening');
+    final greeting =
+        now.hour < 12
+            ? 'Good morning'
+            : (now.hour < 17 ? 'Good afternoon' : 'Good evening');
     final defaultGreeting =
         firstName.isEmpty ? greeting : '$greeting, $firstName';
 
-    final textToShow = (page.whatChamomileSays != null &&
-            page.whatChamomileSays!.trim().isNotEmpty)
-        ? page.whatChamomileSays!.trim()
-        : "$defaultGreeting. I've been waiting for this moment with you. "
-            'Before the day pulls you in every direction — '
-            "you're here. That matters.";
+    final textToShow =
+        (page.whatChamomileSays != null &&
+                page.whatChamomileSays!.trim().isNotEmpty)
+            ? page.whatChamomileSays!.trim()
+            : "$defaultGreeting. I've been waiting for this moment with you. "
+                'Before the day pulls you in every direction — '
+                "you're here. That matters.";
 
     return Container(
       margin: const EdgeInsets.only(top: 4, bottom: 12),
@@ -966,11 +1179,7 @@ class _CalendarTabState extends State<CalendarTab> {
           const SizedBox(height: 8),
           Text(
             textToShow,
-            style: AppTypography.cormorantItalic(
-              16,
-              t.text,
-              height: 1.6,
-            ),
+            style: AppTypography.cormorantItalic(16, t.text, height: 1.6),
           ),
         ],
       ),
@@ -1037,7 +1246,9 @@ class _CalendarTabState extends State<CalendarTab> {
             if (_pageExpanded) ...[
               const SizedBox(height: 14),
               _expandedSection('REFLECTION', page.reflection),
-              _expandedSection('FOLLOWUP', page.reflectionFollowup),
+              if (page.reflectionAnswer.trim().isNotEmpty &&
+                  page.reflectionFollowup.trim().isNotEmpty)
+                _expandedSection('FOLLOWUP', page.reflectionFollowup),
               _expandedSection('FEELING', page.emotionalFeeling),
               _expandedSection('NEED', page.emotionalNeed),
               _expandedSection('RESPONSE', page.emotionalResponse),
@@ -1108,6 +1319,9 @@ class _CalendarTabState extends State<CalendarTab> {
   }
 
   Widget _buildTasksSection() {
+    final tasks = _currentTasks;
+    final hasTasks = tasks.isNotEmpty;
+
     return AppCard(
       t: t,
       child: Column(
@@ -1115,93 +1329,134 @@ class _CalendarTabState extends State<CalendarTab> {
         children: [
           Row(
             children: [
-              AppIcons.journal(c: t.accent, s: 16),
+              AppIcons.journal(c: hasTasks ? t.accent : t.border, s: 16),
               const SizedBox(width: 8),
               Text('TASKS', style: AppTypography.sectionLabel(t.muted)),
+              const Spacer(),
+              if (hasTasks)
+                SolidButton(
+                  onTap:
+                      () => setState(() {
+                        _tasksExpanded = !_tasksExpanded;
+                        if (!_tasksExpanded) _extraTasks = 0;
+                      }),
+                  icon: Transform.rotate(
+                    angle: _tasksExpanded ? 0.785 : 0,
+                    child: AppIcons.plus(c: Colors.white, s: 14),
+                  ),
+                  size: 30,
+                  color: t.accent,
+                ),
             ],
           ),
           const SizedBox(height: 10),
-          ..._currentTasks.asMap().entries.map((e) {
-            final i = e.key;
-            final task = e.value;
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Row(
-                children: [
-                  GestureDetector(
-                    onTap: () async {
-                      final newDone = !task.done;
-                      setState(() {
-                        _tasks[_taskKey]![i] = _TaskItem(
-                          id: task.id,
-                          text: task.text,
-                          done: newDone,
-                        );
-                      });
-                      if (task.id != null) {
-                        try {
-                          await ApiService.updateTask(
-                            token: widget.user.token ?? '',
-                            taskId: task.id!,
-                            completed: newDone,
+          if (!hasTasks)
+            Text(
+              'No tasks for this day.',
+              style: AppTypography.cormorantItalic(14, t.muted),
+            )
+          else if (!_tasksExpanded)
+            Text(
+              tasks.length == 1 ? '1 task' : '${tasks.length} tasks',
+              style: AppTypography.cormorantItalic(14, t.muted),
+            )
+          else
+            ..._visibleTasks.asMap().entries.map((e) {
+              final i = e.key;
+              final task = e.value;
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  children: [
+                    GestureDetector(
+                      onTap: () async {
+                        final newDone = !task.done;
+                        setState(() {
+                          _tasks[_taskKey]![i] = _TaskItem(
+                            id: task.id,
+                            text: task.text,
+                            done: newDone,
                           );
-                        } catch (err) {
-                          debugPrint('[CALENDAR TASK UPDATE API ERROR] $err');
+                        });
+                        if (task.id != null) {
+                          try {
+                            await ApiService.updateTask(
+                              token: widget.user.token ?? '',
+                              taskId: task.id!,
+                              completed: newDone,
+                            );
+                          } catch (err) {
+                            debugPrint('[CALENDAR TASK UPDATE API ERROR] $err');
+                          }
                         }
-                      }
-                    },
-                    child: Container(
-                      width: 20,
-                      height: 20,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: task.done ? t.accent : t.border,
-                          width: 2,
+                      },
+                      child: Container(
+                        width: 20,
+                        height: 20,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: task.done ? t.accent : t.border,
+                            width: 2,
+                          ),
+                          color: task.done ? t.accent : Colors.transparent,
                         ),
-                        color: task.done ? t.accent : Colors.transparent,
-                      ),
-                      child:
-                          task.done
-                              ? AppIcons.check(c: Colors.white, s: 12)
-                              : null,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      task.text,
-                      style: AppTypography.lato400(14, t.text).copyWith(
-                        decoration:
-                            task.done ? TextDecoration.lineThrough : null,
-                        color: task.done ? t.muted : t.text,
+                        child:
+                            task.done
+                                ? AppIcons.check(c: Colors.white, s: 12)
+                                : null,
                       ),
                     ),
-                  ),
-                  GestureDetector(
-                    onTap: () async {
-                      final removedTask = _tasks[_taskKey]![i];
-                      setState(() {
-                        _tasks[_taskKey]!.removeAt(i);
-                      });
-                      if (removedTask.id != null) {
-                        try {
-                          await ApiService.deleteTask(
-                            token: widget.user.token ?? '',
-                            taskId: removedTask.id!,
-                          );
-                        } catch (err) {
-                          debugPrint('[CALENDAR TASK DELETE API ERROR] $err');
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        task.text,
+                        style: AppTypography.lato400(14, t.text).copyWith(
+                          decoration:
+                              task.done ? TextDecoration.lineThrough : null,
+                          color: task.done ? t.muted : t.text,
+                        ),
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () async {
+                        final removedTask = _tasks[_taskKey]![i];
+                        setState(() {
+                          _tasks[_taskKey]!.removeAt(i);
+                          if (_tasks[_taskKey]!.isEmpty) {
+                            _tasksExpanded = false;
+                            _extraTasks = 0;
+                          }
+                        });
+                        if (removedTask.id != null) {
+                          try {
+                            await ApiService.deleteTask(
+                              token: widget.user.token ?? '',
+                              taskId: removedTask.id!,
+                            );
+                          } catch (err) {
+                            debugPrint('[CALENDAR TASK DELETE API ERROR] $err');
+                          }
                         }
-                      }
-                    },
-                    child: AppIcons.close(c: t.muted, s: 14),
-                  ),
-                ],
-              ),
-            );
-          }),
-          const SizedBox(height: 8),
+                      },
+                      child: Container(
+                        width: 22,
+                        height: 22,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: t.accent.withValues(alpha: 0.14),
+                          shape: BoxShape.circle,
+                        ),
+                        child: AppIcons.close(c: t.accent, s: 12),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          if (_tasksExpanded && (_hasMoreTasks || _onLastTaskBatch))
+            _taskPageLinks(),
+          const SizedBox(height: 10),
           Row(
             children: [
               Expanded(
@@ -1262,18 +1517,12 @@ class _CalendarTabState extends State<CalendarTab> {
   }
 
   Widget _buildCycleSection() {
-    final selKey = _dateKey(DateTime(_viewYear, _viewMonth, _sel));
-    final isMarked = _cycleDays.contains(selKey);
-    final alreadyThisMonth = _monthHasCycleEntry(_viewYear, _viewMonth);
-
-    // Only show actual cycle days for the current view month in the chips
-    final viewMonthDays =
-        _cycleDays.where((k) {
-            final p = k.split('-');
-            return int.parse(p[0]) == _viewYear &&
-                int.parse(p[1]) == _viewMonth;
-          }).toList()
-          ..sort();
+    final selected = _selectedDate;
+    final removing = _removablePeriodStart;
+    final history = _visibleCycleDates;
+    final now = DateTime.now();
+    final markTarget =
+        _isSameDay(selected, now) ? 'today' : _formatCycleLabel(selected);
 
     return AppCard(
       t: t,
@@ -1284,96 +1533,204 @@ class _CalendarTabState extends State<CalendarTab> {
             children: [
               Icon(Icons.water_drop_outlined, color: t.cycleRose, size: 16),
               const SizedBox(width: 8),
-              Text('CYCLE', style: AppTypography.sectionLabel(t.muted)),
+              Text('CYCLE TRACKER', style: AppTypography.sectionLabel(t.muted)),
               const Spacer(),
-              SolidButton(
-                onTap: _markCycleDay,
-                icon:
-                    isMarked
-                        ? AppIcons.check(c: Colors.white, s: 14)
-                        : AppIcons.plus(c: Colors.white, s: 14),
-                size: 30,
-                color:
-                    isMarked
-                        ? t.cycleRose
-                        : alreadyThisMonth
-                        ? t.border
-                        : t.accent,
+              Semantics(
+                button: true,
+                label:
+                    removing != null ? 'Remove cycle days' : 'Add cycle days',
+                child: SolidButton(
+                  key: const ValueKey('cycle-header-action'),
+                  onTap: _onCycleHeaderTap,
+                  icon:
+                      removing != null
+                          ? AppIcons.close(c: Colors.white, s: 14)
+                          : AppIcons.plus(c: Colors.white, s: 14),
+                  size: 30,
+                  color: t.accent,
+                ),
               ),
             ],
           ),
-
-          // Actual cycle day chips for this month
-          if (viewMonthDays.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children:
-                  viewMonthDays.map((key) {
-                    final parts = key.split('-');
-                    final d = DateTime(
-                      int.parse(parts[0]),
-                      int.parse(parts[1]),
-                      int.parse(parts[2]),
-                    );
-                    return Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: t.cycleRose.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: t.cycleRose.withValues(alpha: 0.35),
-                        ),
-                      ),
-                      child: Text(
-                        '${d.day} ${_shortMonths[d.month - 1]}',
-                        style: AppTypography.lato400(11, t.cycleRose),
-                      ),
-                    );
-                  }).toList(),
+          const SizedBox(height: 12),
+          Divider(
+            height: 1,
+            thickness: 1,
+            color: t.border.withValues(alpha: 0.7),
+          ),
+          const SizedBox(height: 14),
+          if (_cyclePrompt == _CyclePrompt.add) ...[
+            _cycleConfirmCard(
+              title: 'Mark ${_formatCycleLabel(selected)} as start of cycle?',
+              body:
+                  'This will mark $markTarget and the following 2 days. Your full history stays safe.',
+              onConfirm: _confirmAddCycle,
             ),
-          ] else
-            const SizedBox(height: 4),
-
-          // Predicted next period
-          if (_nextPredictedDate != null) ...[
-            const SizedBox(height: 10),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: t.cycleRose.withValues(alpha: 0.07),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: t.cycleRose.withValues(alpha: 0.25),
-                  style: BorderStyle.solid,
+            const SizedBox(height: 16),
+          ],
+          if (_cyclePrompt == _CyclePrompt.remove && removing != null) ...[
+            _cycleConfirmCard(
+              title: 'Remove cycle days from ${_formatCycleLabel(removing)}?',
+              body: 'This will unmark the selected days from your tracker.',
+              onConfirm: _confirmRemoveCycle,
+            ),
+            const SizedBox(height: 16),
+          ],
+          if (_cycleHistoryDates.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Center(
+                child: Text(
+                  'No cycle days tracked yet. Tap + to begin.',
+                  textAlign: TextAlign.center,
+                  style: AppTypography.cormorantItalic(
+                    16,
+                    t.muted,
+                    height: 1.35,
+                  ),
                 ),
               ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.calendar_today_outlined,
-                    color: t.cycleRose,
-                    size: 13,
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    'Next predicted: ${_nextPredictedDate!.day} ${_shortMonths[_nextPredictedDate!.month - 1]} ${_nextPredictedDate!.year}',
-                    style: AppTypography.lato400(12, t.cycleRose),
-                  ),
-                ],
-              ),
-            ),
-          ],
+            )
+          else if (history.isNotEmpty)
+            _cycleHistory(history),
         ],
       ),
     );
   }
+
+  Widget _cycleConfirmCard({
+    required String title,
+    required String body,
+    required VoidCallback onConfirm,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+      decoration: BoxDecoration(
+        color: t.cycleRose.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: t.cycleRose.withValues(alpha: 0.22)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: AppTypography.lato700(15, t.cycleRose, height: 1.35),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            body,
+            style: AppTypography.cormorantItalic(16, t.muted, height: 1.35),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                flex: 3,
+                child: _cycleConfirmButton(
+                  label: 'Yes, confirm',
+                  filled: true,
+                  onTap: _cycleBusy ? null : onConfirm,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                flex: 2,
+                child: _cycleConfirmButton(
+                  label: 'Cancel',
+                  filled: false,
+                  onTap:
+                      _cycleBusy
+                          ? null
+                          : () =>
+                              setState(() => _cyclePrompt = _CyclePrompt.none),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _cycleConfirmButton({
+    required String label,
+    required bool filled,
+    required VoidCallback? onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 150),
+        opacity: onTap == null ? 0.55 : 1,
+        child: Container(
+          height: 44,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: filled ? t.accent : t.card,
+            borderRadius: BorderRadius.circular(12),
+            border: filled ? null : Border.all(color: t.border),
+          ),
+          child: Text(
+            label,
+            style: AppTypography.lato700(14, filled ? Colors.white : t.text),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _cycleHistory(List<DateTime> dates) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('THIS CYCLE', style: AppTypography.sectionLabel(t.muted)),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children:
+              dates.map((d) {
+                final start = _isCycleStart(d);
+                return GestureDetector(
+                  onTap: () => _focusCycleDay(d),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 7,
+                    ),
+                    decoration: BoxDecoration(
+                      color:
+                          start
+                              ? t.cycleRose.withValues(alpha: 0.16)
+                              : Colors.transparent,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color:
+                            start
+                                ? t.cycleRose
+                                : t.cycleRose.withValues(alpha: 0.4),
+                      ),
+                    ),
+                    child: Text(
+                      _formatCycleLabel(d),
+                      style:
+                          start
+                              ? AppTypography.lato700(13, t.cycleRose)
+                              : AppTypography.lato400(13, t.cycleRose),
+                    ),
+                  ),
+                );
+              }).toList(),
+        ),
+      ],
+    );
+  }
 }
+
+enum _CyclePrompt { none, add, remove }
 
 class _TaskItem {
   final String? id;

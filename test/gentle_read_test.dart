@@ -125,6 +125,7 @@ void main() {
       );
       expect(find.byIcon(Icons.link_rounded), findsNothing);
       expect(find.text('Read more'), findsOneWidget);
+      await tester.ensureVisible(find.text('Read more'));
       await tester.tap(find.text('Read more'));
       await tester.pump();
       expect(find.text('Show less'), findsOneWidget);
@@ -132,4 +133,94 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('A story without a photo uses the text card', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: GentleReadPost(
+              read: const GentleRead(
+                id: 6,
+                title: 'The cup that waited',
+                body: 'She made tea at seven.\n\nShe drank it slowly.',
+              ),
+              t: AppTokens.day,
+              baseUri: Uri.parse('https://api.example.com'),
+              onOpenLink: (_) {},
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(find.text('10-WORD STORY'), findsOneWidget);
+    expect(find.text('The cup that waited'), findsOneWidget);
+    expect(find.text('She made tea at seven.'), findsOneWidget);
+    expect(find.text('She drank it slowly.'), findsOneWidget);
+    expect(find.textContaining('Me Time Club'), findsOneWidget);
+    expect(find.byType(AspectRatio), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('A photo uses the Instagram portrait shape', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: GentleReadPost(
+              read: const GentleRead(
+                id: 5,
+                body: 'A quiet line.',
+                imageUrl: '/uploads/read.png',
+              ),
+              t: AppTokens.day,
+              baseUri: Uri.parse('https://api.example.com'),
+              onOpenLink: (_) {},
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(
+      tester.widget<AspectRatio>(find.byType(AspectRatio)).aspectRatio,
+      4 / 5,
+    );
+    expect(find.byIcon(Icons.chevron_left_rounded), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Dots slide between the three reads', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: GentleReadPost(
+              read: const GentleRead(id: 5, title: 'First', body: 'One.'),
+              reads: const [
+                GentleRead(id: 5, title: 'First', body: 'One.'),
+                GentleRead(id: 6, title: 'Second', body: 'Two.'),
+                GentleRead(id: 7, title: 'Third', body: 'Three.'),
+              ],
+              t: AppTokens.day,
+              baseUri: Uri.parse('https://api.example.com'),
+              onOpenLink: (_) {},
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('GENTLE READ'), findsOneWidget);
+    expect(find.text('1 of 3 · tap dots to browse'), findsOneWidget);
+    expect(find.text('Third', skipOffstage: true), findsNothing);
+    expect(find.byIcon(Icons.chevron_right_rounded), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('gentle-read-dot-2')));
+    await tester.pumpAndSettle();
+    expect(find.text('3 of 3 · tap dots to browse'), findsOneWidget);
+    expect(find.text('Third'), findsWidgets);
+    expect(tester.takeException(), isNull);
+  });
 }
