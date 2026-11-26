@@ -5,7 +5,6 @@ import '../../models/user_profile.dart';
 import '../../services/api_service.dart';
 import '../../widgets/shared_widgets.dart';
 import '../../widgets/voice_text_input.dart';
-import '../../widgets/speech_button.dart';
 
 class JournalTab extends StatefulWidget {
   final UserProfile user;
@@ -808,12 +807,6 @@ class _JournalTabState extends State<JournalTab> {
               ),
             ),
             const SizedBox(width: 8),
-            SpeechButton(
-              onResult: (s) => setState(() => _newTaskCtrl.text = s),
-              t: t,
-              size: 38,
-            ),
-            const SizedBox(width: 8),
             SolidButton(
               onTap: _addTask,
               icon: AppIcons.plus(c: Colors.white, s: 14),
@@ -1131,12 +1124,6 @@ class _JournalTabState extends State<JournalTab> {
                             style: AppTypography.lato400(14, t.text),
                             decoration: _inputDeco('Add an item to ${targetCat.name}…'),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        SpeechButton(
-                          onResult: (s) => setState(() => _globalItemCtrl.text = s),
-                          t: t,
-                          size: 38,
                         ),
                         const SizedBox(width: 8),
                         SolidButton(

@@ -858,6 +858,53 @@ class ApiService {
     }
   }
 
+  /// The three gentle reads everyone sees today. The server chooses them.
+  static Future<List<GentleRead>> todaysGentleReads({
+    required String token,
+  }) async {
+    final url = '$apiBase/gentle_reads/today';
+
+    print('[API REQUEST] GET $url');
+
+    try {
+      final response = await _client.get(
+        Uri.parse(url),
+        headers: {
+          'accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      print('[API RESPONSE] ${response.statusCode} GET $url');
+
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+        if (decoded is! List) return const [];
+        return [
+          for (final item in decoded)
+            if (item is Map)
+              GentleRead.fromJson(Map<String, dynamic>.from(item)),
+        ];
+      } else {
+        final decoded = jsonDecode(response.body);
+        final errorMsg =
+            decoded is Map
+                ? decoded['error'] as String? ?? 'Failed to load gentle reads.'
+                : 'Failed to load gentle reads.';
+        throw ApiException(errorMsg);
+      }
+    } on http.ClientException catch (e) {
+      print('[API ERROR] ClientException: ${e.message}');
+      throw ApiException(
+        'Network error: Please check your internet connection.',
+      );
+    } catch (e) {
+      print('[API ERROR] Exception: ${e.toString()}');
+      if (e is ApiException) rethrow;
+      throw ApiException('An unexpected error occurred: ${e.toString()}');
+    }
+  }
+
   /// Loads one gentle read at random.
   /// Leave [excludeIds] empty when a repeat is allowed. Ids in [excludeIds]
   /// are skipped only when another read is still available.

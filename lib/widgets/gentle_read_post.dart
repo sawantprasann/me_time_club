@@ -156,12 +156,6 @@ class _GentleReadPostState extends State<GentleReadPost> {
           if (_canSlide) ...[
             const SizedBox(height: 14),
             _dots(index, reads.length),
-            const SizedBox(height: 8),
-            Text(
-              '${index + 1} of ${reads.length} · tap dots to browse',
-              textAlign: TextAlign.center,
-              style: AppTypography.lato400(12, t.muted),
-            ),
           ],
         ],
       ),
@@ -260,17 +254,6 @@ class _GentleReadPostState extends State<GentleReadPost> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        if (image == null && hasBody) ...[
-                          Text(
-                            _storyKicker(read.body),
-                            style: AppTypography.lato700(
-                              11,
-                              day ? const Color(0xFFC47D72) : t.accent,
-                              letterSpacing: 1.25,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                        ],
                         if (hasTitle) _title(read.title),
                         if (hasBody)
                           _caption(
@@ -323,14 +306,6 @@ class _GentleReadPostState extends State<GentleReadPost> {
     final words = _wordCount('${read.title} ${read.body}');
     if (words == 0) return 1;
     return (words / 180).ceil().clamp(1, 30);
-  }
-
-  /// Text-only reads are labeled by length, as in "100-WORD STORY".
-  String _storyKicker(String body) {
-    final words = _wordCount(body);
-    final rounded =
-        words == 0 ? 10 : ((words / 10).round() * 10).clamp(10, 9990);
-    return '$rounded-WORD STORY';
   }
 
   Widget _photo(Uri image, String? alt) {

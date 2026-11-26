@@ -94,16 +94,18 @@ class _HomeTabState extends State<HomeTab> {
     final restored =
         sameDay ? _decodeHistory(prefs.getString(_historyKey)) : <GentleRead>[];
     final storedIndex = sameDay ? (prefs.getInt(_indexKey) ?? 0) : 0;
-    if (restored.length >= _readsPerDay) {
+    if (restored.isNotEmpty) {
       setState(() {
         _gentleReadHistory
           ..clear()
           ..addAll(restored.take(_readsPerDay));
-        _gentleReadIndex = storedIndex.clamp(0, _readsPerDay - 1);
+        _gentleReadIndex = storedIndex.clamp(
+          0,
+          _gentleReadHistory.length - 1,
+        );
       });
-      return;
     }
-    await _loadGentleReads(existing: restored, index: storedIndex);
+    await _loadGentleReads(index: storedIndex);
   }
 
   List<GentleRead> _decodeHistory(String? raw) {
@@ -211,30 +213,22 @@ class _HomeTabState extends State<HomeTab> {
     }
   }
 
-  Future<void> _loadGentleReads({
-    List<GentleRead> existing = const [],
-    int index = 0,
-  }) async {
+  Future<void> _loadGentleReads({int index = 0}) async {
     setState(() => _gentleReadLoading = true);
     try {
-      final reads = [...existing];
-      while (reads.length < _readsPerDay) {
-        // A place in the row may repeat a read she has already seen.
-        final read = await ApiService.randomGentleRead(
-          token: widget.user.token ?? '',
-        );
-        if (read == null) break;
-        reads.add(read);
-      }
+      final reads = await ApiService.todaysGentleReads(
+        token: widget.user.token ?? '',
+      );
       if (!mounted) return;
+      final shown = reads.take(_readsPerDay).toList();
       setState(() {
         _gentleReadLoading = false;
         _gentleReadHistory
           ..clear()
-          ..addAll(reads);
-        _gentleReadIndex = reads.isEmpty ? 0 : index.clamp(0, reads.length - 1);
+          ..addAll(shown);
+        _gentleReadIndex = shown.isEmpty ? 0 : index.clamp(0, shown.length - 1);
       });
-      if (reads.isNotEmpty) await _persistGentleReads();
+      await _persistGentleReads();
     } catch (e) {
       if (e is UnauthorizedException) return;
       debugPrint('[GENTLE READ ERROR] $e');
@@ -679,9 +673,10 @@ class _HomeTabState extends State<HomeTab> {
       value: _freeText,
       onChange: (v) => setState(() => _freeText = v),
       placeholder:
-          'Or tell Chamomile how you\'re really feeling… type or speak.',
+          'Type whatever is on your mind. A feeling, a task, or something to buy.',
       t: t,
       rows: 3,
+      showMic: true,
     );
   }
 }
@@ -1208,6 +1203,7 @@ class _DailyPageFeedbackState extends State<DailyPageFeedback> {
                   'Tell Chamomile what didn\'t resonate… type or speak.',
               t: t,
               rows: 2,
+              showMic: true,
             ),
             const SizedBox(height: 10),
             Row(

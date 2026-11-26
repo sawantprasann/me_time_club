@@ -4,7 +4,6 @@ import '../../icons/app_icons.dart';
 import '../../models/user_profile.dart';
 import '../../services/api_service.dart';
 import '../../widgets/shared_widgets.dart';
-import '../../widgets/speech_button.dart';
 import '../../widgets/app_logo.dart';
 
 class CalendarTab extends StatefulWidget {
@@ -1489,18 +1488,6 @@ class _CalendarTabState extends State<CalendarTab> {
                     isDense: true,
                   ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              SpeechButton(
-                onResult: (s) {
-                  setState(() => _newTask = s);
-                  _taskController.text = s;
-                  _taskController.selection = TextSelection.fromPosition(
-                    TextPosition(offset: s.length),
-                  );
-                },
-                t: t,
-                size: 36,
               ),
               const SizedBox(width: 8),
               SolidButton(

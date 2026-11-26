@@ -154,7 +154,7 @@ void main() {
       ),
     );
     await tester.pump();
-    expect(find.text('10-WORD STORY'), findsOneWidget);
+    expect(find.textContaining('WORD STORY'), findsNothing);
     expect(find.text('The cup that waited'), findsOneWidget);
     expect(find.text('She made tea at seven.'), findsOneWidget);
     expect(find.text('She drank it slowly.'), findsOneWidget);
@@ -214,12 +214,12 @@ void main() {
     await tester.pump();
     await tester.pump();
     expect(find.text('GENTLE READ'), findsOneWidget);
-    expect(find.text('1 of 3 · tap dots to browse'), findsOneWidget);
+    expect(find.textContaining('of 3'), findsNothing);
     expect(find.text('Third', skipOffstage: true), findsNothing);
     expect(find.byIcon(Icons.chevron_right_rounded), findsNothing);
     await tester.tap(find.byKey(const ValueKey('gentle-read-dot-2')));
     await tester.pumpAndSettle();
-    expect(find.text('3 of 3 · tap dots to browse'), findsOneWidget);
+    expect(find.textContaining('of 3'), findsNothing);
     expect(find.text('Third'), findsWidgets);
     expect(tester.takeException(), isNull);
   });

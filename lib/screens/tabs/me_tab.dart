@@ -37,9 +37,12 @@ class _MeTabState extends State<MeTab> {
   // Editable profile copy
   late String _name;
   late List<String> _phases;
+  late String _phaseText;
   late int _childCount;
   late List<String> _journey;
+  late String _journeyText;
   late List<String> _hardships;
+  late String _hardshipsText;
   late String _bio;
   Uint8List? _photo;
   bool _saving = false;
@@ -83,9 +86,12 @@ class _MeTabState extends State<MeTab> {
   void _syncFromUser() {
     _name = widget.user.name;
     _phases = List.from(widget.user.phases);
+    _phaseText = widget.user.phaseText;
     _childCount = widget.user.childCount;
     _journey = List.from(widget.user.journey);
+    _journeyText = widget.user.journeyText;
     _hardships = List.from(widget.user.hardships);
+    _hardshipsText = widget.user.hardshipsText;
     _bio = widget.user.bio;
     _photo = widget.user.photo;
     _letters['pre'] = widget.user.preBabyLetter;
@@ -206,10 +212,10 @@ class _MeTabState extends State<MeTab> {
       'journey_stage': phase,
       'primary_phase': phase,
       'hardships': apiHardships,
-      'hardships_text': widget.user.hardshipsText,
+      'hardships_text': _hardshipsText.trim(),
       'journey_tags': apiJourney,
-      'journey_text': _bio.trim(),
-      'free_text': widget.user.hardshipsText,
+      'journey_text': _journeyText.trim(),
+      'phase_text': _phaseText.trim(),
       'pre_baby_letter': _letters['pre'] ?? '',
       'future_self_letter': _letters['future'] ?? '',
     };
@@ -288,13 +294,6 @@ class _MeTabState extends State<MeTab> {
           _buildAvatar(),
           const SizedBox(height: 14),
           _buildNameSection(),
-          const SizedBox(height: 6),
-          if (!_editing)
-            Text(
-              widget.user.phaseLabel,
-              style: AppTypography.lato400(12, t.muted),
-              textAlign: TextAlign.center,
-            ),
           const SizedBox(height: 20),
           _buildEditControls(),
           const SizedBox(height: 20),
@@ -326,6 +325,9 @@ class _MeTabState extends State<MeTab> {
                 _phases.add(v);
               }
             }),
+            _phaseText,
+            (v) => setState(() => _phaseText = v),
+            'Anything else about this stage…',
           ),
           if (_editing) _buildChildCount(),
           if (!_editing && _childCount > 0)
@@ -361,6 +363,9 @@ class _MeTabState extends State<MeTab> {
                 _journey.add(v);
               }
             }),
+            _journeyText,
+            (v) => setState(() => _journeyText = v),
+            'Add anything that is not in the tags…',
           ),
           _buildChipSection(
             'What Feels Hardest',
@@ -385,6 +390,9 @@ class _MeTabState extends State<MeTab> {
                 _hardships.add(v);
               }
             }),
+            _hardshipsText,
+            (v) => setState(() => _hardshipsText = v),
+            'Add anything that is not in the tags…',
           ),
           const SizedBox(height: 24),
           // Private Letters
@@ -656,54 +664,97 @@ class _MeTabState extends State<MeTab> {
     Color color,
     List<String> selected,
     Function(String) onToggle,
+    String note,
+    ValueChanged<String> onNote,
+    String noteHint,
   ) {
-    if (_editing) {
-      return _sectionWrapper(
-        title,
-        Wrap(
-          children:
-              allOptions.asMap().entries.map((e) {
-                final val = e.value;
-                final label = displayLabels?[e.key] ?? val;
-                final id =
-                    displayLabels != null
-                        ? val.split(' ')[0].toLowerCase()
-                        : val;
-                final sel = selected.contains(id);
-                return ChipButton(
-                  label: label,
-                  selected: sel,
-                  onTap: () => onToggle(id),
-                  color: color,
-                  t: t,
-                );
-              }).toList(),
-        ),
-      );
-    }
-    // View mode
-    if (selected.isEmpty) {
+    final chips = Wrap(
+      children:
+          (_editing ? allOptions.asMap().entries : selected.asMap().entries).map((
+            e,
+          ) {
+            if (_editing) {
+              final val = allOptions[e.key];
+              final label = displayLabels?[e.key] ?? val;
+              final id =
+                  displayLabels != null ? val.split(' ')[0].toLowerCase() : val;
+              final sel = selected.contains(id);
+              return ChipButton(
+                label: label,
+                selected: sel,
+                onTap: () => onToggle(id),
+                color: color,
+                t: t,
+              );
+            }
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              margin: const EdgeInsets.only(right: 6, bottom: 6),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: color.withValues(alpha: 0.3)),
+              ),
+              child: Text(e.value, style: AppTypography.lato400(12, color)),
+            );
+          }).toList(),
+    );
+
+    final noteField =
+        _editing
+            ? Padding(
+              padding: const EdgeInsets.only(top: 10),
+              child: _ProfileNoteField(
+                value: note,
+                onChanged: onNote,
+                style: AppTypography.lato400(14, t.text),
+                decoration: InputDecoration(
+                  hintText: noteHint,
+                  hintStyle: AppTypography.lato400(13, t.muted),
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  filled: true,
+                  fillColor: t.bg,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: t.border),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: t.border),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: color),
+                  ),
+                ),
+              ),
+            )
+            : (note.trim().isEmpty
+                ? const SizedBox.shrink()
+                : Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    note.trim(),
+                    style: AppTypography.cormorantItalic(16, t.text, height: 1.5),
+                  ),
+                ));
+
+    if (!_editing && selected.isEmpty && note.trim().isEmpty) {
       return _sectionView(title, 'Not specified yet.');
     }
+
     return _sectionWrapper(
       title,
-      Wrap(
-        children:
-            selected.map((s) {
-              return Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                margin: const EdgeInsets.only(right: 6, bottom: 6),
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: color.withValues(alpha: 0.3)),
-                ),
-                child: Text(s, style: AppTypography.lato400(12, color)),
-              );
-            }).toList(),
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (selected.isNotEmpty || _editing) chips,
+          noteField,
+        ],
       ),
     );
   }
@@ -905,6 +956,58 @@ class _MeTabState extends State<MeTab> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _ProfileNoteField extends StatefulWidget {
+  final String value;
+  final ValueChanged<String> onChanged;
+  final TextStyle style;
+  final InputDecoration decoration;
+
+  const _ProfileNoteField({
+    required this.value,
+    required this.onChanged,
+    required this.style,
+    required this.decoration,
+  });
+
+  @override
+  State<_ProfileNoteField> createState() => _ProfileNoteFieldState();
+}
+
+class _ProfileNoteFieldState extends State<_ProfileNoteField> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.value);
+  }
+
+  @override
+  void didUpdateWidget(_ProfileNoteField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.value != _controller.text) {
+      _controller.text = widget.value;
+      _controller.selection = TextSelection.collapsed(offset: widget.value.length);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: _controller,
+      onChanged: widget.onChanged,
+      style: widget.style,
+      decoration: widget.decoration,
     );
   }
 }

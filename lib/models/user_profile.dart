@@ -11,9 +11,11 @@ class UserProfile {
   String? journeyStage;
   String name;
   List<String> phases;
+  String phaseText;
   String? pregnancyMonth;
   int childCount;
   List<String> journey;
+  String journeyText;
   String bio;
   List<String> hardships;
   String hardshipsText;
@@ -29,9 +31,11 @@ class UserProfile {
     this.journeyStage,
     required this.name,
     this.phases = const [],
+    this.phaseText = '',
     this.pregnancyMonth,
     this.childCount = 0,
     this.journey = const [],
+    this.journeyText = '',
     this.bio = '',
     this.hardships = const [],
     this.hardshipsText = '',
@@ -48,9 +52,11 @@ class UserProfile {
     String? journeyStage,
     String? name,
     List<String>? phases,
+    String? phaseText,
     String? pregnancyMonth,
     int? childCount,
     List<String>? journey,
+    String? journeyText,
     String? bio,
     List<String>? hardships,
     String? hardshipsText,
@@ -66,9 +72,11 @@ class UserProfile {
       journeyStage: journeyStage ?? this.journeyStage,
       name: name ?? this.name,
       phases: phases ?? this.phases,
+      phaseText: phaseText ?? this.phaseText,
       pregnancyMonth: pregnancyMonth ?? this.pregnancyMonth,
       childCount: childCount ?? this.childCount,
       journey: journey ?? this.journey,
+      journeyText: journeyText ?? this.journeyText,
       bio: bio ?? this.bio,
       hardships: hardships ?? this.hardships,
       hardshipsText: hardshipsText ?? this.hardshipsText,
@@ -128,12 +136,15 @@ class UserProfile {
       journeyStage: journeyStage,
       name: json['name'] as String? ?? json['display_name'] as String? ?? '',
       phases: phasesList,
+      phaseText: json['phase_text'] as String? ?? json['phaseText'] as String? ?? '',
       pregnancyMonth:
           json['pregnancy_week'] as String? ??
           json['pregnancyMonth'] as String?,
       childCount:
           json['child_count'] as int? ?? json['childCount'] as int? ?? 0,
       journey: mappedJourney,
+      journeyText:
+          json['journey_text'] as String? ?? json['journeyText'] as String? ?? '',
       bio: json['bio'] as String? ?? '',
       hardships: mappedHardships,
       hardshipsText:
@@ -157,9 +168,11 @@ class UserProfile {
       'journey_stage': journeyStage,
       'name': name,
       'phases': phases,
+      'phase_text': phaseText,
       'pregnancyMonth': pregnancyMonth,
       'childCount': childCount,
       'journey': journey,
+      'journey_text': journeyText,
       'bio': bio,
       'hardships': hardships,
       'hardshipsText': hardshipsText,

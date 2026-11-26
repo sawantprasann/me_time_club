@@ -11,6 +11,7 @@ class VoiceTextInput extends StatefulWidget {
   final TextStyle? style;
   final TextAlign textAlign;
   final int? maxLength;
+  final bool showMic;
 
   const VoiceTextInput({
     super.key,
@@ -21,6 +22,7 @@ class VoiceTextInput extends StatefulWidget {
     this.style,
     this.textAlign = TextAlign.center,
     this.maxLength,
+    this.showMic = false,
   });
 
   @override
@@ -70,7 +72,7 @@ class _VoiceTextInputState extends State<VoiceTextInput> {
           decoration: InputDecoration(
             hintText: widget.placeholder,
             hintStyle: AppTypography.cormorantItalic(22, t.muted),
-            contentPadding: const EdgeInsets.fromLTRB(16, 14, 52, 14),
+            contentPadding: EdgeInsets.fromLTRB(16, 14, widget.showMic ? 52 : 16, 14),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
               borderSide: BorderSide(
@@ -92,21 +94,21 @@ class _VoiceTextInputState extends State<VoiceTextInput> {
             counterText: '',
           ),
         ),
-        // Mic Button positioned inside the field on the right
-        Positioned(
-          right: 8,
-          top: 0,
-          bottom: 0,
-          child: Center(
-            child: SpeechButton(
-              onResult: (transcript) {
-                widget.onChange(transcript);
-              },
-              t: t,
-              size: 36,
+        if (widget.showMic)
+          Positioned(
+            right: 8,
+            top: 0,
+            bottom: 0,
+            child: Center(
+              child: SpeechButton(
+                onResult: (transcript) {
+                  widget.onChange(transcript);
+                },
+                t: t,
+                size: 36,
+              ),
             ),
           ),
-        ),
       ],
     );
   }
@@ -122,6 +124,7 @@ class VoiceTextArea extends StatefulWidget {
   final bool autoFocus;
   final TextStyle? style;
   final double micSize;
+  final bool showMic;
 
   const VoiceTextArea({
     super.key,
@@ -133,6 +136,7 @@ class VoiceTextArea extends StatefulWidget {
     this.autoFocus = false,
     this.style,
     this.micSize = 38,
+    this.showMic = false,
   });
 
   @override
@@ -213,7 +217,12 @@ class VoiceTextAreaState extends State<VoiceTextArea> {
           decoration: InputDecoration(
             hintText: widget.placeholder,
             hintStyle: AppTypography.cormorantItalic(15, t.muted),
-            contentPadding: EdgeInsets.fromLTRB(16, 14, widget.micSize + 16, 14),
+            contentPadding: EdgeInsets.fromLTRB(
+              16,
+              14,
+              widget.showMic ? widget.micSize + 16 : 16,
+              14,
+            ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(18),
               borderSide: BorderSide(color: t.border),
@@ -230,21 +239,21 @@ class VoiceTextAreaState extends State<VoiceTextArea> {
             fillColor: t.card,
           ),
         ),
-        // Mic Button positioned bottom-right inside the field
-        Positioned(
-          bottom: 10,
-          right: 10,
-          child: SpeechButton(
-            key: _speechKey,
-            onPartial: (transcript) => _applySpoken(transcript, done: false),
-            onResult: (transcript) => _applySpoken(transcript, done: true),
-            onListeningChanged: (listening) {
-              if (listening) _speechBase = null;
-            },
-            t: t,
-            size: widget.micSize,
+        if (widget.showMic)
+          Positioned(
+            bottom: 10,
+            right: 10,
+            child: SpeechButton(
+              key: _speechKey,
+              onPartial: (transcript) => _applySpoken(transcript, done: false),
+              onResult: (transcript) => _applySpoken(transcript, done: true),
+              onListeningChanged: (listening) {
+                if (listening) _speechBase = null;
+              },
+              t: t,
+              size: widget.micSize,
+            ),
           ),
-        ),
       ],
     );
   }
