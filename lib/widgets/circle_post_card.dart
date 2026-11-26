@@ -338,14 +338,14 @@ class _CirclePostCardState extends State<CirclePostCard> {
           const SizedBox(height: 16),
           Text(
             widget.body,
-            style: AppTypography.cormorantItalic(18, t.text, height: 1.7),
+            style: AppTypography.lato400(16, t.text, height: 1.6),
           ),
           if (presence != null || comments.isNotEmpty) ...[
             _divider(),
             if (presence != null) ...[
               Text(
                 presence,
-                style: AppTypography.cormorantItalic(17, t.text, height: 1.7),
+                style: AppTypography.lato400(16, t.text, height: 1.6),
               ),
               const SizedBox(height: 16),
               Wrap(
@@ -561,7 +561,7 @@ class _CirclePostCardState extends State<CirclePostCard> {
               const SizedBox(height: 2),
               Text(
                 reply.body,
-                style: AppTypography.cormorantItalic(14, t.text, height: 1.55),
+                style: AppTypography.lato400(14, t.text, height: 1.55),
               ),
             ],
           ),
@@ -639,10 +639,10 @@ class _CirclePostCardState extends State<CirclePostCard> {
       minLines: 1,
       maxLines: 4,
       onChanged: (_) => setState(() => _error = null),
-      style: AppTypography.cormorantItalic(17, t.text, height: 1.4),
+      style: AppTypography.lato400(16, t.text, height: 1.4),
       decoration: InputDecoration(
         hintText: hint,
-        hintStyle: AppTypography.cormorantItalic(16, t.muted.withValues(alpha: 0.7)),
+        hintStyle: AppTypography.lato400(15, t.muted.withValues(alpha: 0.7)),
         filled: true,
         fillColor: t.bg,
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),

@@ -123,6 +123,7 @@ class VoiceTextArea extends StatefulWidget {
   final AppTokens t;
   final bool autoFocus;
   final TextStyle? style;
+  final TextStyle? hintStyle;
   final double micSize;
   final bool showMic;
 
@@ -135,6 +136,7 @@ class VoiceTextArea extends StatefulWidget {
     required this.t,
     this.autoFocus = false,
     this.style,
+    this.hintStyle,
     this.micSize = 38,
     this.showMic = false,
   });
@@ -216,7 +218,8 @@ class VoiceTextAreaState extends State<VoiceTextArea> {
           style: widget.style ?? AppTypography.cormorantItalic(17, t.text, height: 1.65),
           decoration: InputDecoration(
             hintText: widget.placeholder,
-            hintStyle: AppTypography.cormorantItalic(15, t.muted),
+            hintStyle:
+                widget.hintStyle ?? AppTypography.cormorantItalic(15, t.muted),
             contentPadding: EdgeInsets.fromLTRB(
               16,
               14,

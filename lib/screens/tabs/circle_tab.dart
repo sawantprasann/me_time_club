@@ -310,6 +310,8 @@ class _CircleTabState extends State<CircleTab> {
             t: t,
             rows: 3,
             micSize: 34,
+            style: AppTypography.lato400(16, t.text, height: 1.6),
+            hintStyle: AppTypography.lato400(15, t.muted),
           ),
           const SizedBox(height: 12),
           Row(
