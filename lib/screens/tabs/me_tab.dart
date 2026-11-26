@@ -645,10 +645,12 @@ class _MeTabState extends State<MeTab> {
             t: t,
             rows: 3,
             micSize: 34,
+            style: AppTypography.lato400(16, t.text, height: 1.6),
+            hintStyle: AppTypography.lato400(15, t.muted),
           )
           : Text(
             _bio.isEmpty ? 'Not shared yet.' : _bio,
-            style: AppTypography.cormorantItalic(
+            style: AppTypography.lato400(
               16,
               _bio.isEmpty ? t.muted : t.text,
               height: 1.6,
@@ -739,7 +741,7 @@ class _MeTabState extends State<MeTab> {
                   padding: const EdgeInsets.only(top: 8),
                   child: Text(
                     note.trim(),
-                    style: AppTypography.cormorantItalic(16, t.text, height: 1.5),
+                    style: AppTypography.lato400(16, t.text, height: 1.5),
                   ),
                 ));
 
@@ -834,7 +836,7 @@ class _MeTabState extends State<MeTab> {
       title,
       Text(
         text,
-        style: AppTypography.cormorantItalic(16, t.muted, height: 1.5),
+        style: AppTypography.lato400(16, t.muted, height: 1.5),
       ),
     );
   }
@@ -923,7 +925,7 @@ class _MeTabState extends State<MeTab> {
                   children: [
                     Text(title, style: AppTypography.playfair(20, t.text)),
                     const SizedBox(height: 4),
-                    Text(subtitle, style: AppTypography.cormorantItalic(15, t.muted)),
+                    Text(subtitle, style: AppTypography.lato400(15, t.muted)),
                   ],
                 ),
               ),
@@ -952,6 +954,8 @@ class _MeTabState extends State<MeTab> {
               placeholder: 'Dear me…',
               t: t,
               rows: 14,
+              style: AppTypography.lato400(16, t.text, height: 1.6),
+              hintStyle: AppTypography.lato400(15, t.muted),
             ),
           ),
         ],
