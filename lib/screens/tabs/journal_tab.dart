@@ -42,14 +42,17 @@ class _JournalTabState extends State<JournalTab> {
   int? _taskTargetCatId;
   String? _editingTaskId;
   String _editingTaskText = '';
-  // Shopping sub-tab
+  // Shopping sub-tab. Task categories live in `_taskCats` and never share this list.
   final List<_ShopCategory> _categories = [];
+  final List<_ShopCategory> _taskCats = [];
   bool _loadingCategories = true;
+  bool _loadingTaskCategories = true;
   int? _openCat; // null means 'All' categories
   int? _targetAddCatId; // target category for global item addition
   final TextEditingController _globalItemCtrl = TextEditingController();
   bool _addingItemLoading = false;
-  bool _addingCat = false;
+  bool _addingShopCat = false;
+  bool _addingTaskCat = false;
   final TextEditingController _newCatCtrl = TextEditingController();
   bool _addingCatLoading = false;
   final Map<int, List<_ShopItem>> _shopItems = {};
@@ -82,6 +85,7 @@ class _JournalTabState extends State<JournalTab> {
     _fetchPastEntries();
     _fetchTasks();
     _fetchShoppingCategories();
+    _fetchTaskCategories();
   }
 
   @override
@@ -159,13 +163,6 @@ class _JournalTabState extends State<JournalTab> {
                 isSystem: c['system'] as bool? ?? false,
               ))
           .toList();
-      _ShopCategory? general;
-      for (final cat in cats) {
-        if (cat.name.toLowerCase() == 'general') {
-          general = cat;
-          break;
-        }
-      }
       setState(() {
         _categories
           ..clear()
@@ -174,18 +171,52 @@ class _JournalTabState extends State<JournalTab> {
         if (_targetAddCatId == null || !cats.any((c) => c.id == _targetAddCatId)) {
           _targetAddCatId = cats.isNotEmpty ? cats.first.id : null;
         }
-        if (_taskTargetCatId == null || !cats.any((c) => c.id == _taskTargetCatId)) {
-          _taskTargetCatId = general?.id ?? (cats.isNotEmpty ? cats.first.id : null);
-        }
-        if (_openTaskCat != null && !cats.any((c) => c.id == _openTaskCat)) {
-          _openTaskCat = null;
-        }
         _loadingCategories = false;
       });
       _fetchShoppingItems();
     } catch (e) {
       debugPrint('[FETCH SHOPPING CATEGORIES ERROR] $e');
       if (mounted) setState(() => _loadingCategories = false);
+    }
+  }
+
+  Future<void> _fetchTaskCategories() async {
+    setState(() => _loadingTaskCategories = true);
+    try {
+      final raw = await ApiService.getShoppingCategories(
+        token: widget.user.token ?? '',
+        kind: 'task',
+      );
+      if (!mounted) return;
+      final cats = raw
+          .map((c) => _ShopCategory(
+                id: c['id'] as int,
+                name: c['name'] as String? ?? '',
+                isSystem: c['system'] as bool? ?? false,
+              ))
+          .toList();
+      _ShopCategory? general;
+      for (final cat in cats) {
+        if (cat.name.toLowerCase() == 'general') {
+          general = cat;
+          break;
+        }
+      }
+      setState(() {
+        _taskCats
+          ..clear()
+          ..addAll(cats);
+        if (_taskTargetCatId == null || !cats.any((c) => c.id == _taskTargetCatId)) {
+          _taskTargetCatId = general?.id ?? (cats.isNotEmpty ? cats.first.id : null);
+        }
+        if (_openTaskCat != null && !cats.any((c) => c.id == _openTaskCat)) {
+          _openTaskCat = null;
+        }
+        _loadingTaskCategories = false;
+      });
+    } catch (e) {
+      debugPrint('[FETCH TASK CATEGORIES ERROR] $e');
+      if (mounted) setState(() => _loadingTaskCategories = false);
     }
   }
 
@@ -557,7 +588,7 @@ class _JournalTabState extends State<JournalTab> {
 
   // ─── Tasks Sub-Tab ───────────────────────────────
   int? get _generalCategoryId {
-    for (final cat in _categories) {
+    for (final cat in _taskCats) {
       if (cat.name.toLowerCase() == 'general') return cat.id;
     }
     return null;
@@ -566,7 +597,7 @@ class _JournalTabState extends State<JournalTab> {
   List<_ShopCategory> get _taskCategories {
     final general = <_ShopCategory>[];
     final rest = <_ShopCategory>[];
-    for (final cat in _categories) {
+    for (final cat in _taskCats) {
       if (cat.id == _generalCategoryId) {
         general.add(cat);
       } else {
@@ -584,7 +615,7 @@ class _JournalTabState extends State<JournalTab> {
   }
 
   Widget _buildTasks() {
-    if (_loadingCategories) {
+    if (_loadingTaskCategories) {
       return const Center(child: CircularProgressIndicator());
     }
     final categories = _taskCategories;
@@ -686,11 +717,11 @@ class _JournalTabState extends State<JournalTab> {
             SolidButton(
               onTap: () {
                 setState(() {
-                  _addingCat = !_addingCat;
-                  if (!_addingCat) _newCatCtrl.clear();
+                  _addingTaskCat = !_addingTaskCat;
+                  if (!_addingTaskCat) _newCatCtrl.clear();
                 });
               },
-              icon: _addingCat
+              icon: _addingTaskCat
                   ? AppIcons.close(c: Colors.white, s: 12)
                   : AppIcons.plus(c: Colors.white, s: 14),
               size: 30,
@@ -698,7 +729,7 @@ class _JournalTabState extends State<JournalTab> {
             ),
           ],
         ),
-        _buildNewCategoryRow(),
+        _buildNewCategoryRow(adding: _addingTaskCat),
         const SizedBox(height: 16),
         if (categories.isNotEmpty)
           Builder(
@@ -1228,11 +1259,11 @@ class _JournalTabState extends State<JournalTab> {
             SolidButton(
               onTap: () {
                 setState(() {
-                  _addingCat = !_addingCat;
-                  if (!_addingCat) _newCatCtrl.clear();
+                  _addingShopCat = !_addingShopCat;
+                  if (!_addingShopCat) _newCatCtrl.clear();
                 });
               },
-              icon: _addingCat
+              icon: _addingShopCat
                   ? AppIcons.close(c: Colors.white, s: 12)
                   : AppIcons.plus(c: Colors.white, s: 14),
               size: 30,
@@ -1240,7 +1271,7 @@ class _JournalTabState extends State<JournalTab> {
             ),
           ],
         ),
-        _buildNewCategoryRow(),
+        _buildNewCategoryRow(adding: _addingShopCat),
         const SizedBox(height: 16),
         // Global Add Item Bar
         if (_categories.isNotEmpty)
@@ -1576,11 +1607,13 @@ class _JournalTabState extends State<JournalTab> {
   Future<void> _addCategory() async {
     final name = _newCatCtrl.text.trim();
     if (name.isEmpty || _addingCatLoading) return;
+    final forTasks = _sub == 'tasks';
     setState(() => _addingCatLoading = true);
     try {
       final res = await ApiService.createShoppingCategory(
         token: widget.user.token ?? '',
         name: name,
+        kind: forTasks ? 'task' : 'shopping',
       );
       if (res != null && mounted) {
         final catData = res['category'] is Map<String, dynamic>
@@ -1597,14 +1630,19 @@ class _JournalTabState extends State<JournalTab> {
           isSystem: false,
         );
         setState(() {
-          _categories.add(newCat);
-          _shopItems[newCat.id] = [];
-          _openCat = null;
-          _openTaskCat = null;
-          _targetAddCatId = newCat.id;
-          _taskTargetCatId = newCat.id;
+          if (forTasks) {
+            _taskCats.add(newCat);
+            _openTaskCat = null;
+            _taskTargetCatId = newCat.id;
+            _addingTaskCat = false;
+          } else {
+            _categories.add(newCat);
+            _shopItems[newCat.id] = [];
+            _openCat = null;
+            _targetAddCatId = newCat.id;
+            _addingShopCat = false;
+          }
           _newCatCtrl.clear();
-          _addingCat = false;
           _addingCatLoading = false;
         });
       }
@@ -1625,19 +1663,27 @@ class _JournalTabState extends State<JournalTab> {
   }
 
   Future<void> _deleteCategory(int catId) async {
-    final cat = _categories.firstWhere((c) => c.id == catId);
-    if (cat.isSystem) return;
+    final isTask = _taskCats.any((c) => c.id == catId);
+    final list = isTask ? _taskCats : _categories;
+    final cat = list.cast<_ShopCategory?>().firstWhere(
+          (c) => c?.id == catId,
+          orElse: () => null,
+        );
+    if (cat == null || cat.isSystem) return;
     setState(() {
-      _categories.removeWhere((c) => c.id == catId);
-      _shopItems.remove(catId);
-      if (_openCat == catId) _openCat = null;
-      if (_openTaskCat == catId) _openTaskCat = null;
-      if (_targetAddCatId == catId) {
-        _targetAddCatId = _categories.isNotEmpty ? _categories.first.id : null;
-      }
-      if (_taskTargetCatId == catId) {
-        _taskTargetCatId = _generalCategoryId ??
-            (_categories.isNotEmpty ? _categories.first.id : null);
+      list.removeWhere((c) => c.id == catId);
+      if (isTask) {
+        if (_openTaskCat == catId) _openTaskCat = null;
+        if (_taskTargetCatId == catId) {
+          _taskTargetCatId = _generalCategoryId ??
+              (_taskCats.isNotEmpty ? _taskCats.first.id : null);
+        }
+      } else {
+        _shopItems.remove(catId);
+        if (_openCat == catId) _openCat = null;
+        if (_targetAddCatId == catId) {
+          _targetAddCatId = _categories.isNotEmpty ? _categories.first.id : null;
+        }
       }
     });
     try {
@@ -1645,14 +1691,14 @@ class _JournalTabState extends State<JournalTab> {
         token: widget.user.token ?? '',
         categoryId: catId,
       );
-      await _fetchTasks();
+      if (isTask) await _fetchTasks();
     } catch (e) {
       debugPrint('[DELETE CATEGORY ERROR] $e');
     }
   }
 
-  Widget _buildNewCategoryRow() {
-    if (!_addingCat) return const SizedBox.shrink();
+  Widget _buildNewCategoryRow({required bool adding}) {
+    if (!adding) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.only(top: 10),
       child: Row(
@@ -1697,10 +1743,11 @@ class _JournalTabState extends State<JournalTab> {
     if (newName.trim().isEmpty) return;
     final name = newName.trim();
     setState(() {
-      final idx = _categories.indexWhere((c) => c.id == catId);
-      if (idx != -1) {
-        _categories[idx] = _ShopCategory(id: catId, name: name, isSystem: false);
-      }
+      final replacement = _ShopCategory(id: catId, name: name, isSystem: false);
+      final shopIdx = _categories.indexWhere((c) => c.id == catId);
+      if (shopIdx != -1) _categories[shopIdx] = replacement;
+      final taskIdx = _taskCats.indexWhere((c) => c.id == catId);
+      if (taskIdx != -1) _taskCats[taskIdx] = replacement;
       _editingCatId = null;
       _editingCatName = '';
     });

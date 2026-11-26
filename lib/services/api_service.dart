@@ -1321,11 +1321,12 @@ class ApiService {
 
   // ── Categories ───────────────────────────────────────────────────────────────
 
-  /// Fetches shopping categories (system + user-created).
+  /// Fetches shopping or task categories. The two lists are separate.
   static Future<List<Map<String, dynamic>>> getShoppingCategories({
     required String token,
+    String kind = 'shopping',
   }) async {
-    const url = '$apiBase/categories';
+    final url = '$apiBase/categories?kind=${Uri.encodeQueryComponent(kind)}';
     print('[API REQUEST] GET $url');
     try {
       final response = await _client.get(
@@ -1356,10 +1357,15 @@ class ApiService {
     required String token,
     required String name,
     String? icon,
+    String kind = 'shopping',
   }) async {
     const url = '$apiBase/categories';
     final requestBody = {
-      'category': {'name': name, if (icon != null) 'icon': icon},
+      'category': {
+        'name': name,
+        'kind': kind,
+        if (icon != null) 'icon': icon,
+      },
     };
     print('[API REQUEST] POST $url');
     print('[API REQUEST BODY] ${jsonEncode(requestBody)}');
