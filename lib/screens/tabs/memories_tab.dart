@@ -530,7 +530,7 @@ class _MemoriesTabState extends State<MemoriesTab> {
                       const SizedBox(height: 16),
                       Text(
                         'Your moments will live here.',
-                        style: AppTypography.cormorantItalic(17, t.muted),
+                        style: AppTypography.lato400(16, t.muted),
                       ),
                     ],
                   ),
@@ -631,6 +631,8 @@ class _MemoriesTabState extends State<MemoriesTab> {
                   t: t,
                   rows: 3,
                   micSize: 32,
+                  style: AppTypography.lato400(16, t.text, height: 1.5),
+                  hintStyle: AppTypography.lato400(15, t.muted),
                 ),
                 const SizedBox(height: 12),
                 Row(
@@ -764,7 +766,7 @@ class _MemoriesTabState extends State<MemoriesTab> {
                           children: [
                             Text(
                               m.caption,
-                              style: AppTypography.cormorantItalic(17, t.text, height: 1.5),
+                              style: AppTypography.lato400(16, t.text, height: 1.5),
                             ),
                             const SizedBox(height: 10),
                             Container(
@@ -887,6 +889,8 @@ class _MemoriesTabState extends State<MemoriesTab> {
                   t: t,
                   rows: 3,
                   micSize: 32,
+                  style: AppTypography.lato400(16, t.text, height: 1.5),
+                  hintStyle: AppTypography.lato400(15, t.muted),
                 ),
                 const SizedBox(height: 12),
                 Row(
