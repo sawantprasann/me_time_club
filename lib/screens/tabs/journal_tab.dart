@@ -33,13 +33,15 @@ class _JournalTabState extends State<JournalTab> {
   List<dynamic> _pastEntries = [];
   bool _loadingEntries = false;
 
-  // Tasks sub-tab
+  // Tasks sub-tab — same category layout as shopping. General is the default.
   final List<_TaskItem> _tasks = [];
   final TextEditingController _newTaskCtrl = TextEditingController();
   bool _loadingTasks = false;
-  bool _chamomileDone = false;
-  static const _taskPageSize = 10;
-  int _extraTasks = 0;
+  bool _addingTask = false;
+  int? _openTaskCat;
+  int? _taskTargetCatId;
+  String? _editingTaskId;
+  String _editingTaskText = '';
   // Shopping sub-tab
   final List<_ShopCategory> _categories = [];
   bool _loadingCategories = true;
@@ -92,13 +94,9 @@ class _JournalTabState extends State<JournalTab> {
 
   Future<void> _fetchTasks() async {
     setState(() => _loadingTasks = true);
-    final now = DateTime.now();
-    final todayKey =
-        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
     try {
-      final raw = await ApiService.getTasksForDate(
+      final raw = await ApiService.getTasks(
         token: widget.user.token ?? '',
-        dateKey: todayKey,
       );
       if (!mounted) return;
       setState(() {
@@ -106,10 +104,11 @@ class _JournalTabState extends State<JournalTab> {
           ..clear()
           ..addAll(
             raw.map(
-              (t) => _TaskItem(
-                id: t['id']?.toString(),
-                text: t['title'] as String? ?? '',
-                done: t['completed'] as bool? ?? false,
+              (task) => _TaskItem(
+                id: task['id']?.toString(),
+                text: task['title'] as String? ?? '',
+                done: task['completed'] as bool? ?? false,
+                categoryId: task['category_id'] as int?,
               ),
             ),
           );
@@ -160,6 +159,13 @@ class _JournalTabState extends State<JournalTab> {
                 isSystem: c['system'] as bool? ?? false,
               ))
           .toList();
+      _ShopCategory? general;
+      for (final cat in cats) {
+        if (cat.name.toLowerCase() == 'general') {
+          general = cat;
+          break;
+        }
+      }
       setState(() {
         _categories
           ..clear()
@@ -167,6 +173,12 @@ class _JournalTabState extends State<JournalTab> {
         _openCat = null;
         if (_targetAddCatId == null || !cats.any((c) => c.id == _targetAddCatId)) {
           _targetAddCatId = cats.isNotEmpty ? cats.first.id : null;
+        }
+        if (_taskTargetCatId == null || !cats.any((c) => c.id == _taskTargetCatId)) {
+          _taskTargetCatId = general?.id ?? (cats.isNotEmpty ? cats.first.id : null);
+        }
+        if (_openTaskCat != null && !cats.any((c) => c.id == _openTaskCat)) {
+          _openTaskCat = null;
         }
         _loadingCategories = false;
       });
@@ -544,288 +556,467 @@ class _JournalTabState extends State<JournalTab> {
   }
 
   // ─── Tasks Sub-Tab ───────────────────────────────
-  int get _visibleTaskCount => _taskPageSize + _extraTasks;
-
-  List<_TaskItem> get _visibleTasks {
-    if (_tasks.length <= _visibleTaskCount) return _tasks;
-    return _tasks.sublist(0, _visibleTaskCount);
+  int? get _generalCategoryId {
+    for (final cat in _categories) {
+      if (cat.name.toLowerCase() == 'general') return cat.id;
+    }
+    return null;
   }
 
-  bool get _hasMoreTasks => _tasks.length > _visibleTaskCount;
-
-  bool get _onLastTaskBatch => !_hasMoreTasks && _tasks.length > _taskPageSize;
-
-  int get _nextTaskBatch {
-    final remaining = _tasks.length - _visibleTaskCount;
-    if (remaining <= 0) return 0;
-    return remaining < _taskPageSize ? remaining : _taskPageSize;
+  List<_ShopCategory> get _taskCategories {
+    final general = <_ShopCategory>[];
+    final rest = <_ShopCategory>[];
+    for (final cat in _categories) {
+      if (cat.id == _generalCategoryId) {
+        general.add(cat);
+      } else {
+        rest.add(cat);
+      }
+    }
+    return [...general, ...rest];
   }
 
-  void _revealAddedTasks(int total) {
-    final hidden = total - _visibleTaskCount;
-    if (hidden > 0) _extraTasks += hidden;
-  }
-
-  String get _loadMoreTasksLabel {
-    final next = _nextTaskBatch;
-    final noun = next == 1 ? 'task' : 'tasks';
-    return 'Load $next more $noun...';
-  }
-
-  Widget _taskPageLinks() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (_hasMoreTasks)
-          _taskPageLink(
-            _loadMoreTasksLabel,
-            onTap: () => setState(() => _extraTasks += _nextTaskBatch),
-          ),
-        if (_onLastTaskBatch)
-          _taskPageLink(
-            'Show less ↑',
-            onTap: () => setState(() => _extraTasks = 0),
-          ),
-      ],
-    );
-  }
-
-  Widget _taskPageLink(String label, {required VoidCallback onTap}) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(0, 4, 0, 6),
-        child: Text(
-          label,
-          style: AppTypography.lato600(12, t.accent).copyWith(
-            decoration: TextDecoration.underline,
-            decorationColor: t.accent.withValues(alpha: 0.314),
-          ),
-        ),
-      ),
-    );
+  List<_TaskItem> _tasksIn(int catId) {
+    return _tasks.where((task) {
+      if (task.categoryId == catId) return true;
+      return task.categoryId == null && catId == _generalCategoryId;
+    }).toList();
   }
 
   Widget _buildTasks() {
+    if (_loadingCategories) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    final categories = _taskCategories;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          _dateLabel,
-          style: AppTypography.lato700(10, t.muted, letterSpacing: 1.8),
-        ),
-        const SizedBox(height: 14),
-        // Chamomile reminder card
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            gradient: LinearGradient(
-              colors: [
-                t.accent.withValues(alpha: 0.14),
-                t.gold.withValues(alpha: 0.08),
-              ],
-            ),
-            border: Border.all(color: t.accent.withValues(alpha: 0.2)),
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              GestureDetector(
-                onTap: () => setState(() => _chamomileDone = !_chamomileDone),
-                child: Container(
-                  width: 20,
-                  height: 20,
-                  margin: const EdgeInsets.only(top: 2),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color:
-                          _chamomileDone
-                              ? t.accent
-                              : t.accent.withValues(alpha: 0.6),
-                      width: 2,
-                    ),
-                    color: _chamomileDone ? t.accent : Colors.transparent,
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            GestureDetector(
+              onTap: () => setState(() => _openTaskCat = null),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                decoration: BoxDecoration(
+                  color: _openTaskCat == null ? t.accent.withValues(alpha: 0.15) : t.card,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: _openTaskCat == null ? t.accent : t.border.withValues(alpha: 0.8),
+                    width: _openTaskCat == null ? 1.5 : 1,
                   ),
-                  child:
-                      _chamomileDone
-                          ? AppIcons.check(c: Colors.white, s: 12)
-                          : null,
+                ),
+                child: Text(
+                  'All',
+                  style: _openTaskCat == null
+                      ? AppTypography.lato700(12, t.accent)
+                      : AppTypography.lato400(12, t.muted),
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
+            ),
+            ...categories.map((cat) {
+              final active = _openTaskCat == cat.id;
+              final remaining = _tasksIn(cat.id).where((task) => !task.done).length;
+              if (_editingCatId == cat.id) {
+                return SizedBox(
+                  width: 140,
+                  child: TextField(
+                    autofocus: true,
+                    controller: TextEditingController(text: _editingCatName)
+                      ..selection = TextSelection.collapsed(offset: _editingCatName.length),
+                    onChanged: (v) => _editingCatName = v,
+                    onSubmitted: (_) => _renameCategory(cat.id, _editingCatName),
+                    onTapOutside: (_) => _renameCategory(cat.id, _editingCatName),
+                    style: AppTypography.lato400(13, t.text),
+                    decoration: _inputDeco('Category name…'),
+                  ),
+                );
+              }
+              return GestureDetector(
+                onTap: () => setState(() {
+                  _openTaskCat = active ? null : cat.id;
+                  if (_openTaskCat != null) _taskTargetCatId = _openTaskCat;
+                }),
+                onLongPress: () => _showCategoryOptions(cat),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                  decoration: BoxDecoration(
+                    color: active ? t.accent.withValues(alpha: 0.15) : t.card,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: active ? t.accent : t.border.withValues(alpha: 0.8),
+                      width: active ? 1.5 : 1,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        cat.name,
+                        style: active
+                            ? AppTypography.lato700(12, t.accent)
+                            : AppTypography.lato400(12, t.muted),
+                      ),
+                      if (remaining > 0) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: active ? t.accent : t.muted.withValues(alpha: 0.18),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            '$remaining',
+                            style: AppTypography.lato700(
+                              10,
+                              active ? Colors.white : t.muted,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              );
+            }),
+            SolidButton(
+              onTap: () {
+                setState(() {
+                  _addingCat = !_addingCat;
+                  if (!_addingCat) _newCatCtrl.clear();
+                });
+              },
+              icon: _addingCat
+                  ? AppIcons.close(c: Colors.white, s: 12)
+                  : AppIcons.plus(c: Colors.white, s: 14),
+              size: 30,
+              color: t.accent,
+            ),
+          ],
+        ),
+        _buildNewCategoryRow(),
+        const SizedBox(height: 16),
+        if (categories.isNotEmpty)
+          Builder(
+            builder: (_) {
+              final effectiveCatId = _openTaskCat ??
+                  _taskTargetCatId ??
+                  _generalCategoryId ??
+                  categories.first.id;
+              final targetCat = categories.firstWhere(
+                (c) => c.id == effectiveCatId,
+                orElse: () => categories.first,
+              );
+              return Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: t.card,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: t.border.withValues(alpha: 0.7)),
+                  boxShadow: t.cardShadow,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
-                        AppIcons.bloom(c: t.accent, s: 14),
-                        const SizedBox(width: 6),
-                        Text(
-                          'CHAMOMILE\'S REMINDER',
-                          style: AppTypography.sectionLabel(t.accent),
+                        Text('Add to', style: AppTypography.lato700(12, t.muted)),
+                        const SizedBox(width: 8),
+                        PopupMenuButton<int>(
+                          initialValue: targetCat.id,
+                          tooltip: 'Choose category',
+                          elevation: 4,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          color: t.card,
+                          onSelected: (id) => setState(() => _taskTargetCatId = id),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: t.accent.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: t.accent.withValues(alpha: 0.35)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  width: 6,
+                                  height: 6,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: t.accent,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  targetCat.name,
+                                  style: AppTypography.lato700(12, t.accent),
+                                ),
+                                const SizedBox(width: 4),
+                                Icon(Icons.keyboard_arrow_down, size: 14, color: t.accent),
+                              ],
+                            ),
+                          ),
+                          itemBuilder: (ctx) => categories.map((c) {
+                            final isSelected = c.id == targetCat.id;
+                            return PopupMenuItem<int>(
+                              value: c.id,
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 8,
+                                    height: 8,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: isSelected ? t.accent : t.muted.withValues(alpha: 0.3),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    c.name,
+                                    style: AppTypography.lato400(
+                                      13,
+                                      isSelected ? t.accent : t.text,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }).toList(),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Take 5 minutes just for yourself today — even if it\'s just a cup of tea in quiet.',
-                      style: AppTypography.lato400(14, t.text, height: 1.5),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _newTaskCtrl,
+                            textInputAction: TextInputAction.done,
+                            onSubmitted: (_) => _addTask(),
+                            style: AppTypography.lato400(14, t.text),
+                            decoration: _inputDeco('Add a task to ${targetCat.name}…'),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        SolidButton(
+                          onTap: _addTask,
+                          icon: _addingTask
+                              ? const SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : AppIcons.plus(c: Colors.white, s: 14),
+                          size: 36,
+                          color: t.accent,
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              ),
-            ],
+              );
+            },
           ),
-        ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 20),
         if (_loadingTasks && _tasks.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 24),
+            child: Center(child: CircularProgressIndicator()),
+          )
+        else if (categories.isEmpty)
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16),
+            padding: const EdgeInsets.symmetric(vertical: 24),
             child: Center(
-              child: SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(t.accent),
+              child: Text('No categories yet', style: AppTypography.lato400(14, t.muted)),
+            ),
+          )
+        else
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: (_openTaskCat == null
+                    ? categories
+                    : categories.where((c) => c.id == _openTaskCat).toList())
+                .map((cat) {
+              final items = _tasksIn(cat.id);
+              final remaining = items.where((task) => !task.done).length;
+              return Container(
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: t.card,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: t.border.withValues(alpha: 0.7)),
+                  boxShadow: t.cardShadow,
                 ),
-              ),
-            ),
-          ),
-        if (!_loadingTasks && _tasks.isEmpty)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            child: Text(
-              'No tasks for today yet',
-              style: AppTypography.lato400(13, t.muted).copyWith(fontStyle: FontStyle.italic),
-            ),
-          ),
-        // User tasks
-        ..._visibleTasks.asMap().entries.map((e) {
-          final i = e.key;
-          final task = e.value;
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Row(
-              children: [
-                GestureDetector(
-                  onTap: () async {
-                    final newDone = !task.done;
-                    setState(() {
-                      _tasks[i] = _TaskItem(
-                        id: task.id,
-                        text: task.text,
-                        done: newDone,
-                      );
-                    });
-                    if (task.id != null) {
-                      try {
-                        await ApiService.updateTask(
-                          token: widget.user.token ?? '',
-                          taskId: task.id!,
-                          completed: newDone,
-                        );
-                      } catch (err) {
-                        debugPrint('[JOURNAL TASK UPDATE API ERROR] $err');
-                      }
-                    }
-                  },
-                  child: Container(
-                    width: 20,
-                    height: 20,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: task.done ? t.accent : t.border,
-                        width: 2,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 10,
+                            height: 10,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: t.accent,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(cat.name, style: AppTypography.lato700(15, t.text)),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: remaining > 0
+                                  ? t.accent.withValues(alpha: 0.12)
+                                  : t.muted.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              remaining > 0 ? '$remaining left' : 'All done',
+                              style: AppTypography.lato700(
+                                11,
+                                remaining > 0 ? t.accent : t.muted,
+                              ),
+                            ),
+                          ),
+                          if (!cat.isSystem) ...[
+                            const SizedBox(width: 8),
+                            GestureDetector(
+                              onTap: () => _showCategoryOptions(cat),
+                              child: Padding(
+                                padding: const EdgeInsets.all(2),
+                                child: AppIcons.pen(c: t.muted, s: 13),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
-                      color: task.done ? t.accent : Colors.transparent,
                     ),
-                    child:
-                        task.done
-                            ? AppIcons.check(c: Colors.white, s: 12)
-                            : null,
-                  ),
+                    Divider(color: t.border.withValues(alpha: 0.4), height: 1),
+                    if (items.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                        child: Text(
+                          'No tasks in ${cat.name}',
+                          style: AppTypography.lato400(13, t.muted).copyWith(
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      )
+                    else
+                      ListView.separated(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        itemCount: items.length,
+                        separatorBuilder: (_, __) => Divider(
+                          color: t.border.withValues(alpha: 0.25),
+                          height: 1,
+                          indent: 36,
+                        ),
+                        itemBuilder: (context, i) {
+                          final task = items[i];
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 4),
+                            child: Row(
+                              children: [
+                                GestureDetector(
+                                  onTap: () => _toggleTask(task),
+                                  child: Container(
+                                    width: 22,
+                                    height: 22,
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(
+                                        color: task.done ? t.accent : t.border,
+                                        width: 1.8,
+                                      ),
+                                      color: task.done ? t.accent : Colors.transparent,
+                                    ),
+                                    child: task.done
+                                        ? AppIcons.check(c: Colors.white, s: 12)
+                                        : null,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: _editingTaskId == task.id && task.id != null
+                                      ? TextField(
+                                          autofocus: true,
+                                          controller: TextEditingController(text: _editingTaskText)
+                                            ..selection = TextSelection.collapsed(
+                                              offset: _editingTaskText.length,
+                                            ),
+                                          onChanged: (v) => _editingTaskText = v,
+                                          onSubmitted: (_) => _renameTask(task, _editingTaskText),
+                                          onTapOutside: (_) => _renameTask(task, _editingTaskText),
+                                          style: AppTypography.lato400(14, t.text),
+                                          decoration: _inputDeco('Task name…'),
+                                        )
+                                      : GestureDetector(
+                                          onLongPress: task.id != null
+                                              ? () => setState(() {
+                                                    _editingTaskId = task.id;
+                                                    _editingTaskText = task.text;
+                                                  })
+                                              : null,
+                                          child: Text(
+                                            task.text,
+                                            style: AppTypography.lato400(14, t.text).copyWith(
+                                              decoration: task.done
+                                                  ? TextDecoration.lineThrough
+                                                  : null,
+                                              color: task.done ? t.muted : t.text,
+                                            ),
+                                          ),
+                                        ),
+                                ),
+                                GestureDetector(
+                                  onTap: () => _deleteTask(task),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(4),
+                                    child: AppIcons.close(
+                                      c: t.muted.withValues(alpha: 0.6),
+                                      s: 14,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                  ],
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    task.text,
-                    style: AppTypography.lato400(14, t.text).copyWith(
-                      decoration: task.done ? TextDecoration.lineThrough : null,
-                      color: task.done ? t.muted : t.text,
-                    ),
-                  ),
-                ),
-                GestureDetector(
-                  onTap: () async {
-                    final removedTask = _tasks[i];
-                    setState(() {
-                      _tasks.removeAt(i);
-                    });
-                    if (removedTask.id != null) {
-                      try {
-                        await ApiService.deleteTask(
-                          token: widget.user.token ?? '',
-                          taskId: removedTask.id!,
-                        );
-                      } catch (err) {
-                        debugPrint('[JOURNAL TASK DELETE API ERROR] $err');
-                      }
-                    }
-                  },
-                  child: Container(
-                    width: 22,
-                    height: 22,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: t.accent.withValues(alpha: 0.14),
-                      shape: BoxShape.circle,
-                    ),
-                    child: AppIcons.close(c: t.accent, s: 12),
-                  ),
-                ),
-              ],
-            ),
-          );
-        }),
-        if (_hasMoreTasks || _onLastTaskBatch) _taskPageLinks(),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _newTaskCtrl,
-                onSubmitted: (_) => _addTask(),
-                style: AppTypography.lato400(14, t.text),
-                decoration: _inputDeco('Add a task…'),
-              ),
-            ),
-            const SizedBox(width: 8),
-            SolidButton(
-              onTap: _addTask,
-              icon: AppIcons.plus(c: Colors.white, s: 14),
-              size: 36,
-              color: t.accent,
-            ),
-          ],
-        ),
+              );
+            }).toList(),
+          ),
       ],
     );
   }
 
-  void _addTask() async {
+  Future<void> _addTask() async {
     final taskText = _newTaskCtrl.text.trim();
-    if (taskText.isEmpty) return;
+    if (taskText.isEmpty || _addingTask) return;
+    final targetCatId = _openTaskCat ?? _taskTargetCatId ?? _generalCategoryId;
+    if (targetCatId == null) return;
+
     FocusManager.instance.primaryFocus?.unfocus();
-    setState(() {
-      _newTaskCtrl.clear();
-    });
+    _newTaskCtrl.clear();
+    setState(() => _addingTask = true);
 
     final now = DateTime.now();
     final dateKey =
@@ -837,23 +1028,95 @@ class _JournalTabState extends State<JournalTab> {
         title: taskText,
         completed: false,
         dateKey: dateKey,
+        categoryId: targetCatId,
       );
       final createdId = res['id']?.toString();
-
+      final savedCategoryId = res['category_id'] as int? ?? targetCatId;
       if (mounted) {
         setState(() {
-          _tasks.add(_TaskItem(id: createdId, text: taskText, done: false));
-          _revealAddedTasks(_tasks.length);
+          _tasks.add(
+            _TaskItem(
+              id: createdId,
+              text: taskText,
+              done: false,
+              categoryId: savedCategoryId,
+            ),
+          );
+          _addingTask = false;
         });
       }
     } catch (e) {
       debugPrint('[JOURNAL TASK API ERROR] $e');
-      if (mounted) {
-        setState(() {
-          _tasks.add(_TaskItem(text: taskText, done: false));
-          _revealAddedTasks(_tasks.length);
-        });
+      if (mounted) setState(() => _addingTask = false);
+    }
+  }
+
+  Future<void> _toggleTask(_TaskItem task) async {
+    final newDone = !task.done;
+    setState(() {
+      final idx = _tasks.indexWhere((item) => item.id == task.id && item.text == task.text);
+      if (idx != -1) {
+        _tasks[idx] = _TaskItem(
+          id: task.id,
+          text: task.text,
+          done: newDone,
+          categoryId: task.categoryId,
+        );
       }
+    });
+    if (task.id != null) {
+      try {
+        await ApiService.updateTask(
+          token: widget.user.token ?? '',
+          taskId: task.id!,
+          completed: newDone,
+        );
+      } catch (err) {
+        debugPrint('[JOURNAL TASK UPDATE API ERROR] $err');
+      }
+    }
+  }
+
+  Future<void> _deleteTask(_TaskItem task) async {
+    setState(() {
+      _tasks.removeWhere((item) => item.id == task.id && item.text == task.text);
+    });
+    if (task.id != null) {
+      try {
+        await ApiService.deleteTask(
+          token: widget.user.token ?? '',
+          taskId: task.id!,
+        );
+      } catch (err) {
+        debugPrint('[JOURNAL TASK DELETE API ERROR] $err');
+      }
+    }
+  }
+
+  Future<void> _renameTask(_TaskItem task, String newName) async {
+    final name = newName.trim();
+    setState(() => _editingTaskId = null);
+    if (name.isEmpty || task.id == null) return;
+    setState(() {
+      final idx = _tasks.indexWhere((item) => item.id == task.id);
+      if (idx != -1) {
+        _tasks[idx] = _TaskItem(
+          id: task.id,
+          text: name,
+          done: task.done,
+          categoryId: task.categoryId,
+        );
+      }
+    });
+    try {
+      await ApiService.updateTask(
+        token: widget.user.token ?? '',
+        taskId: task.id!,
+        completed: task.done,
+        title: name,
+      );
+    } catch (e) {
+      debugPrint('[RENAME TASK ERROR] $e');
     }
   }
 
@@ -977,45 +1240,7 @@ class _JournalTabState extends State<JournalTab> {
             ),
           ],
         ),
-        // New category input
-        if (_addingCat) ...[
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _newCatCtrl,
-                  autofocus: true,
-                  textInputAction: TextInputAction.done,
-                  onSubmitted: (_) => _addCategory(),
-                  style: AppTypography.lato400(14, t.text),
-                  decoration: _inputDeco('Category name…'),
-                ),
-              ),
-              const SizedBox(width: 8),
-              GestureDetector(
-                onTap: _addingCatLoading ? null : _addCategory,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: _addingCatLoading ? t.accent.withValues(alpha: 0.5) : t.accent,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: _addingCatLoading
-                      ? const SizedBox(
-                          width: 14,
-                          height: 14,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : Text('Add', style: AppTypography.lato700(12, Colors.white)),
-                ),
-              ),
-            ],
-          ),
-        ],
+        _buildNewCategoryRow(),
         const SizedBox(height: 16),
         // Global Add Item Bar
         if (_categories.isNotEmpty)
@@ -1375,6 +1600,9 @@ class _JournalTabState extends State<JournalTab> {
           _categories.add(newCat);
           _shopItems[newCat.id] = [];
           _openCat = null;
+          _openTaskCat = null;
+          _targetAddCatId = newCat.id;
+          _taskTargetCatId = newCat.id;
           _newCatCtrl.clear();
           _addingCat = false;
           _addingCatLoading = false;
@@ -1403,8 +1631,13 @@ class _JournalTabState extends State<JournalTab> {
       _categories.removeWhere((c) => c.id == catId);
       _shopItems.remove(catId);
       if (_openCat == catId) _openCat = null;
+      if (_openTaskCat == catId) _openTaskCat = null;
       if (_targetAddCatId == catId) {
         _targetAddCatId = _categories.isNotEmpty ? _categories.first.id : null;
+      }
+      if (_taskTargetCatId == catId) {
+        _taskTargetCatId = _generalCategoryId ??
+            (_categories.isNotEmpty ? _categories.first.id : null);
       }
     });
     try {
@@ -1412,9 +1645,52 @@ class _JournalTabState extends State<JournalTab> {
         token: widget.user.token ?? '',
         categoryId: catId,
       );
+      await _fetchTasks();
     } catch (e) {
       debugPrint('[DELETE CATEGORY ERROR] $e');
     }
+  }
+
+  Widget _buildNewCategoryRow() {
+    if (!_addingCat) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _newCatCtrl,
+              autofocus: true,
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) => _addCategory(),
+              style: AppTypography.lato400(14, t.text),
+              decoration: _inputDeco('Category name…'),
+            ),
+          ),
+          const SizedBox(width: 8),
+          GestureDetector(
+            onTap: _addingCatLoading ? null : _addCategory,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: _addingCatLoading ? t.accent.withValues(alpha: 0.5) : t.accent,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: _addingCatLoading
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : Text('Add', style: AppTypography.lato700(12, Colors.white)),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _renameCategory(int catId, String newName) async {
@@ -1616,7 +1892,8 @@ class _TaskItem {
   final String? id;
   final String text;
   final bool done;
-  _TaskItem({this.id, required this.text, required this.done});
+  final int? categoryId;
+  _TaskItem({this.id, required this.text, required this.done, this.categoryId});
 }
 
 class _ShopCategory {

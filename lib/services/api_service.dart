@@ -589,6 +589,7 @@ class ApiService {
     required String title,
     required bool completed,
     String? dateKey,
+    int? categoryId,
   }) async {
     const url = '$apiBase/tasks';
     final requestBody = {
@@ -596,6 +597,7 @@ class ApiService {
         'title': title,
         'completed': completed,
         if (dateKey != null) 'date_key': dateKey,
+        if (categoryId != null) 'category_id': categoryId,
       },
     };
 

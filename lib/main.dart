@@ -8,6 +8,7 @@ import 'theme/tokens.dart';
 import 'icons/app_icons.dart';
 import 'models/user_profile.dart';
 import 'widgets/app_logo.dart';
+import 'widgets/two_finger_zoom.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/onboarding/onboarding_screen.dart';
 import 'screens/tabs/home_tab.dart';
@@ -39,10 +40,12 @@ class MeTimeClubApp extends StatelessWidget {
         scaffoldBackgroundColor: AppTokens.day.bg,
       ),
       builder:
-          (context, child) => GestureDetector(
-            behavior: HitTestBehavior.translucent,
-            onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-            child: child!,
+          (context, child) => TwoFingerZoom(
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+              child: child!,
+            ),
           ),
       home: const AppRoot(),
     );
