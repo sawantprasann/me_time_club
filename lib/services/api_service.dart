@@ -589,6 +589,7 @@ class ApiService {
     required String title,
     required bool completed,
     String? dateKey,
+    int? categoryId,
   }) async {
     const url = '$apiBase/tasks';
     final requestBody = {
@@ -596,6 +597,7 @@ class ApiService {
         'title': title,
         'completed': completed,
         if (dateKey != null) 'date_key': dateKey,
+        if (categoryId != null) 'category_id': categoryId,
       },
     };
 
@@ -844,6 +846,53 @@ class ApiService {
       } else {
         final errorMsg =
             decoded['error'] as String? ?? 'Failed to update journal entry.';
+        throw ApiException(errorMsg);
+      }
+    } on http.ClientException catch (e) {
+      print('[API ERROR] ClientException: ${e.message}');
+      throw ApiException(
+        'Network error: Please check your internet connection.',
+      );
+    } catch (e) {
+      print('[API ERROR] Exception: ${e.toString()}');
+      if (e is ApiException) rethrow;
+      throw ApiException('An unexpected error occurred: ${e.toString()}');
+    }
+  }
+
+  /// The three gentle reads everyone sees today. The server chooses them.
+  static Future<List<GentleRead>> todaysGentleReads({
+    required String token,
+  }) async {
+    final url = '$apiBase/gentle_reads/today';
+
+    print('[API REQUEST] GET $url');
+
+    try {
+      final response = await _client.get(
+        Uri.parse(url),
+        headers: {
+          'accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      print('[API RESPONSE] ${response.statusCode} GET $url');
+
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+        if (decoded is! List) return const [];
+        return [
+          for (final item in decoded)
+            if (item is Map)
+              GentleRead.fromJson(Map<String, dynamic>.from(item)),
+        ];
+      } else {
+        final decoded = jsonDecode(response.body);
+        final errorMsg =
+            decoded is Map
+                ? decoded['error'] as String? ?? 'Failed to load gentle reads.'
+                : 'Failed to load gentle reads.';
         throw ApiException(errorMsg);
       }
     } on http.ClientException catch (e) {
@@ -1272,11 +1321,12 @@ class ApiService {
 
   // ── Categories ───────────────────────────────────────────────────────────────
 
-  /// Fetches shopping categories (system + user-created).
+  /// Fetches shopping or task categories. The two lists are separate.
   static Future<List<Map<String, dynamic>>> getShoppingCategories({
     required String token,
+    String kind = 'shopping',
   }) async {
-    const url = '$apiBase/categories';
+    final url = '$apiBase/categories?kind=${Uri.encodeQueryComponent(kind)}';
     print('[API REQUEST] GET $url');
     try {
       final response = await _client.get(
@@ -1307,10 +1357,15 @@ class ApiService {
     required String token,
     required String name,
     String? icon,
+    String kind = 'shopping',
   }) async {
     const url = '$apiBase/categories';
     final requestBody = {
-      'category': {'name': name, if (icon != null) 'icon': icon},
+      'category': {
+        'name': name,
+        'kind': kind,
+        if (icon != null) 'icon': icon,
+      },
     };
     print('[API REQUEST] POST $url');
     print('[API REQUEST BODY] ${jsonEncode(requestBody)}');

@@ -4,7 +4,6 @@ import '../../icons/app_icons.dart';
 import '../../models/user_profile.dart';
 import '../../services/api_service.dart';
 import '../../widgets/shared_widgets.dart';
-import '../../widgets/speech_button.dart';
 import '../../widgets/app_logo.dart';
 
 class CalendarTab extends StatefulWidget {
@@ -1179,7 +1178,7 @@ class _CalendarTabState extends State<CalendarTab> {
           const SizedBox(height: 8),
           Text(
             textToShow,
-            style: AppTypography.cormorantItalic(16, t.text, height: 1.6),
+            style: AppTypography.lato400(15, t.text, height: 1.6),
           ),
         ],
       ),
@@ -1241,7 +1240,7 @@ class _CalendarTabState extends State<CalendarTab> {
             _buildChamomileWelcome(page),
             Text(
               '❝ ${page.openingThought} ❞',
-              style: AppTypography.dmSerifItalic(15, t.accent, height: 1.5),
+              style: AppTypography.lato400(15, t.accent, height: 1.5),
             ),
             if (_pageExpanded) ...[
               const SizedBox(height: 14),
@@ -1263,7 +1262,7 @@ class _CalendarTabState extends State<CalendarTab> {
                 ),
                 child: Text(
                   page.microSkill,
-                  style: AppTypography.cormorantItalic(14, t.text, height: 1.5),
+                  style: AppTypography.lato400(14, t.text, height: 1.5),
                 ),
               ),
               if (page.funMoment.trim().isNotEmpty)
@@ -1280,7 +1279,7 @@ class _CalendarTabState extends State<CalendarTab> {
                 ),
                 child: Text(
                   page.nightReflection,
-                  style: AppTypography.dmSerifItalic(
+                  style: AppTypography.lato400(
                     15,
                     const Color(0xFFF0EBE3),
                     height: 1.5,
@@ -1294,7 +1293,7 @@ class _CalendarTabState extends State<CalendarTab> {
               _isCurrentMonth
                   ? 'Open today\'s page from Home to see it here.'
                   : 'No page saved for this day.',
-              style: AppTypography.cormorantItalic(14, t.muted),
+              style: AppTypography.lato400(14, t.muted),
             ),
         ],
       ),
@@ -1353,12 +1352,12 @@ class _CalendarTabState extends State<CalendarTab> {
           if (!hasTasks)
             Text(
               'No tasks for this day.',
-              style: AppTypography.cormorantItalic(14, t.muted),
+              style: AppTypography.lato400(14, t.muted),
             )
           else if (!_tasksExpanded)
             Text(
               tasks.length == 1 ? '1 task' : '${tasks.length} tasks',
-              style: AppTypography.cormorantItalic(14, t.muted),
+              style: AppTypography.lato400(14, t.muted),
             )
           else
             ..._visibleTasks.asMap().entries.map((e) {
@@ -1491,18 +1490,6 @@ class _CalendarTabState extends State<CalendarTab> {
                 ),
               ),
               const SizedBox(width: 8),
-              SpeechButton(
-                onResult: (s) {
-                  setState(() => _newTask = s);
-                  _taskController.text = s;
-                  _taskController.selection = TextSelection.fromPosition(
-                    TextPosition(offset: s.length),
-                  );
-                },
-                t: t,
-                size: 36,
-              ),
-              const SizedBox(width: 8),
               SolidButton(
                 onTap: _addTask,
                 icon: AppIcons.plus(c: Colors.white, s: 14),
@@ -1583,11 +1570,7 @@ class _CalendarTabState extends State<CalendarTab> {
                 child: Text(
                   'No cycle days tracked yet. Tap + to begin.',
                   textAlign: TextAlign.center,
-                  style: AppTypography.cormorantItalic(
-                    16,
-                    t.muted,
-                    height: 1.35,
-                  ),
+                  style: AppTypography.lato400(15, t.muted, height: 1.35),
                 ),
               ),
             )
@@ -1621,7 +1604,7 @@ class _CalendarTabState extends State<CalendarTab> {
           const SizedBox(height: 6),
           Text(
             body,
-            style: AppTypography.cormorantItalic(16, t.muted, height: 1.35),
+            style: AppTypography.lato400(15, t.muted, height: 1.35),
           ),
           const SizedBox(height: 14),
           Row(

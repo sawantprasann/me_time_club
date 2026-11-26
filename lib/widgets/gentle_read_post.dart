@@ -3,6 +3,11 @@ import '../icons/app_icons.dart';
 import '../models/gentle_read.dart';
 import '../theme/tokens.dart';
 
+// Split across each page so a swipe shows the background between cards,
+// while a settled card still lines up with the section header.
+const double _slideGap = 16;
+const double _pageBleed = AppSpacing.pagePadding - _slideGap / 2;
+
 /// Home-screen gentle read. The section header stays put.
 /// When [reads] has more than one item, the card slides between them.
 class GentleReadPost extends StatefulWidget {
@@ -124,47 +129,56 @@ class _GentleReadPostState extends State<GentleReadPost> {
     final index = _canSlide ? _slidePage.round().clamp(0, reads.length - 1) : 0;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
+      padding: const EdgeInsets.only(top: 18, bottom: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _sectionHeader(),
+          _inset(_sectionHeader()),
           const SizedBox(height: 12),
           if (_canSlide)
-            SizedBox(
-              height: _viewportHeight,
-              child: PageView.builder(
-                controller: _pages,
-                clipBehavior: Clip.hardEdge,
-                itemCount: reads.length,
-                onPageChanged: widget.onPageChanged,
-                itemBuilder: (context, page) {
-                  return OverflowBox(
-                    alignment: Alignment.topCenter,
-                    minHeight: 0,
-                    maxHeight: double.infinity,
-                    child: _ReportHeight(
-                      onHeight: (height) => _rememberHeight(page, height),
-                      child: _card(reads[page], page),
-                    ),
-                  );
-                },
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: _pageBleed),
+              child: SizedBox(
+                height: _viewportHeight,
+                child: PageView.builder(
+                  controller: _pages,
+                  clipBehavior: Clip.hardEdge,
+                  itemCount: reads.length,
+                  onPageChanged: widget.onPageChanged,
+                  itemBuilder: (context, page) {
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: _slideGap / 2,
+                      ),
+                      child: OverflowBox(
+                        alignment: Alignment.topCenter,
+                        minHeight: 0,
+                        maxHeight: double.infinity,
+                        child: _ReportHeight(
+                          onHeight: (height) => _rememberHeight(page, height),
+                          child: _card(reads[page], page),
+                        ),
+                      ),
+                    );
+                  },
+                ),
               ),
             )
           else
-            _card(reads.first, 0),
+            _inset(_card(reads.first, 0)),
           if (_canSlide) ...[
             const SizedBox(height: 14),
-            _dots(index, reads.length),
-            const SizedBox(height: 8),
-            Text(
-              '${index + 1} of ${reads.length} · tap dots to browse',
-              textAlign: TextAlign.center,
-              style: AppTypography.lato400(12, t.muted),
-            ),
+            _inset(_dots(index, reads.length)),
           ],
         ],
       ),
+    );
+  }
+
+  Widget _inset(Widget child) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.pagePadding),
+      child: child,
     );
   }
 
@@ -227,6 +241,7 @@ class _GentleReadPostState extends State<GentleReadPost> {
     final day = t == AppTokens.day;
 
     return Padding(
+      key: ValueKey('gentle-read-card-${read.id}'),
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: DecoratedBox(
         decoration: BoxDecoration(
@@ -260,17 +275,6 @@ class _GentleReadPostState extends State<GentleReadPost> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        if (image == null && hasBody) ...[
-                          Text(
-                            _storyKicker(read.body),
-                            style: AppTypography.lato700(
-                              11,
-                              day ? const Color(0xFFC47D72) : t.accent,
-                              letterSpacing: 1.25,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                        ],
                         if (hasTitle) _title(read.title),
                         if (hasBody)
                           _caption(
@@ -323,14 +327,6 @@ class _GentleReadPostState extends State<GentleReadPost> {
     final words = _wordCount('${read.title} ${read.body}');
     if (words == 0) return 1;
     return (words / 180).ceil().clamp(1, 30);
-  }
-
-  /// Text-only reads are labeled by length, as in "100-WORD STORY".
-  String _storyKicker(String body) {
-    final words = _wordCount(body);
-    final rounded =
-        words == 0 ? 10 : ((words / 10).round() * 10).clamp(10, 9990);
-    return '$rounded-WORD STORY';
   }
 
   Widget _photo(Uri image, String? alt) {
@@ -391,7 +387,7 @@ class _GentleReadPostState extends State<GentleReadPost> {
     bool spacedParagraphs = false,
     int collapsedLines = 6,
   }) {
-    final style = AppTypography.cormorantItalic(15, t.text, height: 1.65);
+    final style = AppTypography.lato400(15, t.text, height: 1.65);
     if (spacedParagraphs) {
       final parts =
           body
@@ -463,7 +459,7 @@ class _GentleReadPostState extends State<GentleReadPost> {
       onTap: () => widget.onOpenLink(uri),
       child: Text(
         text,
-        style: AppTypography.cormorantItalic(
+        style: AppTypography.lato600(
           15,
           t.accent,
           height: 1.65,

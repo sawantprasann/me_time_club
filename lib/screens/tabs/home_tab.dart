@@ -94,16 +94,18 @@ class _HomeTabState extends State<HomeTab> {
     final restored =
         sameDay ? _decodeHistory(prefs.getString(_historyKey)) : <GentleRead>[];
     final storedIndex = sameDay ? (prefs.getInt(_indexKey) ?? 0) : 0;
-    if (restored.length >= _readsPerDay) {
+    if (restored.isNotEmpty) {
       setState(() {
         _gentleReadHistory
           ..clear()
           ..addAll(restored.take(_readsPerDay));
-        _gentleReadIndex = storedIndex.clamp(0, _readsPerDay - 1);
+        _gentleReadIndex = storedIndex.clamp(
+          0,
+          _gentleReadHistory.length - 1,
+        );
       });
-      return;
     }
-    await _loadGentleReads(existing: restored, index: storedIndex);
+    await _loadGentleReads(index: storedIndex);
   }
 
   List<GentleRead> _decodeHistory(String? raw) {
@@ -211,30 +213,22 @@ class _HomeTabState extends State<HomeTab> {
     }
   }
 
-  Future<void> _loadGentleReads({
-    List<GentleRead> existing = const [],
-    int index = 0,
-  }) async {
+  Future<void> _loadGentleReads({int index = 0}) async {
     setState(() => _gentleReadLoading = true);
     try {
-      final reads = [...existing];
-      while (reads.length < _readsPerDay) {
-        // A place in the row may repeat a read she has already seen.
-        final read = await ApiService.randomGentleRead(
-          token: widget.user.token ?? '',
-        );
-        if (read == null) break;
-        reads.add(read);
-      }
+      final reads = await ApiService.todaysGentleReads(
+        token: widget.user.token ?? '',
+      );
       if (!mounted) return;
+      final shown = reads.take(_readsPerDay).toList();
       setState(() {
         _gentleReadLoading = false;
         _gentleReadHistory
           ..clear()
-          ..addAll(reads);
-        _gentleReadIndex = reads.isEmpty ? 0 : index.clamp(0, reads.length - 1);
+          ..addAll(shown);
+        _gentleReadIndex = shown.isEmpty ? 0 : index.clamp(0, shown.length - 1);
       });
-      if (reads.isNotEmpty) await _persistGentleReads();
+      await _persistGentleReads();
     } catch (e) {
       if (e is UnauthorizedException) return;
       debugPrint('[GENTLE READ ERROR] $e');
@@ -666,7 +660,7 @@ class _HomeTabState extends State<HomeTab> {
           const SizedBox(height: 6),
           Text(
             textToShow,
-            style: AppTypography.cormorantItalic(18, t.text, height: 1.65),
+            style: AppTypography.lato400(16, t.text, height: 1.65),
           ),
         ],
       ),
@@ -679,9 +673,10 @@ class _HomeTabState extends State<HomeTab> {
       value: _freeText,
       onChange: (v) => setState(() => _freeText = v),
       placeholder:
-          'Or tell Chamomile how you\'re really feeling… type or speak.',
+          'Type whatever is on your mind. A feeling, a task, or something to buy.',
       t: t,
       rows: 3,
+      showMic: true,
     );
   }
 }
@@ -724,7 +719,7 @@ class _DailyPageView extends StatelessWidget {
             children: [
               Text(
                 page.reflection,
-                style: AppTypography.cormorantItalic(17, t.text, height: 1.6),
+                style: AppTypography.lato400(16, t.text, height: 1.6),
               ),
               const SizedBox(height: 12),
               _answerField(
@@ -736,10 +731,7 @@ class _DailyPageView extends StatelessWidget {
                 const SizedBox(height: 14),
                 Text(
                   page.reflectionFollowup,
-                  style: AppTypography.lato400(
-                    12,
-                    t.muted,
-                  ).copyWith(fontStyle: FontStyle.italic),
+                  style: AppTypography.lato400(15, t.text, height: 1.6),
                 ),
                 const SizedBox(height: 8),
                 _answerField(
@@ -787,7 +779,7 @@ class _DailyPageView extends StatelessWidget {
           Text(
             'When your thoughts, body, and actions feel in sync, you feel lighter.',
             textAlign: TextAlign.start,
-            style: AppTypography.cormorantItalic(16, t.muted, height: 1.5),
+            style: AppTypography.lato400(15, t.muted, height: 1.5),
           ),
           if (page.emotionalFeeling.trim().isNotEmpty) ...[
             const SizedBox(height: 18),
@@ -818,6 +810,7 @@ class _DailyPageView extends StatelessWidget {
               body: page.emotionalResponse,
               accent: t.gold,
               isBright: true,
+              boldBody: true,
             ),
           ],
         ],
@@ -832,6 +825,7 @@ class _DailyPageView extends StatelessWidget {
     required String body,
     required Color accent,
     bool isBright = false,
+    bool boldBody = false,
   }) {
     final night = t == AppTokens.night;
     final alphaStart = isBright ? (night ? 0.22 : 0.16) : (night ? 0.14 : 0.07);
@@ -900,11 +894,14 @@ class _DailyPageView extends StatelessWidget {
                   const SizedBox(height: 10),
                   Text(
                     body,
-                    style: AppTypography.cormorantItalic(
-                      18,
-                      t.text,
-                      height: 1.55,
-                    ),
+                    style:
+                        boldBody
+                            ? AppTypography.lato700(16, t.text, height: 1.55)
+                            : AppTypography.cormorantItalic(
+                              18,
+                              t.text,
+                              height: 1.55,
+                            ),
                   ),
                 ],
               ),
@@ -1006,7 +1003,7 @@ class _DailyPageView extends StatelessWidget {
           const SizedBox(height: 14),
           Text(
             page.microSkill,
-            style: AppTypography.cormorantItalic(18, t.text, height: 1.7),
+            style: AppTypography.lato400(16, t.text, height: 1.7),
           ),
         ],
       ),
@@ -1023,7 +1020,7 @@ class _DailyPageView extends StatelessWidget {
       t: t,
       child: Text(
         page.funMoment,
-        style: AppTypography.cormorant600(17, t.text, height: 1.6),
+        style: AppTypography.lato400(16, t.text, height: 1.6),
       ),
     );
   }
@@ -1090,10 +1087,7 @@ class _DailyPageView extends StatelessWidget {
       style: AppTypography.lato400(14, textColor, height: 1.6),
       decoration: InputDecoration(
         hintText: hint,
-        hintStyle: AppTypography.lato400(
-          13,
-          hintColor,
-        ).copyWith(fontStyle: FontStyle.italic),
+        hintStyle: AppTypography.lato400(13, hintColor),
         filled: true,
         fillColor: fillColor,
         contentPadding: const EdgeInsets.symmetric(
@@ -1208,6 +1202,7 @@ class _DailyPageFeedbackState extends State<DailyPageFeedback> {
                   'Tell Chamomile what didn\'t resonate… type or speak.',
               t: t,
               rows: 2,
+              showMic: true,
             ),
             const SizedBox(height: 10),
             Row(

@@ -154,7 +154,7 @@ void main() {
       ),
     );
     await tester.pump();
-    expect(find.text('10-WORD STORY'), findsOneWidget);
+    expect(find.textContaining('WORD STORY'), findsNothing);
     expect(find.text('The cup that waited'), findsOneWidget);
     expect(find.text('She made tea at seven.'), findsOneWidget);
     expect(find.text('She drank it slowly.'), findsOneWidget);
@@ -214,13 +214,51 @@ void main() {
     await tester.pump();
     await tester.pump();
     expect(find.text('GENTLE READ'), findsOneWidget);
-    expect(find.text('1 of 3 · tap dots to browse'), findsOneWidget);
+    expect(find.textContaining('of 3'), findsNothing);
     expect(find.text('Third', skipOffstage: true), findsNothing);
     expect(find.byIcon(Icons.chevron_right_rounded), findsNothing);
     await tester.tap(find.byKey(const ValueKey('gentle-read-dot-2')));
     await tester.pumpAndSettle();
-    expect(find.text('3 of 3 · tap dots to browse'), findsOneWidget);
+    expect(find.textContaining('of 3'), findsNothing);
     expect(find.text('Third'), findsWidgets);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('A swipe keeps a gap between gentle read cards', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: GentleReadPost(
+              read: const GentleRead(id: 5, title: 'First', body: 'One.'),
+              reads: const [
+                GentleRead(id: 5, title: 'First', body: 'One.'),
+                GentleRead(id: 6, title: 'Second', body: 'Two.'),
+                GentleRead(id: 7, title: 'Third', body: 'Three.'),
+              ],
+              t: AppTokens.day,
+              baseUri: Uri.parse('https://api.example.com'),
+              onOpenLink: (_) {},
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    final controller =
+        tester.widget<PageView>(find.byType(PageView)).controller!;
+    controller.jumpTo(120);
+    await tester.pump();
+
+    final first = tester.getRect(
+      find.byKey(const ValueKey('gentle-read-card-5')),
+    );
+    final second = tester.getRect(
+      find.byKey(const ValueKey('gentle-read-card-6')),
+    );
+    expect(second.left - first.right, 16);
     expect(tester.takeException(), isNull);
   });
 }

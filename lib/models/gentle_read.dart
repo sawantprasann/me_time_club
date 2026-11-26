@@ -6,7 +6,6 @@ class GentleRead {
   final String? imageAlt;
   final String? linkUrl;
   final String? linkLabel;
-  final int total;
 
   const GentleRead({
     required this.id,
@@ -16,7 +15,6 @@ class GentleRead {
     this.imageAlt,
     this.linkUrl,
     this.linkLabel,
-    this.total = 1,
   });
 
   factory GentleRead.fromJson(Map<String, dynamic> json) {
@@ -28,7 +26,6 @@ class GentleRead {
       imageAlt: _optionalString(json['image_alt']),
       linkUrl: _urlValue(json['link_url'] ?? json['link']),
       linkLabel: _optionalString(json['link_label'] ?? json['link_text']),
-      total: json['total'] as int? ?? 1,
     );
   }
 
@@ -51,7 +48,6 @@ class GentleRead {
       'image_alt': imageAlt,
       'link': linkUrl,
       'link_text': linkLabel,
-      'total': total,
     };
   }
 }
