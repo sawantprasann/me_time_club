@@ -42,3 +42,11 @@ android {
 flutter {
     source = "../.."
 }
+
+val googleServicesFile = file("google-services.json")
+if (
+    googleServicesFile.exists() &&
+    googleServicesFile.readText().contains("\"package_name\": \"com.metimeclub.me_time_club\"")
+) {
+    apply(plugin = "com.google.gms.google-services")
+}

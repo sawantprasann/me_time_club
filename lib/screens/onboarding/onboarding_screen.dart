@@ -5,17 +5,20 @@ import '../../widgets/voice_text_input.dart';
 import '../../widgets/shared_widgets.dart';
 import '../../widgets/app_logo.dart';
 import '../../services/api_service.dart';
+import '../../widgets/social_sign_in_buttons.dart';
 
 /// 5-screen onboarding & registration flow.
 /// Screen 0: Welcome · Screen 1: Name + Phase · Screen 2: Journey · Screen 3: Hardships · Screen 4: Email Register
 class OnboardingScreen extends StatefulWidget {
   final Function(UserProfile) onComplete;
   final VoidCallback onNavigateToLogin;
+  final UserProfile? socialUser;
 
   const OnboardingScreen({
     super.key,
     required this.onComplete,
     required this.onNavigateToLogin,
+    this.socialUser,
   });
 
   @override
@@ -40,10 +43,17 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   bool _obscurePassword = true;
   bool _loading = false;
   String? _errorMessage;
+  UserProfile? _socialUser;
 
   @override
   void initState() {
     super.initState();
+    final social = widget.socialUser;
+    if (social != null) {
+      _socialUser = social;
+      _name = social.name;
+      _step = 1;
+    }
   }
 
   @override
@@ -195,7 +205,22 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
+                  SocialSignInButtons(
+                    onSuccess: (user, profileComplete) {
+                      if (profileComplete) {
+                        widget.onComplete(user);
+                      } else {
+                        setState(() {
+                          _socialUser = user;
+                          _name = user.name;
+                          _step = 1;
+                          _errorMessage = null;
+                        });
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 16),
                   GestureDetector(
                     onTap: widget.onNavigateToLogin,
                     child: Text(
@@ -593,10 +618,25 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              CTAButton(label: 'Enter My Sanctuary →', onTap: _next, t: t),
+              if (_socialUser != null && _errorMessage != null) ...[
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text(
+                    _errorMessage!,
+                    style: AppTypography.lato400(12, t.accent),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ],
+              CTAButton(
+                label: 'Enter My Sanctuary →',
+                onTap: _continueFromHardships,
+                loading: _loading,
+                t: t,
+              ),
               const SizedBox(height: 8),
               GestureDetector(
-                onTap: _next,
+                onTap: _loading ? null : _continueFromHardships,
                 child: Padding(
                   padding: const EdgeInsets.all(8),
                   child: Text(
@@ -869,6 +909,126 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     );
   }
 
+  void _continueFromHardships() {
+    if (_socialUser != null) {
+      _saveSocialProfile();
+    } else {
+      _next();
+    }
+  }
+
+  Future<void> _saveSocialProfile() async {
+    final social = _socialUser;
+    final token = social?.token;
+    if (social == null || token == null || token.isEmpty) return;
+
+    setState(() {
+      _loading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      await ApiService.updateProfile(
+        token: token,
+        profileParams: {
+          'name': _name.trim().isEmpty ? social.name : _name.trim(),
+          'display_name': _name.trim().isEmpty ? social.name : _name.trim(),
+          'journey_stage': _journeyStage(),
+          'primary_phase': _journeyStage(),
+          'pregnancy_week': _pregnancyMonth?.replaceAll(' weeks', ''),
+          'child_count': _childCount,
+          'bio': _bio,
+          'free_text': _hardshipsText,
+          'hardships': _mapHardships(_hardships),
+          'hardships_text': _hardshipsText,
+          'journey_tags': _mapJourneyTags(_journey),
+          'journey_text': _bio,
+        },
+      );
+      _complete(
+        social.copyWith(
+          name: _name.trim().isEmpty ? social.name : _name.trim(),
+          journeyStage: _journeyStage(),
+          phases: _phases,
+          pregnancyMonth: _pregnancyMonth,
+          childCount: _childCount,
+          journey: _journey,
+          bio: _bio,
+          hardships: _hardships,
+          hardshipsText: _hardshipsText,
+        ),
+      );
+    } on ApiException catch (e) {
+      setState(() => _errorMessage = e.message);
+    } catch (_) {
+      setState(() => _errorMessage = 'Could not save your profile. Please try again.');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  String _journeyStage() {
+    if (_phases.isEmpty) return 'expecting';
+    switch (_phases.first) {
+      case 'expecting':
+      case 'newborn':
+      case 'baby':
+      case 'toddler':
+      case 'preschool':
+      case 'school_age':
+        return _phases.first;
+      default:
+        return 'expecting';
+    }
+  }
+
+  List<String> _mapHardships(List<String> rawHardships) {
+    return rawHardships.map((h) {
+      switch (h.toLowerCase()) {
+        case 'overwhelm':
+          return 'overwhelm';
+        case 'loneliness':
+          return 'loneliness';
+        case 'sleep exhaustion':
+          return 'sleep_deprivation';
+        case 'burnout':
+          return 'burnout';
+        case 'mom guilt':
+          return 'mom_guilt';
+        case 'identity loss':
+          return 'identity_loss';
+        case 'mental load':
+          return 'mental_load';
+        case 'need calm':
+          return 'need_calm';
+        case 'finding time for myself':
+          return 'finding_time_for_myself';
+        default:
+          return h.toLowerCase().replaceAll(' ', '_');
+      }
+    }).toList();
+  }
+
+  List<String> _mapJourneyTags(List<String> rawJourney) {
+    return rawJourney.map((j) {
+      if (j.contains('First-time')) return 'first_time_mother';
+      if (j.contains('Second-time')) return 'second_time_mother';
+      if (j.contains('Third time')) return 'third_time_or_more';
+      if (j.contains('Single mother')) return 'single_mother';
+      if (j.contains('Single father')) return 'single_father';
+      if (j.contains('Co-parenting')) return 'co_parenting';
+      if (j.contains('Working mother')) return 'working_mother';
+      if (j.contains('Stay-at-home')) return 'stay_at_home_mother';
+      if (j.contains('IVF')) return 'ivf_fertility_journey';
+      if (j.contains('Loss')) return 'loss_and_healing';
+      if (j.contains('Adoptive')) return 'adoptive_parent';
+      if (j.contains('Neurodivergent')) return 'neurodivergent_child';
+      if (j.contains('Postpartum')) return 'postpartum_recovery';
+      if (j.contains('Blended')) return 'blended_family';
+      return j.toLowerCase().replaceAll(' ', '_');
+    }).toList();
+  }
+
   Future<void> _registerUser() async {
     setState(() {
       _errorMessage = null;
@@ -880,74 +1040,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       _loading = true;
     });
 
-    String getJourneyStage() {
-      if (_phases.isEmpty) return 'expecting';
-      final first = _phases.first;
-      switch (first) {
-        case 'expecting':
-          return 'expecting';
-        case 'newborn':
-          return 'newborn';
-        case 'baby':
-          return 'baby';
-        case 'toddler':
-          return 'toddler';
-        case 'preschool':
-          return 'preschool';
-        case 'school_age':
-          return 'school_age';
-        default:
-          return 'expecting';
-      }
-    }
-
-    List<String> mapHardships(List<String> rawHardships) {
-      return rawHardships.map((h) {
-        switch (h.toLowerCase()) {
-          case 'overwhelm':
-            return 'overwhelm';
-          case 'loneliness':
-            return 'loneliness';
-          case 'sleep exhaustion':
-            return 'sleep_deprivation';
-          case 'burnout':
-            return 'burnout';
-          case 'mom guilt':
-            return 'mom_guilt';
-          case 'identity loss':
-            return 'identity_loss';
-          case 'mental load':
-            return 'mental_load';
-          case 'need calm':
-            return 'need_calm';
-          case 'finding time for myself':
-            return 'finding_time_for_myself';
-          default:
-            return h.toLowerCase().replaceAll(' ', '_');
-        }
-      }).toList();
-    }
-
-    List<String> mapJourneyTags(List<String> rawJourney) {
-      return rawJourney.map((j) {
-        if (j.contains('First-time')) return 'first_time_mother';
-        if (j.contains('Second-time')) return 'second_time_mother';
-        if (j.contains('Third time')) return 'third_time_or_more';
-        if (j.contains('Single mother')) return 'single_mother';
-        if (j.contains('Single father')) return 'single_father';
-        if (j.contains('Co-parenting')) return 'co_parenting';
-        if (j.contains('Working mother')) return 'working_mother';
-        if (j.contains('Stay-at-home')) return 'stay_at_home_mother';
-        if (j.contains('IVF')) return 'ivf_fertility_journey';
-        if (j.contains('Loss')) return 'loss_and_healing';
-        if (j.contains('Adoptive')) return 'adoptive_parent';
-        if (j.contains('Neurodivergent')) return 'neurodivergent_child';
-        if (j.contains('Postpartum')) return 'postpartum_recovery';
-        if (j.contains('Blended')) return 'blended_family';
-        return j.toLowerCase().replaceAll(' ', '_');
-      }).toList();
-    }
-
     try {
       final userParams = {
         'email': _emailController.text.trim(),
@@ -955,15 +1047,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         'display_name': _name.trim(),
         'password': _passwordController.text,
         'password_confirmation': _passwordController.text,
-        'journey_stage': getJourneyStage(),
-        'primary_phase': getJourneyStage(),
+        'journey_stage': _journeyStage(),
+        'primary_phase': _journeyStage(),
         'pregnancy_week': _pregnancyMonth?.replaceAll(' weeks', ''),
         'child_count': _childCount,
         'bio': _bio,
         'free_text': _hardshipsText,
-        'hardships': mapHardships(_hardships),
+        'hardships': _mapHardships(_hardships),
         'hardships_text': _hardshipsText,
-        'journey_tags': mapJourneyTags(_journey),
+        'journey_tags': _mapJourneyTags(_journey),
         'journey_text': _bio,
       };
 

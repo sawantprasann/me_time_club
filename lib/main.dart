@@ -256,17 +256,26 @@ class _AppRootState extends State<AppRoot> {
           onLoginSuccess: (profile) {
             _startTransitionLoader(profile as UserProfile);
           },
+          onNeedsOnboarding: (profile) {
+            setState(() {
+              _pendingUser = profile;
+              _showLogin = false;
+            });
+          },
           onNavigateToRegister: () {
             setState(() {
+              _pendingUser = null;
               _showLogin = false;
             });
           },
         );
       } else {
         return OnboardingScreen(
+          socialUser: _pendingUser,
           onComplete: _onOnboardingComplete,
           onNavigateToLogin: () {
             setState(() {
+              _pendingUser = null;
               _showLogin = true;
             });
           },
