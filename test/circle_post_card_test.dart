@@ -11,7 +11,6 @@ Future<void> showCard(
   List<CircleReply> replies = const [],
   List<CircleFeelingCount> feelings = const [],
   List<String> myMoods = const [],
-  int? mamaCount,
   AppTokens? tokens,
   double textScale = 1,
 }) async {
@@ -29,7 +28,6 @@ Future<void> showCard(
               replies: replies,
               feelings: feelings,
               myMoods: myMoods,
-              mamaCount: mamaCount,
               onSendReply: onSend,
             ),
           ),
@@ -94,18 +92,14 @@ void main() {
     expect(find.text('Close'), findsOneWidget);
 
     await tapChip(tester, 'I understand');
-    expect(
-      find.text('1 mama is here with you — mostly i understand.'),
-      findsOneWidget,
-    );
+    expect(find.textContaining('here with you'), findsNothing);
     expect(chipSelected(tester, 'I understand'), isTrue);
+    expect(find.text('1'), findsOneWidget);
     expect(find.text('Close'), findsOneWidget);
 
     await tapChip(tester, 'I understand');
-    expect(
-      find.text('1 mama is here with you — mostly i understand.'),
-      findsNothing,
-    );
+    expect(find.textContaining('here with you'), findsNothing);
+    expect(find.text('1'), findsNothing);
     expect(chipSelected(tester, 'I understand'), isFalse);
 
     await tapText(tester, 'Close');
@@ -155,10 +149,7 @@ void main() {
 
       expect(find.text('Another mother'), findsOneWidget);
       expect(find.text('Here for you'), findsOneWidget);
-      expect(
-        find.text("1 mama is here with you — mostly i'm here."),
-        findsOneWidget,
-      );
+      expect(find.textContaining('here with you'), findsNothing);
       expect(find.text('1'), findsOneWidget);
       expect(chipSelected(tester, 'I understand'), isFalse);
       expect(chipSelected(tester, "I'm here"), isTrue);
@@ -244,16 +235,12 @@ void main() {
         CircleFeelingCount(key: 'holding_you', label: 'Holding you', count: 3),
         CircleFeelingCount(key: 'i_understand', label: 'I understand', count: 2),
       ],
-      mamaCount: 9,
       onSend: (draft) async {
         sent.add(draft);
       },
     );
 
-    expect(
-      find.text('9 mamas are here with you — mostly holding you and i understand.'),
-      findsOneWidget,
-    );
+    expect(find.textContaining('here with you'), findsNothing);
     expect(find.text('3'), findsOneWidget);
     expect(find.text('2'), findsOneWidget);
 
@@ -275,7 +262,6 @@ void main() {
   testWidgets('More than four feelings collapse behind + more', (tester) async {
     await showCard(
       tester,
-      mamaCount: 9,
       feelings: const [
         CircleFeelingCount(key: 'holding_you', label: 'Holding you', count: 3),
         CircleFeelingCount(key: 'i_understand', label: 'I understand', count: 2),

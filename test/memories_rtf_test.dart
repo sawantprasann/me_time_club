@@ -49,13 +49,47 @@ void main() {
     expect(docx.contains('7A9E8E'), isTrue);
   });
 
-  test('crops a portrait photo to the wide memory-card shape', () {
+  test('keeps the whole photo, including a tall one, and fits it on the page', () {
     final source = img.encodePng(img.Image(width: 20, height: 40));
     final prepared = prepareMemoryPhoto(Uint8List.fromList(source));
 
     expect(prepared, isNotNull);
-    expect(prepared!.width / prepared.height, closeTo(2, 0.05));
+    expect(prepared!.width, 20);
+    expect(prepared.height, 40);
     expect(prepared.bytes[0], 0xFF);
     expect(prepared.bytes[1], 0xD8);
+
+    final docx = String.fromCharCodes(buildMemoriesDocx([
+      MemoryCardExport(
+        caption: 'Tall moment',
+        accentHex: 'B8706A',
+        photoJpeg: prepared.bytes,
+        photoWidth: prepared.width,
+        photoHeight: prepared.height,
+      ),
+    ]));
+    expect(docx.contains('cx="3886200"'), isTrue);
+    expect(docx.contains('cy="7772400"'), isTrue);
+  });
+
+  test('a wide photo stays wide and uncropped in the download', () {
+    final source = img.encodePng(img.Image(width: 40, height: 20));
+    final prepared = prepareMemoryPhoto(Uint8List.fromList(source));
+
+    expect(prepared, isNotNull);
+    expect(prepared!.width, 40);
+    expect(prepared.height, 20);
+
+    final docx = String.fromCharCodes(buildMemoriesDocx([
+      MemoryCardExport(
+        caption: 'Wide moment',
+        accentHex: '7A9E8E',
+        photoJpeg: prepared.bytes,
+        photoWidth: prepared.width,
+        photoHeight: prepared.height,
+      ),
+    ]));
+    expect(docx.contains('cx="6858000"'), isTrue);
+    expect(docx.contains('cy="3429000"'), isTrue);
   });
 }
