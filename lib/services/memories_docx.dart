@@ -31,29 +31,22 @@ String memoriesExportFilename(DateTime date) {
   return 'MeTimeClub_Memories_$y-$m-$d.docx';
 }
 
-/// Crops like the memory card (`BoxFit.cover`, about twice as wide as tall)
-/// and returns a JPEG plus its pixel size.
+/// Turns the original photo upright and returns a JPEG plus its pixel size.
+/// The frame is kept whole. Only an oversized long edge is scaled down.
 ({Uint8List bytes, int width, int height})? prepareMemoryPhoto(Uint8List bytes) {
   final decoded = img.decodeImage(bytes);
   if (decoded == null) return null;
 
   var photo = img.bakeOrientation(decoded);
-  const ratio = 2.0;
-  final current = photo.width / photo.height;
-  if (current > ratio) {
-    final width = (photo.height * ratio).round().clamp(1, photo.width);
-    final x = ((photo.width - width) / 2).round();
-    photo = img.copyCrop(photo, x: x, y: 0, width: width, height: photo.height);
-  } else if (current < ratio) {
-    final height = (photo.width / ratio).round().clamp(1, photo.height);
-    final y = ((photo.height - height) / 2).round();
-    photo = img.copyCrop(photo, x: 0, y: y, width: photo.width, height: height);
-  }
-  if (photo.width > 1200) {
-    photo = img.copyResize(photo, width: 1200);
+  const maxEdge = 2000;
+  final longEdge = photo.width > photo.height ? photo.width : photo.height;
+  if (longEdge > maxEdge) {
+    photo = photo.width >= photo.height
+        ? img.copyResize(photo, width: maxEdge)
+        : img.copyResize(photo, height: maxEdge);
   }
   return (
-    bytes: img.encodeJpg(photo, quality: 82),
+    bytes: img.encodeJpg(photo, quality: 90),
     width: photo.width,
     height: photo.height,
   );
@@ -165,8 +158,22 @@ String _contentTypes(bool hasJpeg) {
       '</Types>';
 }
 
-/// Page content is 7.5 inches wide. Photos keep the card's 2:1 crop.
-const _photoWidthEmu = 6858000;
+/// Page content is 7.5 inches wide. Photos shrink to fit the page
+/// and keep their real shape, so Word does not clip them.
+const _maxPhotoWidthEmu = 6858000;
+const _maxPhotoHeightEmu = 7772400;
+
+({int width, int height}) _fittedPhotoEmu(int pixelWidth, int pixelHeight) {
+  if (pixelWidth <= 0 || pixelHeight <= 0) {
+    return (width: _maxPhotoWidthEmu, height: _maxPhotoWidthEmu ~/ 2);
+  }
+  final heightAtFullWidth = (_maxPhotoWidthEmu * pixelHeight / pixelWidth).round();
+  if (heightAtFullWidth <= _maxPhotoHeightEmu) {
+    return (width: _maxPhotoWidthEmu, height: heightAtFullWidth);
+  }
+  final widthAtFullHeight = (_maxPhotoHeightEmu * pixelWidth / pixelHeight).round();
+  return (width: widthAtFullHeight, height: _maxPhotoHeightEmu);
+}
 
 String _photoParagraph({
   required String relationId,
@@ -176,16 +183,16 @@ String _photoParagraph({
   required int pixelHeight,
   required int after,
 }) {
-  final height = pixelWidth == 0
-      ? _photoWidthEmu ~/ 2
-      : (_photoWidthEmu * pixelHeight / pixelWidth).round();
+  final extent = _fittedPhotoEmu(pixelWidth, pixelHeight);
+  final width = extent.width;
+  final height = extent.height;
   return '''
 <w:p>
-  <w:pPr><w:spacing w:after="$after"/><w:shd w:val="clear" w:color="auto" w:fill="FFFFFF"/></w:pPr>
+  <w:pPr><w:jc w:val="center"/><w:spacing w:after="$after"/><w:shd w:val="clear" w:color="auto" w:fill="FFFFFF"/></w:pPr>
   <w:r>
     <w:drawing>
       <wp:inline distT="0" distB="0" distL="0" distR="0">
-        <wp:extent cx="$_photoWidthEmu" cy="$height"/>
+        <wp:extent cx="$width" cy="$height"/>
         <wp:effectExtent l="0" t="0" r="0" b="0"/>
         <wp:docPr id="$docId" name="$name"/>
         <wp:cNvGraphicFramePr>
@@ -205,7 +212,7 @@ String _photoParagraph({
               <pic:spPr>
                 <a:xfrm>
                   <a:off x="0" y="0"/>
-                  <a:ext cx="$_photoWidthEmu" cy="$height"/>
+                  <a:ext cx="$width" cy="$height"/>
                 </a:xfrm>
                 <a:prstGeom prst="rect"><a:avLst/></a:prstGeom>
               </pic:spPr>

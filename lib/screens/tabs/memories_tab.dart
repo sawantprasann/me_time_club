@@ -224,6 +224,34 @@ class _MemoriesTabState extends State<MemoriesTab> {
     }
   }
 
+  /// The whole photo, at the card's width, in its real shape.
+  Widget _fullPhoto(
+    ImageProvider image, {
+    Widget? error,
+    bool showProgress = false,
+  }) {
+    return Image(
+      image: image,
+      width: double.infinity,
+      fit: BoxFit.contain,
+      filterQuality: FilterQuality.medium,
+      loadingBuilder: showProgress
+          ? (_, child, progress) => progress == null
+              ? child
+              : SizedBox(
+                  height: 180,
+                  child: Center(
+                    child: CircularProgressIndicator(
+                      color: t.accent,
+                      strokeWidth: 2,
+                    ),
+                  ),
+                )
+          : null,
+      errorBuilder: (_, __, ___) => error ?? _photoErrorBox(),
+    );
+  }
+
   Widget _photoErrorBox() => Container(
         width: double.infinity,
         height: 100,
@@ -386,6 +414,32 @@ class _MemoriesTabState extends State<MemoriesTab> {
   void _showError(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(msg), backgroundColor: Colors.redAccent),
+    );
+  }
+
+  ImageProvider? _memoryImage(_Memory m) {
+    if (m.localPath != null) return FileImage(File(m.localPath!));
+    final url = m.photoUrl;
+    if (url != null && url.isNotEmpty) {
+      final full = url.startsWith('http') ? url : '${ApiService.serverHost}$url';
+      return NetworkImage(full);
+    }
+    return null;
+  }
+
+  void _openMemory(_Memory m) {
+    final image = _memoryImage(m);
+    if (image == null) {
+      _showActionsMenu(m);
+      return;
+    }
+    showDialog<void>(
+      context: context,
+      barrierColor: const Color(0xF2000000),
+      builder: (ctx) => MemoryPhotoPreview(
+        image: image,
+        caption: m.caption.trim(),
+      ),
     );
   }
 
@@ -564,12 +618,7 @@ class _MemoriesTabState extends State<MemoriesTab> {
               child: _pickedImage != null
                   ? Stack(
                       children: [
-                        Image.file(
-                          File(_pickedImage!.path),
-                          width: double.infinity,
-                          height: 200,
-                          fit: BoxFit.cover,
-                        ),
+                        _fullPhoto(FileImage(File(_pickedImage!.path))),
                         Positioned(
                           top: 8,
                           right: 8,
@@ -704,90 +753,16 @@ class _MemoriesTabState extends State<MemoriesTab> {
   Widget _buildMemoryCard(_Memory m) {
     if (_editingId == m.id) return _buildEditCard(m);
 
-    final accentColor = m.color;
-    return GestureDetector(
-      onTap: () => _showActionsMenu(m),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 16),
-        decoration: BoxDecoration(
-          color: t.card,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: t.border),
-          boxShadow: t.cardShadow,
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(18),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Photo — prefer local file (newly created), fallback to network URL
-              if (m.localPath != null)
-                Image.file(
-                  File(m.localPath!),
-                  width: double.infinity,
-                  height: 180,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => _photoErrorBox(),
-                )
-              else if (m.photoUrl != null && m.photoUrl!.isNotEmpty)
-                Image.network(
-                  '${ApiService.serverHost}${m.photoUrl}',
-                  width: double.infinity,
-                  height: 180,
-                  fit: BoxFit.cover,
-                  loadingBuilder: (_, child, progress) => progress == null
-                      ? child
-                      : SizedBox(
-                          height: 180,
-                          child: Center(
-                            child: CircularProgressIndicator(
-                              color: t.accent,
-                              strokeWidth: 2,
-                            ),
-                          ),
-                        ),
-                  errorBuilder: (_, __, ___) => _photoErrorBox(),
-                ),
-
-              if (m.caption.trim().isNotEmpty)
-              IntrinsicHeight(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Container(width: 5, color: accentColor),
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 20,
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              m.caption,
-                              style: AppTypography.lato400(16, t.text, height: 1.5),
-                            ),
-                            const SizedBox(height: 10),
-                            Container(
-                              width: 25,
-                              height: 2.5,
-                              decoration: BoxDecoration(
-                                color: accentColor.withValues(alpha: 0.8),
-                                borderRadius: BorderRadius.circular(2),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+    final image = _memoryImage(m);
+    return MemoryMomentCard(
+      t: t,
+      caption: m.caption,
+      accent: m.color,
+      photo: image == null
+          ? null
+          : _fullPhoto(image, showProgress: image is NetworkImage),
+      onOpen: () => _openMemory(m),
+      onLongPressActions: () => _showActionsMenu(m),
     );
   }
 
@@ -813,12 +788,7 @@ class _MemoriesTabState extends State<MemoriesTab> {
               child: _editPickedImage != null
                   ? Stack(
                       children: [
-                        Image.file(
-                          File(_editPickedImage!.path),
-                          width: double.infinity,
-                          height: 180,
-                          fit: BoxFit.cover,
-                        ),
+                        _fullPhoto(FileImage(File(_editPickedImage!.path))),
                         Positioned(
                           top: 8,
                           right: 8,
@@ -841,19 +811,14 @@ class _MemoriesTabState extends State<MemoriesTab> {
                       ? Stack(
                           children: [
                             m.localPath != null
-                                ? Image.file(
-                                    File(m.localPath!),
-                                    width: double.infinity,
-                                    height: 180,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (_, __, ___) => _emptyPhotoBox(),
+                                ? _fullPhoto(
+                                    FileImage(File(m.localPath!)),
+                                    error: _emptyPhotoBox(),
                                   )
-                                : Image.network(
-                                    '${ApiService.serverHost}${m.photoUrl}',
-                                    width: double.infinity,
-                                    height: 180,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (_, __, ___) => _emptyPhotoBox(),
+                                : _fullPhoto(
+                                    NetworkImage('${ApiService.serverHost}${m.photoUrl}'),
+                                    showProgress: true,
+                                    error: _emptyPhotoBox(),
                                   ),
                             Positioned(
                               bottom: 8,
@@ -965,6 +930,181 @@ class _MemoriesTabState extends State<MemoriesTab> {
           const SizedBox(height: 6),
           Text('Add a photo', style: AppTypography.lato400(12, t.muted)),
         ],
+      ),
+    );
+  }
+}
+
+/// A saved moment. A tap opens the photo. A long press opens edit and delete.
+class MemoryMomentCard extends StatelessWidget {
+  final AppTokens t;
+  final String caption;
+  final Color accent;
+  final Widget? photo;
+  final VoidCallback onOpen;
+  final VoidCallback onLongPressActions;
+
+  const MemoryMomentCard({
+    super.key,
+    required this.t,
+    required this.caption,
+    required this.accent,
+    required this.photo,
+    required this.onOpen,
+    required this.onLongPressActions,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final text = caption.trim();
+    return GestureDetector(
+      onTap: onOpen,
+      onLongPress: () {
+        HapticFeedback.mediumImpact();
+        onLongPressActions();
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        decoration: BoxDecoration(
+          color: t.card,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: t.border),
+          boxShadow: t.cardShadow,
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (photo != null) photo!,
+              if (text.isNotEmpty)
+                IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Container(width: 5, color: accent),
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 20,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                caption,
+                                style: AppTypography.lato400(16, t.text, height: 1.5),
+                              ),
+                              const SizedBox(height: 10),
+                              Container(
+                                width: 25,
+                                height: 2.5,
+                                decoration: BoxDecoration(
+                                  color: accent.withValues(alpha: 0.8),
+                                  borderRadius: BorderRadius.circular(2),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Full-screen look at one moment photo. Tap the dark area or Close to leave.
+class MemoryPhotoPreview extends StatelessWidget {
+  final ImageProvider image;
+  final String caption;
+
+  const MemoryPhotoPreview({
+    super.key,
+    required this.image,
+    required this.caption,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      insetPadding: EdgeInsets.zero,
+      child: SizedBox.expand(
+        child: GestureDetector(
+          onTap: () => Navigator.of(context).pop(),
+          behavior: HitTestBehavior.opaque,
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
+              child: Column(
+                children: [
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: IconButton(
+                      tooltip: 'Close',
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.close, color: Colors.white),
+                    ),
+                  ),
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () {},
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          return Image(
+                            image: image,
+                            width: constraints.maxWidth,
+                            height: constraints.maxHeight,
+                            fit: BoxFit.contain,
+                            filterQuality: FilterQuality.medium,
+                            loadingBuilder: (_, child, progress) => progress == null
+                                ? child
+                                : const Center(
+                                    child: SizedBox(
+                                      width: 28,
+                                      height: 28,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                            errorBuilder: (_, __, ___) => const Icon(
+                              Icons.broken_image_outlined,
+                              color: Colors.white70,
+                              size: 48,
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                  if (caption.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    GestureDetector(
+                      onTap: () {},
+                      child: Text(
+                        caption,
+                        textAlign: TextAlign.center,
+                        maxLines: 4,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.lato400(15, Colors.white, height: 1.45),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

@@ -141,7 +141,6 @@ class _CircleTabState extends State<CircleTab> {
               myMood: item['my_mood'] as String?,
               myMoods: payload.myMoods,
               feelings: payload.feelings,
-              mamaCount: payload.mamaCount,
               replies: payload.comments,
             );
           }).toList();
@@ -422,7 +421,6 @@ class _CircleTabState extends State<CircleTab> {
     myMood: post.myMood,
     myMoods: post.myMoods,
     feelings: post.feelings,
-    mamaCount: post.mamaCount,
     onSendReply: (draft) async {
       if (post.id == null) return null;
       final updatedPost = await ApiService.respondToCirclePost(
@@ -443,7 +441,6 @@ class _CircleTabState extends State<CircleTab> {
           post.feelings
             ..clear()
             ..addAll(payload.feelings);
-          post.mamaCount = payload.mamaCount;
           post.replies
             ..clear()
             ..addAll(payload.comments);
@@ -464,7 +461,6 @@ class _Post {
   String? myMood;
   final List<String> myMoods;
   final List<CircleFeelingCount> feelings;
-  int mamaCount;
   final List<CircleReply> replies;
 
   _Post({
@@ -477,7 +473,6 @@ class _Post {
     this.myMood,
     List<String>? myMoods,
     List<CircleFeelingCount>? feelings,
-    this.mamaCount = 0,
     List<CircleReply>? replies,
   }) : myMoods = myMoods ?? [],
        feelings = feelings ?? [],

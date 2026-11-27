@@ -29,7 +29,6 @@ class CirclePostCard extends StatefulWidget {
   final List<CircleFeelingCount> feelings;
   final List<String> myMoods;
   final String? myMood;
-  final int? mamaCount;
   final bool mine;
   final VoidCallback? onDeletePost;
   final Future<void> Function(CircleReply reply)? onDeleteComment;
@@ -46,7 +45,6 @@ class CirclePostCard extends StatefulWidget {
     this.feelings = const [],
     this.myMoods = const [],
     this.myMood,
-    this.mamaCount,
     this.mine = false,
     this.onDeletePost,
     this.onDeleteComment,
@@ -200,29 +198,6 @@ class _CirclePostCardState extends State<CirclePostCard> {
     return feelings;
   }
 
-  int get _mamaCount {
-    final localPerson = widget.onSendReply == null && _localFeelingAdds.isNotEmpty;
-    if (widget.mamaCount != null) {
-      final alreadyCounted = widget.myMoods.isNotEmpty ||
-          (widget.myMood != null && widget.myMood!.isNotEmpty);
-      return widget.mamaCount! + (localPerson && !alreadyCounted ? 1 : 0);
-    }
-    if (widget.feelings.isNotEmpty) {
-      final total = widget.feelings.fold<int>(0, (sum, feeling) => sum + feeling.count);
-      return total + (localPerson ? 1 : 0);
-    }
-    return localPerson ? 1 : 0;
-  }
-
-  String? get _presenceLine {
-    final feelings = _feelingGroups;
-    if (feelings.isEmpty || _mamaCount <= 0) return null;
-    final verb = _mamaCount == 1 ? 'mama is' : 'mamas are';
-    final top = feelings.take(2).map((feeling) => feeling.label.toLowerCase()).toList();
-    final mostly = top.length == 1 ? top.first : '${top[0]} and ${top[1]}';
-    return '$_mamaCount $verb here with you — mostly $mostly.';
-  }
-
   int get _visibleCommentCount =>
       CirclePostCard.initialVisibleComments + _extraComments;
 
@@ -309,7 +284,6 @@ class _CirclePostCardState extends State<CirclePostCard> {
   Widget build(BuildContext context) {
     final feelings = _feelingGroups;
     final comments = _visibleComments;
-    final presence = _presenceLine;
     final shownFeelings = _feelingsExpanded || feelings.length <= CirclePostCard.visibleFeelingGroups
         ? feelings
         : feelings.sublist(0, CirclePostCard.visibleFeelingGroups);
@@ -340,14 +314,9 @@ class _CirclePostCardState extends State<CirclePostCard> {
             widget.body,
             style: AppTypography.lato400(16, t.text, height: 1.6),
           ),
-          if (presence != null || comments.isNotEmpty) ...[
+          if (feelings.isNotEmpty || comments.isNotEmpty) ...[
             _divider(),
-            if (presence != null) ...[
-              Text(
-                presence,
-                style: AppTypography.lato400(16, t.text, height: 1.6),
-              ),
-              const SizedBox(height: 16),
+            if (feelings.isNotEmpty) ...[
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
